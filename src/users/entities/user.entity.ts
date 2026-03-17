@@ -1,6 +1,6 @@
 import { Column, Entity, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn, Index } from 'typeorm';
 import { Exclude } from 'class-transformer';
-import { UserRole } from '../enums/user-role.enum';
+import { UserRole } from '../../common/enums/user-role.enum';
 
 @Entity('user')
 export class User {
