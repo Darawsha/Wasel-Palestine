@@ -1,5 +1,6 @@
 import { Column, Entity, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn, Index } from 'typeorm';
 import { Exclude } from 'class-transformer';
+import { UserRole } from '../../common/enums/user-role.enum';
 
 @Entity('user')
 export class User {
@@ -12,23 +13,26 @@ export class User {
   @Column({ nullable: false, length: 50 })
   lastname: string;
 
-  @Index('IDX_USER_EMAIL')
-  @Column({ nullable: false, unique: true, length: 255 })
+  @Index({ unique: true })
+  @Column({ length: 255, nullable: false })
   email: string;
 
-  @Exclude() // Prevents password from being returned in responses
-  @Exclude() // Prevents password from being returned in responses
-  @Column({ nullable: false })
-  password: string;
+  @Exclude()
+  @Column({ name: 'password_hash', nullable: false })
+  passwordHash: string;
 
-  @Column({ default: 'citizen', length: 50 })
-  role: string;
+  @Column({
+    type: 'enum',
+    enum: UserRole,
+    default: UserRole.CITIZEN,
+  })
+  role: UserRole;
 
   @Column({ nullable: true, length: 15 })
-  phone: string;
+  phone?: string;
 
   @Column({ nullable: true, length: 200 })
-  address: string;
+  address?: string;
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;

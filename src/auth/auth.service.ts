@@ -5,6 +5,7 @@ import { JwtService } from '@nestjs/jwt';
 import { RegisterDto } from './dto/register.dto';
 import { User } from 'src/users/entities/user.entity';
 
+
 @Injectable()
 export class AuthService {
   constructor(
@@ -23,7 +24,7 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    const isPasswordValid = await this.passwordService.compare(password, user.password);
+    const isPasswordValid = await this.passwordService.compare(password, user.passwordHash);
 
     if (!isPasswordValid) {
       throw new UnauthorizedException('Invalid credentials');
@@ -53,9 +54,10 @@ export class AuthService {
    * Generate JWT access token for user
    */
   private generateToken(user: User): { access_token: string } {
-    const payload = { 
-      email: user.email, 
-      sub: user.id 
+    const payload = {
+      sub: user.id,
+      email: user.email,
+      role: user.role,
     };
     
     return {

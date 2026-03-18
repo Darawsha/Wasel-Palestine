@@ -1,3 +1,4 @@
+
 import { Injectable, ConflictException, NotFoundException } from '@nestjs/common';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
@@ -5,6 +6,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User } from './entities/user.entity';
 import { PasswordService } from '../services/password/password.service';
+import { UserRole } from '../common/enums/user-role.enum';
 
 @Injectable()
 export class UsersService {
@@ -19,17 +21,16 @@ export class UsersService {
    * Checks for duplicate email before creating
    */
   async create(createUserDto: CreateUserDto): Promise<User> {
-    const normalizedEmail = this.normalizeEmail(createUserDto.email);
-    
+    const { password, role, ...rest } = createUserDto;
+    const normalizedEmail = this.normalizeEmail(rest.email);
     await this.ensureEmailUnique(normalizedEmail);
-    
-    const hashedPassword = await this.passwordService.hash(createUserDto.password);
+    const hashedPassword = await this.passwordService.hash(password);
     const user = this.usersRepository.create({
-      ...createUserDto,
+      ...rest,
       email: normalizedEmail,
-      password: hashedPassword,
+      passwordHash: hashedPassword,
+      role: role ?? UserRole.CITIZEN,
     });
-    
     return this.usersRepository.save(user);
   }
 
@@ -64,19 +65,21 @@ export class UsersService {
       throw new NotFoundException(`User with ID ${id} not found`);
     }
 
-    if (updateUserDto.email) {
-      const normalizedEmail = this.normalizeEmail(updateUserDto.email);
+    const { password, ...rest } = updateUserDto;
+
+    if (rest.email) {
+      const normalizedEmail = this.normalizeEmail(rest.email);
       if (normalizedEmail !== user.email) {
         await this.ensureEmailUnique(normalizedEmail);
-        updateUserDto.email = normalizedEmail;
+        rest.email = normalizedEmail;
       }
     }
 
-    if (updateUserDto.password) {
-      updateUserDto.password = await this.passwordService.hash(updateUserDto.password);
+    if (password) {
+      user.passwordHash = await this.passwordService.hash(password);
     }
 
-    Object.assign(user, updateUserDto);
+    Object.assign(user, rest);
     return this.usersRepository.save(user);
   }
 

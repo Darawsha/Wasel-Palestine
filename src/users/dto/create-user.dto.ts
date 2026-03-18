@@ -1,4 +1,5 @@
-import { IsString, IsEmail, IsOptional, IsNotEmpty, MinLength, MaxLength, Matches, IsEmpty } from "class-validator";
+import { IsString, IsEmail, IsOptional, IsNotEmpty, MinLength, MaxLength, Matches } from 'class-validator';
+import { UserRole } from '../../common/enums/user-role.enum';
 
 export class CreateUserDto {
   @IsString()
@@ -24,10 +25,6 @@ export class CreateUserDto {
 
   @IsOptional()
   @IsString()
-  role?: string;
-
-  @IsOptional()
-  @IsString()
   @Matches(/^[0-9]{10,15}$/, { message: 'Phone must be 10-15 digits' })
   phone?: string;
 
@@ -35,4 +32,7 @@ export class CreateUserDto {
   @IsString()
   @MaxLength(200, { message: 'Address must not exceed 200 characters' })
   address?: string;
+
+  @IsOptional()
+  role?: UserRole;
 }
