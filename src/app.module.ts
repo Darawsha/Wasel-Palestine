@@ -6,8 +6,10 @@ import { AuthModule } from './auth/auth.module';
 
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule } from '@nestjs/config';
+import { CheckpointsModule } from './checkpoints/checkpoints.module';
+import { IncidentsModule } from './incidents/incidents.module';
 @Module({
-  imports: [UsersModule, AuthModule, 
+  imports: [UsersModule, AuthModule,
     ConfigModule.forRoot(), TypeOrmModule.forRoot({
       type: 'mysql',
       host: process.env.DB_HOST,
@@ -17,7 +19,7 @@ import { ConfigModule } from '@nestjs/config';
       database: process.env.DB_DATABASE,
       autoLoadEntities: true,
       synchronize: true,
-    })
+    }), CheckpointsModule, IncidentsModule
   ],
   controllers: [AppController],
   providers: [AppService],
