@@ -15,7 +15,7 @@ import { SignInDto } from './dto/signin.dto';
 
 @Controller({ path: 'auth', version: '1' })
 export class AuthController {
-  constructor(private readonly authService: AuthService) { }
+  constructor(private readonly authService: AuthService) {}
 
   @Post('signin')
   @HttpCode(HttpStatus.OK)
@@ -32,8 +32,13 @@ export class AuthController {
   // Protected route example - returns current user profile
   @UseGuards(JwtAuthGuard)
   @Get('profile')
-  getProfile(@Request() req: { user: { email: string } }) {
-    return req.user.email;
+  getProfile(
+    @Request() req: { user: { userId: number; email: string; role: string } },
+  ) {
+    return {
+      id: req.user.userId,
+      email: req.user.email,
+      role: req.user.role,
+    };
   }
 }
-

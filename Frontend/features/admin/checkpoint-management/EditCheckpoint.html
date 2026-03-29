@@ -1,0 +1,41 @@
+<div class="edit-checkpoint-card">
+    <div class="modal-header">
+        <h2 class="modal-title">Update Checkpoint</h2>
+        <button type="button" class="btn-close" id="editCheckpointCloseBtn" aria-label="Close">
+            <span class="material-symbols-outlined">close</span>
+        </button>
+    </div>
+
+    <form id="editCheckpointForm" novalidate>
+        <div class="form-group">
+            <label for="cpName">Name <span class="text-danger">*</span></label>
+            <input type="text" id="cpName" placeholder="Enter checkpoint name..." required />
+        </div>
+
+        <div class="form-group">
+            <label for="cpLocation">Location <span class="text-danger">*</span></label>
+            <div class="input-wrapper">
+                <span class="material-symbols-outlined icon-left">location_on</span>
+                <input type="text" id="cpLocation" placeholder="Enter location description..." class="pl-10" required />
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label for="cpStatus">Status <span class="text-danger">*</span></label>
+            <div class="select-wrapper relative-wrapper">
+                <select id="cpStatus" required>
+                    <option value="" disabled selected hidden>Select status</option>
+                    <option value="ACTIVE">Open</option>
+                    <option value="DELAYED">Delayed</option>
+                    <option value="RESTRICTED">Restricted</option>
+                    <option value="CLOSED">Closed</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="form-actions mt-4">
+            <button type="button" class="btn-cancel-text" id="editCheckpointCancelBtn">Cancel</button>
+            <button type="submit" class="btn-primary" id="editCheckpointSaveBtn">Save Changes</button>
+        </div>
+    </form>
+</div>

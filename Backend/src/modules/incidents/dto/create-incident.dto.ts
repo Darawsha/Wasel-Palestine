@@ -21,6 +21,10 @@ export class CreateIncidentDto {
   @IsNotEmpty()
   description: string;
 
+  @IsString()
+  @IsOptional()
+  location?: string;
+
   @IsEnum(IncidentType)
   type: IncidentType;
 

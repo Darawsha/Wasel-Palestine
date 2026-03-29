@@ -1,29 +1,26 @@
-import { Body,Controller,Get,Param,ParseIntPipe,Patch,Post,} from '@nestjs/common';
+import { Test, TestingModule } from '@nestjs/testing';
+import { CheckpointsController } from './checkpoints.controller';
 import { CheckpointsService } from './checkpoints.service';
-import { CreateCheckpointDto } from './dto/create-checkpoint.dto';
-import { UpdateCheckpointDto } from './dto/update-checkpoint.dto';
 
-@Controller('checkpoints')
-export class CheckpointsController {
-  constructor(private readonly checkpointsService: CheckpointsService) {}
+describe('CheckpointsController', () => {
+  let controller: CheckpointsController;
+  const checkpointsServiceMock = {};
 
-  @Post()
-  create(@Body() createCheckpointDto: CreateCheckpointDto) {
-    return this.checkpointsService.create(createCheckpointDto);
-  }
+  beforeEach(async () => {
+    const module: TestingModule = await Test.createTestingModule({
+      controllers: [CheckpointsController],
+      providers: [
+        {
+          provide: CheckpointsService,
+          useValue: checkpointsServiceMock,
+        },
+      ],
+    }).compile();
 
+    controller = module.get<CheckpointsController>(CheckpointsController);
+  });
 
-
-  @Get(':id')
-  findOne(@Param('id', ParseIntPipe) id: number) {
-    return this.checkpointsService.findOne(id);
-  }
-
-  @Patch(':id')
-  update(
-    @Param('id', ParseIntPipe) id: number,
-    @Body() updateCheckpointDto: UpdateCheckpointDto,
-  ) {
-    return this.checkpointsService.update(id, updateCheckpointDto);
-  }
-}
+  it('should be defined', () => {
+    expect(controller).toBeDefined();
+  });
+});

@@ -23,8 +23,12 @@ export class CheckpointsService {
 
   async create(createCheckpointDto: CreateCheckpointDto): Promise<Checkpoint> {
     const checkpoint = this.checkpointsRepository.create({
-      ...createCheckpointDto,
-      currentStatus: createCheckpointDto.currentStatus ?? CheckpointStatus.OPEN,
+      name: createCheckpointDto.name,
+      location: createCheckpointDto.location,
+      latitude: createCheckpointDto.latitude ?? 0.0,
+      longitude: createCheckpointDto.longitude ?? 0.0,
+      description: createCheckpointDto.notes || createCheckpointDto.description,
+      currentStatus: createCheckpointDto.status || createCheckpointDto.currentStatus || CheckpointStatus.ACTIVE,
     });
 
     return this.checkpointsRepository.save(checkpoint);
@@ -79,7 +83,24 @@ async findAll(checkpointQueryDto: CheckpointQueryDto) {
   async update(id: number, updateCheckpointDto: UpdateCheckpointDto): Promise<Checkpoint> {
     const checkpoint = await this.findOne(id);
 
-    Object.assign(checkpoint, updateCheckpointDto);
+    // Map fields manually to ensure consistency
+    const updateData: Partial<Checkpoint> = {
+      name: updateCheckpointDto.name,
+      location: updateCheckpointDto.location,
+      latitude: updateCheckpointDto.latitude,
+      longitude: updateCheckpointDto.longitude,
+      description: updateCheckpointDto.notes || updateCheckpointDto.description,
+      currentStatus: updateCheckpointDto.status || updateCheckpointDto.currentStatus,
+    };
+
+    // Filter out undefined properties
+    Object.keys(updateData).forEach(key => {
+      if (updateData[key] === undefined) {
+        delete updateData[key];
+      }
+    });
+
+    Object.assign(checkpoint, updateData);
 
     return this.checkpointsRepository.save(checkpoint);
   }
@@ -129,6 +150,12 @@ async updateStatus(
     });
   }
 
+  async countCheckpoints(): Promise<number> {
+    return this.checkpointsRepository.count();
+  }
 
+  async getActiveCheckpointsCount(): Promise<number> {
+    return this.checkpointsRepository.count({ where: { currentStatus: CheckpointStatus.ACTIVE } });
+  }
 
 }

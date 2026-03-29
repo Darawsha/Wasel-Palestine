@@ -102,13 +102,13 @@
 }
 
 .search-input {
-    width: 100%;
-    background-color: var(--sidebar-bg, #f1f5f9);
-    border: 1px solid transparent;
+   width: 100%;
+    background-color: var(--um-bg);
+    border: 1px solid var(--border-light, var(--um-border));
     border-radius: 0.75rem;
-    padding: 0.625rem 1rem 0.625rem 2.5rem;
+    padding: 0.5rem 1rem 0.5rem 2.5rem;
     font-size: 0.875rem;
-    color: var(--text-dark, #0f172a);
+    color: var(--um-text);
     outline: none;
     transition: all 0.2s;
 }
@@ -122,12 +122,12 @@
 
 .filter-dropdown {
     min-width: 140px;
-    background-color: var(--sidebar-bg, #f1f5f9);
-    border: 1px solid transparent;
+    background-color: var(--um-bg);
+    border: 1px solid var(--border-light, var(--um-border));
     border-radius: 0.75rem;
     padding: 0.625rem 2.5rem 0.625rem 1rem;
     font-size: 0.875rem;
-    color: var(--text-muted, #64748b);
+    color: var(--um-text);
     outline: none;
     cursor: pointer;
     appearance: none;
@@ -155,24 +155,25 @@
 
 .date-input {
     width: 100%;
-    background-color: var(--sidebar-bg, #f1f5f9);
-    border: 1px solid transparent;
+    background-color: var(--um-bg);
+    border: 1px solid var(--border-light, var(--um-border));
     border-radius: 0.75rem;
     padding: 0.625rem 1rem 0.625rem 2.5rem;
     font-size: 0.875rem;
-    color: var(--text-muted, #64748b);
+    color: var(--um-text);
     outline: none;
     transition: all 0.2s;
 }
 
 .search-input:focus, .filter-dropdown:focus, .date-input:focus {
-    box-shadow: 0 0 0 2px rgba(236, 91, 19, 0.2);
+    border-color: var(--primary, var(--um-primary));
+    box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.2);
 }
 
 /* Table */
 .audit-table-container {
-    background-color: var(--sidebar-bg, #ffffff);
-    border: 1px solid var(--border-light, #e2e8f0);
+    background-color: var(--um-bg);
+    border: 1px solid var(--border-light, var(--um-border));
     border-radius: 1rem;
     box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
     overflow: hidden;

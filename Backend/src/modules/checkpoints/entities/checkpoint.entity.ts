@@ -12,44 +12,47 @@ import { Incident } from '../../incidents/entities/incident.entity';
 @Entity('checkpoint')
 export class Checkpoint {
 
-@PrimaryGeneratedColumn()
-id:number;
+  @PrimaryGeneratedColumn()
+  id: number;
 
-@Column({length:100})
-name:string;
+  @Column({ length: 100 })
+  name: string;
   /**
    * Latitude coordinate of the checkpoint location.
    * Stored as a decimal with precision (10,7).
    */
-@Column('decimal', { precision: 10, scale: 7 })
-latitude:number;
+  @Column('decimal', { precision: 10, scale: 7 })
+  latitude: number;
   /**
    * Longitude coordinate of the checkpoint location.
    * Stored as a decimal with precision (10,7).
    */
 
-@Column('decimal', { precision: 10, scale: 7 })
-longitude:number;
+  @Column({ type: 'text', nullable: false })
+  location: string;
+
+  @Column('decimal', { precision: 10, scale: 7 })
+  longitude: number;
   /**
    * Optional description providing additional details about the checkpoint.
    */
-@Column({type:'text',nullable:true})
-description?:string;
+  @Column({ type: 'text', nullable: true })
+  description?: string;
   /**
    * Current status of the checkpoint.
    * Defaults to OPEN.
    */
 
-@Column({type:'enum',enum:CheckpointStatus,default:CheckpointStatus.OPEN})
-currentStatus:CheckpointStatus;
+  @Column({ type: 'enum', enum: CheckpointStatus, default: CheckpointStatus.ACTIVE })
+  currentStatus: CheckpointStatus;
 
- /**
-   * Timestamp when the checkpoint was created.
-   * Automatically generated.
-   */
+  /**
+    * Timestamp when the checkpoint was created.
+    * Automatically generated.
+    */
 
 
- @OneToMany(
+  @OneToMany(
     () => CheckpointStatusHistory,
     (statusHistory) => statusHistory.checkpoint,
   )
@@ -65,19 +68,6 @@ currentStatus:CheckpointStatus;
   @UpdateDateColumn()
   updatedAt: Date;
 
-@OneToMany(() => Incident, (incident) => incident.checkpoint)
-incidents: Incident[];
+  @OneToMany(() => Incident, (incident) => incident.checkpoint)
+  incidents: Incident[];
 }
-
-
-
-
-
-
-
-
-
-
-
-
-

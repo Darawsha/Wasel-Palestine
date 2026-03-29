@@ -1,5 +1,5 @@
 export enum IncidentStatus {
-  OPEN = 'OPEN',
+  ACTIVE = 'ACTIVE',
   VERIFIED = 'VERIFIED',
   CLOSED = 'CLOSED',
 }

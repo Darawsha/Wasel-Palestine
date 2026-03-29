@@ -12,7 +12,7 @@
     display: flex;
     justify-content: center;
     align-items: center;
-    z-index: 10000;
+    z-index: 1000;
     opacity: 0;
     visibility: hidden;
     transition: opacity 0.3s ease, visibility 0.3s ease;
@@ -137,6 +137,17 @@
     box-shadow: 0 0 0 3px rgba(65, 132, 244, 0.1);
 }
 
+.add-user-overlay .input-error {
+    border-color: var(--um-alert-strong, #ef4444) !important;
+    box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.12) !important;
+}
+
+.add-user-overlay .field-error {
+    margin: 0.375rem 0 0 0;
+    font-size: 0.75rem;
+    color: var(--um-alert-strong, #ef4444);
+}
+
 .add-user-overlay .input-wrapper {
     position: relative;
     display: flex;
@@ -223,4 +234,10 @@
 
 .add-user-overlay .btn-primary:hover {
     filter: brightness(1.1);
+}
+
+.add-user-overlay .btn-primary:disabled {
+    opacity: 0.7;
+    cursor: wait;
+    filter: none;
 }

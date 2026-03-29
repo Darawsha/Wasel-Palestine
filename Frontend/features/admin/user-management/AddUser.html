@@ -6,7 +6,7 @@
         </button>
     </div>
 
-    <form id="addUserForm">
+    <form id="addUserForm" novalidate>
         <div class="form-row">
             <div class="form-group">
                 <label for="firstName">First Name <span class="text-danger">*</span></label>
@@ -48,25 +48,10 @@
                     <select id="userRole" required>
                         <option value="" disabled selected>Select role...</option>
                         <option value="admin">Admin</option>
-                        <option value="moderator">Moderator</option>
                         <option value="citizen">Citizen</option>
                     </select>
                 </div>
             </div>
-
-            <div class="form-group">
-                <label for="userStatus">Status <span class="text-danger">*</span></label>
-                <div class="select-wrapper relative-wrapper">
-                    <select id="userStatus" required>
-                        <option value="active" selected>Active</option>
-                        <option value="pending">Pending</option>
-                        <option value="suspended">Suspended</option>
-                    </select>
-                </div>
-            </div>
-        </div>
-
-        <div class="form-row">
             <div class="form-group">
                 <label for="userPhone">Phone Number</label>
                 <div class="input-wrapper">
@@ -74,6 +59,9 @@
                     <input type="tel" id="userPhone" placeholder="Phone number (optional)" class="pl-10" />
                 </div>
             </div>
+        </div>
+
+        <div class="form-row">
             <div class="form-group">
                 <label for="userAddress">Address</label>
                 <div class="input-wrapper">
@@ -85,7 +73,7 @@
 
         <div class="form-actions mt-4">
             <button type="button" class="btn-cancel-text" id="addUserCancelBtn">Cancel</button>
-            <button type="submit" class="btn-primary">Add User</button>
+            <button type="submit" class="btn-primary" id="addUserSaveBtn">Add User</button>
         </div>
     </form>
 </div>

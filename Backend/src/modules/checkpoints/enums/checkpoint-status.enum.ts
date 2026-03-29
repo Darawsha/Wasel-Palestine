@@ -1,5 +1,5 @@
 export enum CheckpointStatus {
-  OPEN = 'OPEN',
+  ACTIVE = 'ACTIVE',
   DELAYED = 'DELAYED',
   CLOSED = 'CLOSED',
   RESTRICTED = 'RESTRICTED',

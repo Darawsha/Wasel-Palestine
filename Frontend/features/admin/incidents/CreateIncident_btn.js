@@ -1,17 +1,17 @@
 // Admin/Pages/Incidents/CreateIncident_btn.js
 
-(function() {
+(function () {
     const initCreateIncidentBtn = () => {
         const createBtn = document.getElementById('createIncidentBtn');
         if (!createBtn || createBtn.dataset.modalBound) return;
-        
+
         createBtn.dataset.modalBound = "true";
 
         createBtn.addEventListener('click', async (e) => {
             e.preventDefault();
 
             let overlay = document.getElementById('createIncidentOverlay');
-            
+
             if (!overlay) {
                 try {
                     const response = await fetch('/features/admin/incidents/CreateIncident.html');
@@ -51,14 +51,58 @@
                             closeModal(overlay);
                         });
                     }
-                    
+
                     const form = overlay.querySelector('#createIncidentForm');
                     if (form) {
-                        form.addEventListener('submit', (event) => {
+                        form.addEventListener('submit', async (event) => {
                             event.preventDefault();
-                            // Implementation for saving the incident
-                            console.log("Incident form submitted successfully");
-                            closeModal(overlay);
+                            const submitBtn = form.querySelector('button[type="submit"]');
+                            if (submitBtn) submitBtn.disabled = true;
+
+                            try {
+                                const { createNewIncident } = await import('/Controllers/incidentActions.controller.js');
+                                const {
+                                    applyValidationErrors,
+                                    clearValidationErrors,
+                                    collectAddIncidentFormData,
+                                    validateAddIncidentPayload
+                                } = await import('/features/admin/incidents/validation.js');
+
+                                clearValidationErrors(form);
+
+                                const payload = collectAddIncidentFormData(form);
+                                payload.checkpointId = parseInt(payload.location) || undefined;
+
+                                const validationResult = validateAddIncidentPayload(payload);
+
+                                if (!validationResult.isValid) {
+                                    applyValidationErrors(form, validationResult.errors);
+                                    if (validationResult.messages[0]) {
+                                        if (typeof window.showError === 'function') window.showError(validationResult.messages[0]);
+                                        else alert(validationResult.messages[0]);
+                                    }
+                                    return;
+                                }
+
+                                await createNewIncident(payload);
+
+                                document.dispatchEvent(new CustomEvent('admin:incident-created', {
+                                    detail: { timestamp: Date.now() }
+                                }));
+
+                                if (typeof window.showSuccess === 'function') window.showSuccess("Incident created successfully.");
+                                else alert("Incident created successfully.");
+
+                                closeModal(overlay);
+                                form.reset();
+                            } catch (err) {
+                                console.error('Failed to create incident:', err);
+                                const errorMsg = err?.response?.data?.message || "Failed to create incident. Please try again.";
+                                if (typeof window.showError === 'function') window.showError(errorMsg);
+                                else alert(errorMsg);
+                            } finally {
+                                if (submitBtn) submitBtn.disabled = false;
+                            }
                         });
                     }
                 } catch (err) {
@@ -79,7 +123,7 @@
 
     // Initialize immediately in case DOM is already parsed (SPA routing)
     initCreateIncidentBtn();
-    
+
     // Also bind to DOMContentLoaded for initial hard reloads
     document.addEventListener('DOMContentLoaded', initCreateIncidentBtn);
 })();

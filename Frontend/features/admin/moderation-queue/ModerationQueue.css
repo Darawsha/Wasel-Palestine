@@ -107,14 +107,14 @@
 
 .filter-input, .filter-select, .filter-date-input {
     width: 100%;
-    padding: 0.5rem 0.75rem;
-    border-radius: 0.5rem;
-    border: 1px solid var(--border-light, #e2e8f0);
-    background-color: var(--sidebar-bg, #ffffff);
-    color: var(--text-dark, #0f172a);
-    outline: none;
+   background-color: var(--um-bg);
+    border: 1px solid var(--border-light, var(--um-border));
+    border-radius: 0.75rem;
+    padding: 0.5rem 1rem 0.5rem 2.5rem;
     font-size: 0.875rem;
-    transition: border-color 0.2s, box-shadow 0.2s;
+    color: var(--um-text);
+    outline: none;
+    transition: all 0.2s;
 }
 
 .filter-select {
@@ -147,8 +147,8 @@
 }
 
 .filter-input:focus, .filter-select:focus, .filter-date-input:focus {
-    border-color: var(--primary, #ec5b13);
-    box-shadow: 0 0 0 2px rgba(236, 91, 19, 0.2);
+    border-color: var(--primary, var(--um-primary));
+    box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.2);
 }
 
 .toggle-col {
@@ -170,7 +170,7 @@
 }
 
 .toggle-btn.toggle-active {
-    background-color: var(--primary, #ec5b13);
+    background-color: var(--primary, var(--um-primary));
 }
 
 .toggle-thumb {
@@ -179,7 +179,7 @@
     top: 0.125rem;
     width: 1rem;
     height: 1rem;
-    background-color: var(--sidebar-bg, #ffffff);
+    background-color: var(--um-surface);
     border-radius: 50%;
     transition: transform 0.2s;
     box-shadow: 0 1px 2px rgba(0,0,0,0.1);
@@ -191,7 +191,7 @@
 
 .toggle-label {
     font-size: 0.875rem;
-    color: var(--text-muted, #64748b);
+    color: var(--um-muted-strong, #475569);
 }
 
 /* Table Container */
@@ -265,6 +265,7 @@
     text-transform: uppercase;
     padding: 0.25rem 0.5rem;
     border-radius: 0.25rem;
+    
 }
 .cat-red { background-color: #fee2e2; color: #b91c1c; }
 .cat-yellow { background-color: #fef9c3; color: #a16207; }

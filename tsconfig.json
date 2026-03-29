@@ -12,12 +12,14 @@
     "outDir": "./dist",
     "baseUrl": "./",
     "paths": {
-      "@src/*": ["src/*"],
-      "@auth/*": ["src/auth/*"],
-      "@users/*": ["src/users/*"],
-      "@incidents/*": ["src/incidents/*"],
-      "@checkpoints/*": ["src/checkpoints/*"],
-      "@common/*": ["src/common/*"]
+      "@src/*": ["Backend/src/*"],
+      "@auth/*": ["Backend/src/modules/auth/*"],
+      "@users/*": ["Backend/src/modules/users/*"],
+      "@incidents/*": ["Backend/src/modules/incidents/*"],
+      "@checkpoints/*": ["Backend/src/modules/checkpoints/*"],
+      "@common/*": ["Backend/src/common/*"],
+      "@core/*": ["Backend/src/core/*"],
+      "@modules/*": ["Backend/src/modules/*"]
     },
     "incremental": true,
     "skipLibCheck": true,
@@ -28,5 +30,5 @@
     "forceConsistentCasingInFileNames": false,
     "noFallthroughCasesInSwitch": false
   },
-  "include": ["src/**/*", "Frontend/Js/**/*"]
+  "include": ["Backend/src/**/*", "Frontend/Js/**/*"]
 }

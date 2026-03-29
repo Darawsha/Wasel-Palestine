@@ -8,13 +8,28 @@ export class CreateCheckpointDto {
   @MaxLength(150)
   name: string;
 
-  @Type(() => Number)
-  @IsNumber()
-  latitude: number;
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(255)
+  location: string;
 
   @Type(() => Number)
   @IsNumber()
-  longitude: number;
+  @IsOptional()
+  latitude?: number;
+
+  @Type(() => Number)
+  @IsNumber()
+  @IsOptional()
+  longitude?: number;
+
+  @IsString()
+  @IsOptional()
+  notes?: string;
+
+  @IsEnum(CheckpointStatus)
+  @IsNotEmpty()
+  status: CheckpointStatus;
 
   @IsString()
   @IsOptional()

@@ -1,0 +1,78 @@
+<div class="edit-user-card">
+    <div class="modal-header">
+        <h2 class="modal-title">Update User</h2>
+        <button type="button" class="btn-close" id="editUserCloseBtn" aria-label="Close">
+            <span class="material-symbols-outlined">close</span>
+        </button>
+    </div>
+
+    <form id="editUserForm" novalidate>
+        <div class="form-row">
+            <div class="form-group">
+                <label for="editFirstName">First Name <span class="text-danger">*</span></label>
+                <div class="input-wrapper">
+                    <span class="material-symbols-outlined icon-left">person</span>
+                    <input type="text" id="editFirstName" placeholder="First name..." class="pl-10" required />
+                </div>
+            </div>
+            <div class="form-group">
+                <label for="editLastName">Last Name <span class="text-danger">*</span></label>
+                <div class="input-wrapper">
+                    <span class="material-symbols-outlined icon-left">person</span>
+                    <input type="text" id="editLastName" placeholder="Last name..." class="pl-10" required />
+                </div>
+            </div>
+        </div>
+
+        <div class="form-row">
+            <div class="form-group">
+                <label for="editUserEmail">Email Address <span class="text-danger">*</span></label>
+                <div class="input-wrapper">
+                    <span class="material-symbols-outlined icon-left">mail</span>
+                    <input type="email" id="editUserEmail" placeholder="Email address..." class="pl-10" required />
+                </div>
+            </div>
+            <div class="form-group">
+                <label for="editUserPassword">New Password</label>
+                <div class="input-wrapper">
+                    <span class="material-symbols-outlined icon-left">lock</span>
+                    <input type="password" id="editUserPassword" placeholder="Leave blank to keep current password" class="pl-10" />
+                </div>
+            </div>
+        </div>
+
+        <div class="form-row">
+            <div class="form-group">
+                <label for="editUserRole">Role <span class="text-danger">*</span></label>
+                <div class="select-wrapper relative-wrapper">
+                    <select id="editUserRole" required>
+                        <option value="admin">Admin</option>
+                        <option value="citizen">Citizen</option>
+                    </select>
+                </div>
+            </div>
+            <div class="form-group">
+                <label for="editUserPhone">Phone Number</label>
+                <div class="input-wrapper">
+                    <span class="material-symbols-outlined icon-left">phone</span>
+                    <input type="tel" id="editUserPhone" placeholder="Phone number (optional)" class="pl-10" />
+                </div>
+            </div>
+        </div>
+
+        <div class="form-row">
+            <div class="form-group">
+                <label for="editUserAddress">Address</label>
+                <div class="input-wrapper">
+                    <span class="material-symbols-outlined icon-left">home</span>
+                    <input type="text" id="editUserAddress" placeholder="Home address (optional)" class="pl-10" />
+                </div>
+            </div>
+        </div>
+
+        <div class="form-actions mt-4">
+            <button type="button" class="btn-cancel-text" id="editUserCancelBtn">Cancel</button>
+            <button type="submit" class="btn-primary" id="editUserSaveBtn">Save Changes</button>
+        </div>
+    </form>
+</div>

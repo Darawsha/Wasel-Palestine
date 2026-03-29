@@ -1,174 +1,90 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-    <meta charset="utf-8"/>
-    <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
-    <title>Wasel Palestine | CheckpointManagement</title>
-    <link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
-    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+    <title>Wasel Palestine | Checkpoint Management</title>
+    <link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@300;400;500;600;700&display=swap"
+        rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
+        rel="stylesheet" />
     <link rel="stylesheet" href="/views/admin/shell/admin-shell.css" />
     <link rel="stylesheet" href="./CheckpointManagement.css" />
-     <link rel="preload" href="./CheckpointManagement.css" as="style"/>
-      <link rel="stylesheet" href="/assets/styles/variables.css"/>
-      <script src="./AddCheckpoint_btn.js" defer></script>
+    <link rel="preload" href="./CheckpointManagement.css" as="style" />
+    <link rel="stylesheet" href="/assets/styles/variables.css" />
+    <script src="./AddCheckpoint_btn.js" defer></script>
+    <script type="module" src="./Checkpoints.js" defer></script>
 
     <!-- Auth Guard -->
     <script type="module">
-      import { checkAuth } from '/core/auth/authGuard.js';
-      checkAuth();
-    </script></head>
+        import { checkAuth } from '/core/auth/authGuard.js';
+        checkAuth();
+    </script>
+</head>
+
 <body class="admin-body">
-<!-- Admin/Pages/CheckpointManagement/CheckpointManagement.html -->
+    <!-- Admin/Pages/CheckpointManagement/CheckpointManagement.html -->
 
+    <div class="cp-page" id="checkpointPageRoot">
+        <header class="cp-header">
+            <h2 class="title">Checkpoint Management</h2>
+            <button class="btn-add" id="addCheckpointBtn">
+                <span class="material-symbols-outlined icon">add</span>
+                <span class="btn-text">Add Checkpoint</span>
+            </button>
+        </header>
 
-<div class="cp-page">
-    <header class="cp-header">
-        <h2 class="title">Checkpoint Management</h2>
-        <button class="btn-add" id="addCheckpointBtn">
-            <span class="material-symbols-outlined icon">add</span>
-            <span class="btn-text">Add Checkpoint</span>
-        </button>
-    </header>
-
-    <!-- Toolbar -->
-    <div class="cp-toolbar">
-        <div class="toolbar-group">
-            <div class="search-box">
-                <span class="material-symbols-outlined search-icon">search</span>
-                <input class="search-input" placeholder="Search checkpoints..." type="text"/>
-            </div>
-            <div class="filter-box">
-                <select class="filter-select">
-                    <option>All Statuses</option>
-                    <option>Open</option>
-                    <option>Delayed</option>
-                    <option>Restricted</option>
-                    <option>Closed</option>
-                </select>
+        <!-- Toolbar -->
+        <div class="cp-toolbar">
+            <div class="toolbar-group">
+                <div class="search-box">
+                    <span class="material-symbols-outlined search-icon">search</span>
+                    <input class="search-input" placeholder="Search checkpoints..." type="text" data-checkpoint-search-filter />
+                </div>
+                <div class="filter-box">
+                    <select class="filter-select" data-checkpoint-status-filter>
+                        <option value="">All Statuses</option>
+                        <option value="ACTIVE">Open</option>
+                        <option value="DELAYED">Delayed</option>
+                        <option value="RESTRICTED">Restricted</option>
+                        <option value="CLOSED">Closed</option>
+                    </select>
+                </div>
             </div>
         </div>
-    </div>
 
-    <!-- Data Table -->
-    <div class="cp-table-container">
-        <div class="table-scroll">
-            <table class="cp-table">
-                <thead>
-                    <tr>
-                        <th class="col-id">ID</th>
-                        <th>Name</th>
-                        <th>Location</th>
-                        <th>Current Status</th>
-                        <th>Last Updated</th>
-                        <th class="text-right">Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <!-- Row 1 -->
-                    <tr>
-                        <td class="cell-id">#45</td>
-                        <td class="cell-name">Qalandiya Checkpoint</td>
-                        <td class="cell-location">Ramallah - Jerusalem</td>
-                        <td>
-                            <span class="status-badge status-open">Open</span>
-                        </td>
-                        <td class="cell-date">Mar 12, 10:30 AM</td>
-                        <td class="cell-actions text-right">
-                            <button class="btn-action primary">Edit</button>
-                            <button class="btn-action">History</button>
-                        </td>
-                    </tr>
-                    <!-- Row 2 -->
-                    <tr>
-                        <td class="cell-id">#44</td>
-                        <td class="cell-name">Huwwara Checkpoint</td>
-                        <td class="cell-location">Nablus South</td>
-                        <td>
-                            <span class="status-badge status-closed">Closed</span>
-                        </td>
-                        <td class="cell-date">Mar 12, 08:00 AM</td>
-                        <td class="cell-actions text-right">
-                            <button class="btn-action primary">Edit</button>
-                            <button class="btn-action">History</button>
-                        </td>
-                    </tr>
-                    <!-- Row 3 -->
-                    <tr>
-                        <td class="cell-id">#43</td>
-                        <td class="cell-name">Container Checkpoint</td>
-                        <td class="cell-location">Bethlehem - Jerusalem</td>
-                        <td>
-                            <span class="status-badge status-delayed">Delayed</span>
-                        </td>
-                        <td class="cell-date">Mar 11, 04:15 PM</td>
-                        <td class="cell-actions text-right">
-                            <button class="btn-action primary">Edit</button>
-                            <button class="btn-action">History</button>
-                        </td>
-                    </tr>
-                    <!-- Row 4 -->
-                    <tr>
-                        <td class="cell-id">#42</td>
-                        <td class="cell-name">Za'atara Junction</td>
-                        <td class="cell-location">Nablus - Ramallah</td>
-                        <td>
-                            <span class="status-badge status-open">Open</span>
-                        </td>
-                        <td class="cell-date">Mar 11, 02:00 PM</td>
-                        <td class="cell-actions text-right">
-                            <button class="btn-action primary">Edit</button>
-                            <button class="btn-action">History</button>
-                        </td>
-                    </tr>
-                    <!-- Row 5 -->
-                    <tr>
-                        <td class="cell-id">#41</td>
-                        <td class="cell-name">Ennab Checkpoint</td>
-                        <td class="cell-location">Tulkarem East</td>
-                        <td>
-                            <span class="status-badge status-restricted">Restricted</span>
-                        </td>
-                        <td class="cell-date">Mar 10, 11:30 AM</td>
-                        <td class="cell-actions text-right">
-                            <button class="btn-action primary">Edit</button>
-                            <button class="btn-action">History</button>
-                        </td>
-                    </tr>
-                    <!-- Row 6 -->
-                    <tr>
-                        <td class="cell-id">#40</td>
-                        <td class="cell-name">DCO Checkpoint</td>
-                        <td class="cell-location">Bethlehem North</td>
-                        <td>
-                            <span class="status-badge status-open">Open</span>
-                        </td>
-                        <td class="cell-date">Mar 10, 09:00 AM</td>
-                        <td class="cell-actions text-right">
-                            <button class="btn-action primary">Edit</button>
-                            <button class="btn-action">History</button>
-                        </td>
-                    </tr>
-                </tbody>
-            </table>
-        </div>
-        
-        <!-- Pagination -->
-        <div class="pagination-footer">
-            <p class="pagination-info">Showing <span class="count">1-6</span> of <span class="count">156</span> checkpoints</p>
-            <div class="pagination-controls">
-                <button class="btn-page nav-btn">
-                    <span class="material-symbols-outlined">chevron_left</span>
-                </button>
-                <button class="btn-page active">1</button>
-                <button class="btn-page">2</button>
-                <button class="btn-page">3</button>
-                <span class="page-ellipsis">...</span>
-                <button class="btn-page nav-btn">
-                    <span class="material-symbols-outlined">chevron_right</span>
-                </button>
+        <!-- Data Table -->
+        <div class="cp-table-container">
+            <div class="table-scroll">
+                <table class="cp-table">
+                    <thead>
+                        <tr>
+                            <th class="col-id">ID</th>
+                            <th>Name</th>
+                            <th>Location</th>
+                            <th>Current Status</th>
+                            <th>Last Updated</th>
+                            <th class="text-right">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody data-checkpoint-table-body>
+                        <!-- Dynamic Rows -->
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Pagination -->
+            <div class="pagination-footer">
+                <p class="pagination-info">
+                   Showing <span class="count" data-checkpoint-pagination-range>0-0</span> of <span class="count" data-checkpoint-pagination-total>0</span> checkpoints
+                </p>
+                <div class="pagination-controls" data-checkpoint-pagination-controls>
+                    <!-- Dynamic Pagination -->
+                </div>
             </div>
         </div>
     </div>
-</div>
 </body>
+
 </html>

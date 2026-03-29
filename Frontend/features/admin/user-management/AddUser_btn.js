@@ -4,14 +4,14 @@
     const initAddUserBtn = () => {
         const addBtn = document.getElementById('addUserBtn');
         if (!addBtn || addBtn.dataset.modalBound) return;
-        
+
         addBtn.dataset.modalBound = "true";
 
         addBtn.addEventListener('click', async (e) => {
             e.preventDefault();
 
             let overlay = document.getElementById('addUserOverlay');
-            
+
             if (!overlay) {
                 try {
                     const response = await fetch('/features/admin/user-management/AddUser.html');
@@ -51,20 +51,20 @@
                             closeModal(overlay);
                         });
                     }
-                    
-                    const form = overlay.querySelector('#addUserForm');
-                    if (form) {
-                        form.addEventListener('submit', (event) => {
-                            event.preventDefault();
-                            // Logic to save new user
-                            console.log("Add User form submitted successfully");
-                            closeModal(overlay);
-                        });
-                    }
                 } catch (err) {
                     console.error("Error launching add user modal:", err);
                     return;
                 }
+            }
+
+            try {
+                const { bindAddUserSave } = await import('/features/admin/user-management/save_btn.js');
+                bindAddUserSave(overlay, {
+                    onClose: () => closeModal(overlay),
+                });
+            } catch (err) {
+                console.error('Error wiring add user save flow:', err);
+                return;
             }
 
             requestAnimationFrame(() => {
@@ -79,7 +79,7 @@
 
     // Initialize immediately in case DOM is already parsed (SPA routing)
     initAddUserBtn();
-    
+
     // Also bind to DOMContentLoaded for initial hard reloads
     document.addEventListener('DOMContentLoaded', initAddUserBtn);
 })();

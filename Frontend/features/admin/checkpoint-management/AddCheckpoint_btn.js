@@ -1,77 +1,110 @@
-// Admin/Pages/CheckpointManagement/AddCheckpoint_btn.js
+(function () {
+  const initAddCheckpointBtn = () => {
+    const addBtn = document.getElementById('addCheckpointBtn');
+    if (!addBtn || addBtn.dataset.modalBound === 'true') return;
 
-(function() {
-    const initAddCheckpointBtn = () => {
-        const addBtn = document.getElementById('addCheckpointBtn');
-        if (!addBtn || addBtn.dataset.modalBound) return;
-        
-        addBtn.dataset.modalBound = "true";
+    addBtn.dataset.modalBound = 'true';
 
-        addBtn.addEventListener('click', async (e) => {
-            e.preventDefault();
+    addBtn.addEventListener('click', async (e) => {
+      e.preventDefault();
 
-            let overlay = document.getElementById('addCheckpointOverlay');
-            
-            if (!overlay) {
-                try {
-                    const response = await fetch('/features/admin/checkpoint-management/AddCheckpoint.html');
-                    if (!response.ok) throw new Error('Failed to load Add Checkpoint modal');
-                    const html = await response.text();
+      let overlay = document.getElementById('addCheckpointOverlay');
+      if (!overlay) {
+        try {
+          const response = await fetch('/features/admin/checkpoint-management/AddCheckpoint.html');
+          if (!response.ok) throw new Error('Failed to load Add Checkpoint modal');
+          const html = await response.text();
 
-                    overlay = document.createElement('div');
-                    overlay.className = 'add-checkpoint-overlay';
-                    overlay.id = 'addCheckpointOverlay';
-                    overlay.innerHTML = html;
-                    document.body.appendChild(overlay);
+          overlay = document.createElement('div');
+          overlay.className = 'add-checkpoint-overlay';
+          overlay.id = 'addCheckpointOverlay';
+          overlay.innerHTML = html;
+          document.body.appendChild(overlay);
 
-                    if (!document.querySelector('link[href*="AddCheckpoint.css"]')) {
-                        const link = document.createElement('link');
-                        link.rel = 'stylesheet';
-                        link.href = '/features/admin/checkpoint-management/AddCheckpoint.css?v=' + new Date().getTime();
-                        document.head.appendChild(link);
-                    }
+          if (!document.querySelector('link[href*="AddCheckpoint.css"]')) {
+            const link = document.createElement('link');
+            link.rel = 'stylesheet';
+            link.href = '/features/admin/checkpoint-management/AddCheckpoint.css?v=' + new Date().getTime();
+            document.head.appendChild(link);
+          }
 
-                    // Attach Close Events
-                    overlay.addEventListener('click', (event) => {
-                        if (event.target === overlay) {
-                            closeModal(overlay);
-                        }
-                    });
+          // Close Events
+          overlay.addEventListener('click', (ev) => { if (ev.target === overlay) closeModal(overlay); });
+          overlay.querySelector('#addCheckpointCloseBtn')?.addEventListener('click', () => closeModal(overlay));
+          overlay.querySelector('#addCheckpointCancelBtn')?.addEventListener('click', () => closeModal(overlay));
 
-                    const closeBtn = overlay.querySelector('#addCheckpointCloseBtn');
-                    if (closeBtn) closeBtn.addEventListener('click', () => closeModal(overlay));
+          const form = overlay.querySelector('#addCheckpointForm');
+          if (form) {
+            form.addEventListener('submit', async (submitEvent) => {
+              submitEvent.preventDefault();
+              const submitBtn = form.querySelector('button[type="submit"]');
+              if (submitBtn) submitBtn.disabled = true;
 
-                    const cancelBtn = overlay.querySelector('#addCheckpointCancelBtn');
-                    if (cancelBtn) cancelBtn.addEventListener('click', () => closeModal(overlay));
-                    
-                    const form = overlay.querySelector('#addCheckpointForm');
-                    if (form) {
-                        form.addEventListener('submit', (event) => {
-                            event.preventDefault();
-                            // Logic to save checkpoint
-                            console.log("Checkpoint form submitted successfully.");
-                            closeModal(overlay);
-                        });
-                    }
-                } catch (err) {
-                    console.error("Error launching add checkpoint modal:", err);
-                    return;
+              try {
+                const { createNewCheckpoint } = await import('/Controllers/checkpoint-management.controller.js');
+                const {
+                  applyValidationErrors,
+                  clearValidationErrors,
+                  collectCheckpointFormData,
+                  validateCheckpointPayload,
+                } = await import('/features/admin/checkpoint-management/validation.js');
+
+                clearValidationErrors(form);
+
+                const payload = collectCheckpointFormData(form);
+                const validationResult = validateCheckpointPayload(payload);
+
+                if (!validationResult.isValid) {
+                  applyValidationErrors(form, validationResult.errors);
+                  if (validationResult.messages[0]) {
+                    if (typeof window.showError === 'function') window.showError(validationResult.messages[0]);
+                    else alert(validationResult.messages[0]);
+                  }
+                  return;
                 }
-            }
 
-            requestAnimationFrame(() => {
-                overlay.classList.add('show');
+                await createNewCheckpoint(payload);
+
+                document.dispatchEvent(
+                  new CustomEvent('admin:checkpoint-created', {
+                    detail: { timestamp: Date.now() },
+                  })
+                );
+
+                if (typeof window.showSuccess === 'function') window.showSuccess('Checkpoint created successfully.');
+                else alert('Checkpoint created successfully.');
+
+                closeModal(overlay);
+                form.reset();
+              } catch (err) {
+                console.error('Failed to create checkpoint:', err);
+                const errorMsg = err?.response?.data?.message || 'Failed to create checkpoint.';
+                if (typeof window.showError === 'function') window.showError(errorMsg);
+                else alert(errorMsg);
+              } finally {
+                if (submitBtn) submitBtn.disabled = false;
+              }
             });
-        });
-    };
+          }
+        } catch (err) {
+          console.error('Error launching create checkpoint modal:', err);
+          return;
+        }
+      }
 
-    function closeModal(overlay) {
-        overlay.classList.remove('show');
-    }
+      requestAnimationFrame(() => {
+        overlay.classList.add('show');
+      });
+    });
+  };
 
-    // Initialize immediately (for dynamic SPA routing)
-    initAddCheckpointBtn();
-    
-    // Fallback for direct page loads
-    document.addEventListener('DOMContentLoaded', initAddCheckpointBtn);
+  function closeModal(overlay) {
+    overlay.classList.remove('show');
+  }
+
+  // Initialize immediately for SPA routing
+  initAddCheckpointBtn();
+
+  // Also bind to DOMContentLoaded for hard reloads
+  document.addEventListener('DOMContentLoaded', initAddCheckpointBtn);
 })();

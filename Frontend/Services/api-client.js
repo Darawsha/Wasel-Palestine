@@ -50,7 +50,11 @@ function buildRequestConfig(path, options = {}) {
 
 function buildAbsoluteUrl(path, params) {
   const baseUrl = window.AppConfig?.API_BASE_URL || window.location.origin;
-  const url = new URL(path, baseUrl.endsWith('/') ? baseUrl : baseUrl + '/');
+
+  // Strip the leading slash from the path so it appends correctly to the base URL
+  const cleanPath = path.startsWith('/') ? path.substring(1) : path;
+
+  const url = new URL(cleanPath, baseUrl.endsWith('/') ? baseUrl : baseUrl + '/');
 
   if (params) {
     Object.entries(params).forEach(([key, value]) => {

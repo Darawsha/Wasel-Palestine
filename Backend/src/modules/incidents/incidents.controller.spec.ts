@@ -4,11 +4,17 @@ import { IncidentsService } from './incidents.service';
 
 describe('IncidentsController', () => {
   let controller: IncidentsController;
+  const incidentsServiceMock = {};
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [IncidentsController],
-      providers: [IncidentsService],
+      providers: [
+        {
+          provide: IncidentsService,
+          useValue: incidentsServiceMock,
+        },
+      ],
     }).compile();
 
     controller = module.get<IncidentsController>(IncidentsController);

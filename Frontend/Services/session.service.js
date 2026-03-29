@@ -1,8 +1,9 @@
+import { apiGet } from '/Services/api-client.js';
+
 const USER_KEY = 'user';
 const TOKEN_KEY = 'token';
 const LEGACY_TOKEN_KEY = 'jwtToken';
 const SIGN_IN_PATH = '/features/public/auth/signin_signup.html';
-const PROFILE_PATH = '/api/v1/auth/profile';
 
 export function setCurrentUser(user, token) {
   if (user) {
@@ -47,13 +48,8 @@ export async function validateSession() {
   }
 
   try {
-    const response = await window.fetch(PROFILE_PATH, {
-      headers: {
-        Authorization: 'Bearer ' + token,
-      },
-    });
-
-    return response.ok;
+    await apiGet('/auth/profile');
+    return true;
   } catch (error) {
     console.error('Failed to validate session', error);
     return false;
@@ -97,3 +93,4 @@ export async function redirectUser() {
     redirectToSignIn();
   }
 }
+

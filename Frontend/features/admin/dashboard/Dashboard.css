@@ -179,6 +179,9 @@
 .trend-down {
   color: var(--emerald);
 }
+.trend-negative {
+  color: var(--danger);
+}
 .trend-neutral {
   color: var(--text-muted);
   font-weight: 400;

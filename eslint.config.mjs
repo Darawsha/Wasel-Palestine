@@ -10,7 +10,7 @@
 // export default tseslint.config(
 //   {
 //     ignores: ['eslint.config.mjs'],
-//     files: ['src/**/*', 'Frontend/Js/**/*'],
+//     files: ['Backend/src/**/*', 'Frontend/Js/**/*'],
 //   },
 //   eslint.configs.recommended,
 //   ...tseslint.configs.recommendedTypeChecked,
@@ -44,3 +44,4 @@
 //     },
 //   },
 // );
+
