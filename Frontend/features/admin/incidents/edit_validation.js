@@ -5,6 +5,15 @@ import {
   isValidStatus,
 } from '/features/admin/incidents/validation.js';
 
+import { isLocationReal } from '/shared/location_validator.js';
+
+import {
+  pushFieldError,
+  buildErrorMap,
+  clearValidationErrors as sharedClearErrors,
+  applyValidationErrors as sharedApplyErrors,
+} from '/shared/ui_validation.js';
+
 const EDIT_FIELD_SELECTORS = {
   title: '#editIncidentTitle',
   description: '#editIncidentDescription',
@@ -14,16 +23,12 @@ const EDIT_FIELD_SELECTORS = {
   status: '#editIncidentStatus',
 };
 
-function getFieldElement(form, fieldName) {
+export function getFieldElement(form, fieldName) {
   return form?.querySelector(EDIT_FIELD_SELECTORS[fieldName] || '');
 }
 
 function normalizeText(value) {
   return String(value || '').trim();
-}
-
-function pushFieldError(errors, field, message) {
-  errors.push({ field, message });
 }
 
 function validateLength(value, field, label, min, max, errors) {
@@ -35,50 +40,38 @@ function validateLength(value, field, label, min, max, errors) {
   }
 
   if (normalizedValue.length < min) {
-    pushFieldError(errors, field, `${label} must be at least ${min} characters.`);
+    pushFieldError(
+      errors,
+      field,
+      `${label} must be at least ${min} characters.`,
+    );
     return;
   }
 
   if (max && normalizedValue.length > max) {
-    pushFieldError(errors, field, `${label} must not exceed ${max} characters.`);
+    pushFieldError(
+      errors,
+      field,
+      `${label} must not exceed ${max} characters.`,
+    );
   }
-}
-
-function buildErrorMap(errorList) {
-  return errorList.reduce((fieldErrors, error) => {
-    if (!fieldErrors[error.field]) {
-      fieldErrors[error.field] = error.message;
-    }
-
-    return fieldErrors;
-  }, {});
-}
-
-function insertErrorMessage(fieldElement, message, fieldName) {
-  if (!fieldElement?.parentElement) {
-    return;
-  }
-
-  const errorElement = document.createElement('p');
-  errorElement.className = 'field-error';
-  errorElement.dataset.errorFor = fieldName;
-  errorElement.textContent = message;
-
-  const container =
-    fieldElement.closest('.input-wrapper') ||
-    fieldElement.closest('.select-wrapper') ||
-    fieldElement;
-
-  container.insertAdjacentElement('afterend', errorElement);
 }
 
 export function collectEditIncidentFormData(form) {
   const title = normalizeText(getFieldElement(form, 'title')?.value);
-  const description = normalizeText(getFieldElement(form, 'description')?.value);
-  const type = normalizeText(getFieldElement(form, 'type')?.value).toUpperCase();
-  const severity = normalizeText(getFieldElement(form, 'severity')?.value).toUpperCase();
+  const description = normalizeText(
+    getFieldElement(form, 'description')?.value,
+  );
+  const type = normalizeText(
+    getFieldElement(form, 'type')?.value,
+  ).toUpperCase();
+  const severity = normalizeText(
+    getFieldElement(form, 'severity')?.value,
+  ).toUpperCase();
   const location = normalizeText(getFieldElement(form, 'location')?.value);
-  const status = normalizeText(getFieldElement(form, 'status')?.value).toUpperCase();
+  const status = normalizeText(
+    getFieldElement(form, 'status')?.value,
+  ).toUpperCase();
 
   return {
     title,
@@ -90,11 +83,18 @@ export function collectEditIncidentFormData(form) {
   };
 }
 
-export function validateEditIncidentPayload(payload) {
+export async function validateEditIncidentPayload(payload) {
   const errors = [];
 
   validateLength(payload?.title, 'title', 'Title', 3, 150, errors);
-  validateLength(payload?.description, 'description', 'Description', 10, null, errors);
+  validateLength(
+    payload?.description,
+    'description',
+    'Description',
+    10,
+    null,
+    errors,
+  );
 
   if (!isRequired(payload?.type)) {
     pushFieldError(errors, 'type', 'Type is required.');
@@ -108,7 +108,19 @@ export function validateEditIncidentPayload(payload) {
     pushFieldError(errors, 'severity', 'Please select a valid severity.');
   }
 
-  // checkpointId (location) is optional — backend accepts null
+  if (payload?.location) {
+    const locationResult = await isLocationReal(payload.location);
+    if (!locationResult.isValid) {
+      pushFieldError(
+        errors,
+        'location',
+        'The location provided could not be found. Please enter a valid address.',
+      );
+    } else {
+      payload.latitude = locationResult.lat;
+      payload.longitude = locationResult.lon;
+    }
+  }
 
   if (payload?.status && !isValidStatus(payload?.status)) {
     pushFieldError(errors, 'status', 'Please select a valid status.');
@@ -122,34 +134,9 @@ export function validateEditIncidentPayload(payload) {
 }
 
 export function clearEditValidationErrors(form) {
-  if (!form) {
-    return;
-  }
-
-  form.querySelectorAll('.input-error').forEach((element) => {
-    element.classList.remove('input-error');
-  });
-
-  form.querySelectorAll('.field-error').forEach((element) => {
-    element.remove();
-  });
+  sharedClearErrors(form);
 }
 
 export function applyEditValidationErrors(form, fieldErrors = {}) {
-  const errorEntries = Object.entries(fieldErrors);
-
-  if (!form || errorEntries.length === 0) {
-    return;
-  }
-
-  errorEntries.forEach(([fieldName, message]) => {
-    const fieldElement = getFieldElement(form, fieldName);
-
-    if (!fieldElement) {
-      return;
-    }
-
-    fieldElement.classList.add('input-error');
-    insertErrorMessage(fieldElement, message, fieldName);
-  });
+  sharedApplyErrors(form, fieldErrors, getFieldElement);
 }

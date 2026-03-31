@@ -11,8 +11,11 @@
       let overlay = document.getElementById('addCheckpointOverlay');
       if (!overlay) {
         try {
-          const response = await fetch('/features/admin/checkpoint-management/AddCheckpoint.html');
-          if (!response.ok) throw new Error('Failed to load Add Checkpoint modal');
+          const response = await fetch(
+            '/features/admin/checkpoint-management/AddCheckpoint.html',
+          );
+          if (!response.ok)
+            throw new Error('Failed to load Add Checkpoint modal');
           const html = await response.text();
 
           overlay = document.createElement('div');
@@ -24,14 +27,22 @@
           if (!document.querySelector('link[href*="AddCheckpoint.css"]')) {
             const link = document.createElement('link');
             link.rel = 'stylesheet';
-            link.href = '/features/admin/checkpoint-management/AddCheckpoint.css?v=' + new Date().getTime();
+            link.href =
+              '/features/admin/checkpoint-management/AddCheckpoint.css?v=' +
+              new Date().getTime();
             document.head.appendChild(link);
           }
 
           // Close Events
-          overlay.addEventListener('click', (ev) => { if (ev.target === overlay) closeModal(overlay); });
-          overlay.querySelector('#addCheckpointCloseBtn')?.addEventListener('click', () => closeModal(overlay));
-          overlay.querySelector('#addCheckpointCancelBtn')?.addEventListener('click', () => closeModal(overlay));
+          overlay.addEventListener('click', (ev) => {
+            if (ev.target === overlay) closeModal(overlay);
+          });
+          overlay
+            .querySelector('#addCheckpointCloseBtn')
+            ?.addEventListener('click', () => closeModal(overlay));
+          overlay
+            .querySelector('#addCheckpointCancelBtn')
+            ?.addEventListener('click', () => closeModal(overlay));
 
           const form = overlay.querySelector('#addCheckpointForm');
           if (form) {
@@ -41,23 +52,27 @@
               if (submitBtn) submitBtn.disabled = true;
 
               try {
-                const { createNewCheckpoint } = await import('/Controllers/checkpoint-management.controller.js');
+                const { createNewCheckpoint } =
+                  await import('/Controllers/checkpoint-management.controller.js');
                 const {
                   applyValidationErrors,
                   clearValidationErrors,
                   collectCheckpointFormData,
                   validateCheckpointPayload,
-                } = await import('/features/admin/checkpoint-management/validation.js');
+                } =
+                  await import('/features/admin/checkpoint-management/validation.js');
 
                 clearValidationErrors(form);
 
                 const payload = collectCheckpointFormData(form);
-                const validationResult = validateCheckpointPayload(payload);
+                const validationResult =
+                  await validateCheckpointPayload(payload);
 
                 if (!validationResult.isValid) {
                   applyValidationErrors(form, validationResult.errors);
                   if (validationResult.messages[0]) {
-                    if (typeof window.showError === 'function') window.showError(validationResult.messages[0]);
+                    if (typeof window.showError === 'function')
+                      window.showError(validationResult.messages[0]);
                     else alert(validationResult.messages[0]);
                   }
                   return;
@@ -68,18 +83,22 @@
                 document.dispatchEvent(
                   new CustomEvent('admin:checkpoint-created', {
                     detail: { timestamp: Date.now() },
-                  })
+                  }),
                 );
 
-                if (typeof window.showSuccess === 'function') window.showSuccess('Checkpoint created successfully.');
+                if (typeof window.showSuccess === 'function')
+                  window.showSuccess('Checkpoint created successfully.');
                 else alert('Checkpoint created successfully.');
 
                 closeModal(overlay);
                 form.reset();
               } catch (err) {
                 console.error('Failed to create checkpoint:', err);
-                const errorMsg = err?.response?.data?.message || 'Failed to create checkpoint.';
-                if (typeof window.showError === 'function') window.showError(errorMsg);
+                const errorMsg =
+                  err?.response?.data?.message ||
+                  'Failed to create checkpoint.';
+                if (typeof window.showError === 'function')
+                  window.showError(errorMsg);
                 else alert(errorMsg);
               } finally {
                 if (submitBtn) submitBtn.disabled = false;

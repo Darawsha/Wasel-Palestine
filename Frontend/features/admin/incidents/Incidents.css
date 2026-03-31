@@ -446,3 +446,17 @@
   color: var(--text-dark, #0f172a);
 }
 
+.input-error,
+input.input-error,
+select.input-error,
+textarea.input-error {
+  border-color: #dc3545 !important;
+  background-color: #fff8f8 !important;
+}
+
+.field-error {
+  color: #dc3545;
+  font-size: 13px;
+  margin-top: 5px;
+  margin-bottom: 0;
+}

@@ -1,3 +1,12 @@
+import { isLocationReal } from '/shared/location_validator.js';
+
+import {
+  pushFieldError,
+  buildErrorMap,
+  clearValidationErrors as sharedClearErrors,
+  applyValidationErrors as sharedApplyErrors,
+} from '/shared/ui_validation.js';
+
 const FIELD_SELECTORS = {
   name: '#cpName',
   location: '#cpLocation',
@@ -5,16 +14,12 @@ const FIELD_SELECTORS = {
   notes: '#cpNotes',
 };
 
-function getFieldElement(form, fieldName) {
+export function getFieldElement(form, fieldName) {
   return form?.querySelector(FIELD_SELECTORS[fieldName] || '');
 }
 
 function normalizeText(value) {
   return String(value || '').trim();
-}
-
-function pushFieldError(errors, field, message) {
-  errors.push({ field, message });
 }
 
 export function isRequired(value) {
@@ -35,19 +40,27 @@ function validateLength(value, field, label, min, max, errors) {
   }
 
   if (normalizedValue.length < min) {
-    pushFieldError(errors, field, `${label} must be at least ${min} characters.`);
+    pushFieldError(
+      errors,
+      field,
+      `${label} must be at least ${min} characters.`,
+    );
     return;
   }
 
   if (max && normalizedValue.length > max) {
-    pushFieldError(errors, field, `${label} must not exceed ${max} characters.`);
+    pushFieldError(
+      errors,
+      field,
+      `${label} must not exceed ${max} characters.`,
+    );
   }
 }
 
 /**
  * Validates the checkpoint data for both creation and update.
  */
-export function validateCheckpointData(data) {
+export async function validateCheckpointData(data) {
   const errors = [];
 
   validateLength(data?.name, 'name', 'Checkpoint Name', 3, 100, errors);
@@ -59,16 +72,22 @@ export function validateCheckpointData(data) {
     pushFieldError(errors, 'status', 'Please select a valid status.');
   }
 
-  return errors;
-}
+  if (data?.location && isRequired(data.location)) {
+    const locationResult = await isLocationReal(data.location);
 
-function buildErrorMap(errorList) {
-  return errorList.reduce((fieldErrors, error) => {
-    if (!fieldErrors[error.field]) {
-      fieldErrors[error.field] = error.message;
+    if (!locationResult.isValid) {
+      pushFieldError(
+        errors,
+        'location',
+        'The location provided could not be found. Please enter a valid address.',
+      );
+    } else {
+      data.latitude = locationResult.lat;
+      data.longitude = locationResult.lon;
     }
-    return fieldErrors;
-  }, {});
+  }
+
+  return errors;
 }
 
 /**
@@ -77,7 +96,9 @@ function buildErrorMap(errorList) {
 export function collectCheckpointFormData(form) {
   const name = normalizeText(getFieldElement(form, 'name')?.value);
   const location = normalizeText(getFieldElement(form, 'location')?.value);
-  const status = normalizeText(getFieldElement(form, 'status')?.value).toUpperCase();
+  const status = normalizeText(
+    getFieldElement(form, 'status')?.value,
+  ).toUpperCase();
   const notes = normalizeText(getFieldElement(form, 'notes')?.value);
 
   return {
@@ -91,8 +112,8 @@ export function collectCheckpointFormData(form) {
 /**
  * Validates the form payload and returns a status object.
  */
-export function validateCheckpointPayload(payload) {
-  const errorList = validateCheckpointData(payload);
+export async function validateCheckpointPayload(payload) {
+  const errorList = await validateCheckpointData(payload);
 
   return {
     isValid: errorList.length === 0,
@@ -101,51 +122,10 @@ export function validateCheckpointPayload(payload) {
   };
 }
 
-/**
- * Clears all validation error messages and styling from the form.
- */
 export function clearValidationErrors(form) {
-  if (!form) return;
-
-  form.querySelectorAll('.input-error').forEach((element) => {
-    element.classList.remove('input-error');
-  });
-
-  form.querySelectorAll('.field-error').forEach((element) => {
-    element.remove();
-  });
+  sharedClearErrors(form);
 }
 
-function insertErrorMessage(fieldElement, message, fieldName) {
-  if (!fieldElement?.parentElement) return;
-
-  const errorElement = document.createElement('p');
-  errorElement.className = 'field-error';
-  errorElement.dataset.errorFor = fieldName;
-  errorElement.textContent = message;
-
-  const container =
-    fieldElement.closest('.input-wrapper') ||
-    fieldElement.closest('.select-wrapper') ||
-    fieldElement;
-
-  container.insertAdjacentElement('afterend', errorElement);
-}
-
-/**
- * Applies validation errors to form fields.
- */
 export function applyValidationErrors(form, fieldErrors = {}) {
-  const errorEntries = Object.entries(fieldErrors);
-
-  if (!form || errorEntries.length === 0) return;
-
-  errorEntries.forEach(([fieldName, message]) => {
-    const fieldElement = getFieldElement(form, fieldName);
-
-    if (!fieldElement) return;
-
-    fieldElement.classList.add('input-error');
-    insertErrorMessage(fieldElement, message, fieldName);
-  });
+  sharedApplyErrors(form, fieldErrors, getFieldElement);
 }

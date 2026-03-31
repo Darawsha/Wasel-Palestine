@@ -23,9 +23,7 @@ import {
   SeverityUpdateStrategy,
 } from './strategies/severity.strategy';
 import { TypeStrategy } from './strategies/type.strategy';
-import {
-  StatusStrategy,
-} from './strategies/status.strategy';
+import { StatusStrategy } from './strategies/status.strategy';
 import { TitleStrategy } from './strategies/title.strategy';
 import { DescriptionStrategy } from './strategies/description.strategy';
 import { TypeUpdateStrategy } from './strategies/type-update.strategy';
@@ -61,6 +59,8 @@ export class IncidentsService {
     const incident = this.incidentsRepository.create({
       title: createIncidentDto.title,
       description: createIncidentDto.description,
+      latitude: createIncidentDto?.latitude,
+      longitude: createIncidentDto?.longitude,
       location: createIncidentDto.location ?? undefined,
       type: createIncidentDto.type,
       severity: createIncidentDto.severity,
@@ -149,6 +149,7 @@ export class IncidentsService {
 
     TitleStrategy.apply(incident, updateIncidentDto);
     DescriptionStrategy.apply(incident, updateIncidentDto);
+
     TypeUpdateStrategy.apply(incident, updateIncidentDto);
     SeverityUpdateStrategy.apply(incident, updateIncidentDto);
 
@@ -156,11 +157,15 @@ export class IncidentsService {
       incident.location = updateIncidentDto.location ?? undefined;
     }
 
-    this.applyStatusUpdate(
-      incident,
-      updateIncidentDto.status,
-      changedByUserId,
-    );
+    if (
+      updateIncidentDto.latitude !== undefined ||
+      updateIncidentDto.longitude !== undefined
+    ) {
+      incident.latitude = updateIncidentDto.latitude;
+      incident.longitude = updateIncidentDto.longitude;
+    }
+
+    this.applyStatusUpdate(incident, updateIncidentDto.status, changedByUserId);
 
     return this.saveIncidentWithHistory(
       incident,
@@ -205,12 +210,14 @@ export class IncidentsService {
   }
 
   async countIncidents(): Promise<number> {
-      return this.incidentsRepository.count();
-    }
+    return this.incidentsRepository.count();
+  }
 
   async getActiveIncidentsCount(): Promise<number> {
-      return this.incidentsRepository.count({ where: { status: IncidentStatus.ACTIVE } });
-    }
+    return this.incidentsRepository.count({
+      where: { status: IncidentStatus.ACTIVE },
+    });
+  }
 
   async getIncidentsCreatedTodayCount(): Promise<number> {
     const startOfToday = new Date();
@@ -350,8 +357,9 @@ export class IncidentsService {
         return savedIncident;
       }
 
-      const incidentStatusHistoryRepository =
-        manager.getRepository(IncidentStatusHistory);
+      const incidentStatusHistoryRepository = manager.getRepository(
+        IncidentStatusHistory,
+      );
 
       const historyRecord = incidentStatusHistoryRepository.create({
         incident: savedIncident,
@@ -373,4 +381,3 @@ export class IncidentsService {
     };
   }
 }
-

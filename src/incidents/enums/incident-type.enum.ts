@@ -1,6 +1,0 @@
-export enum IncidentType {
-  CLOSURE = 'CLOSURE',
-  DELAY = 'DELAY',
-  ACCIDENT = 'ACCIDENT',
-  WEATHER_HAZARD = 'WEATHER_HAZARD',
-}

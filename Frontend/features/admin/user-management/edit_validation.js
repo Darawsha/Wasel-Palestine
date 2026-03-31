@@ -6,6 +6,13 @@ import {
   isValidRole,
 } from '/features/admin/user-management/validation.js';
 
+import {
+  pushFieldError,
+  buildErrorMap,
+  clearValidationErrors as sharedClearErrors,
+  applyValidationErrors as sharedApplyErrors,
+} from '/shared/ui_validation.js';
+
 const EDIT_FIELD_SELECTORS = {
   firstname: '#editFirstName',
   lastname: '#editLastName',
@@ -16,16 +23,12 @@ const EDIT_FIELD_SELECTORS = {
   address: '#editUserAddress',
 };
 
-function getFieldElement(form, fieldName) {
+export function getFieldElement(form, fieldName) {
   return form?.querySelector(EDIT_FIELD_SELECTORS[fieldName] || '');
 }
 
 function normalizeText(value) {
   return String(value || '').trim();
-}
-
-function pushFieldError(errors, field, message) {
-  errors.push({ field, message });
 }
 
 function validateName(value, field, label, errors) {
@@ -46,38 +49,12 @@ function validateName(value, field, label, errors) {
   }
 }
 
-function buildErrorMap(errorList) {
-  return errorList.reduce((fieldErrors, error) => {
-    if (!fieldErrors[error.field]) {
-      fieldErrors[error.field] = error.message;
-    }
-
-    return fieldErrors;
-  }, {});
-}
-
-function insertErrorMessage(fieldElement, message, fieldName) {
-  if (!fieldElement?.parentElement) {
-    return;
-  }
-
-  const errorElement = document.createElement('p');
-  errorElement.className = 'field-error';
-  errorElement.dataset.errorFor = fieldName;
-  errorElement.textContent = message;
-
-  const container =
-    fieldElement.closest('.input-wrapper') ||
-    fieldElement.closest('.select-wrapper') ||
-    fieldElement;
-
-  container.insertAdjacentElement('afterend', errorElement);
-}
-
 export function collectEditUserFormData(form) {
   const firstname = normalizeText(getFieldElement(form, 'firstname')?.value);
   const lastname = normalizeText(getFieldElement(form, 'lastname')?.value);
-  const email = normalizeText(getFieldElement(form, 'email')?.value).toLowerCase();
+  const email = normalizeText(
+    getFieldElement(form, 'email')?.value,
+  ).toLowerCase();
   const password = String(getFieldElement(form, 'password')?.value || '');
   const role = normalizeText(getFieldElement(form, 'role')?.value);
   const rawPhone = normalizeText(getFieldElement(form, 'phone')?.value);
@@ -115,7 +92,11 @@ export function validateEditUserPayload(payload) {
   }
 
   if (payload?.password && !isValidPassword(payload.password)) {
-    pushFieldError(errors, 'password', 'Password must be at least 8 characters long.');
+    pushFieldError(
+      errors,
+      'password',
+      'Password must be at least 8 characters long.',
+    );
   }
 
   if (!isValidPhone(payload?.phone)) {
@@ -123,7 +104,11 @@ export function validateEditUserPayload(payload) {
   }
 
   if (normalizedAddress.length > 200) {
-    pushFieldError(errors, 'address', 'Address must not exceed 200 characters.');
+    pushFieldError(
+      errors,
+      'address',
+      'Address must not exceed 200 characters.',
+    );
   }
 
   return {
@@ -134,34 +119,9 @@ export function validateEditUserPayload(payload) {
 }
 
 export function clearEditValidationErrors(form) {
-  if (!form) {
-    return;
-  }
-
-  form.querySelectorAll('.input-error').forEach((element) => {
-    element.classList.remove('input-error');
-  });
-
-  form.querySelectorAll('.field-error').forEach((element) => {
-    element.remove();
-  });
+  sharedClearErrors(form);
 }
 
 export function applyEditValidationErrors(form, fieldErrors = {}) {
-  const errorEntries = Object.entries(fieldErrors);
-
-  if (!form || errorEntries.length === 0) {
-    return;
-  }
-
-  errorEntries.forEach(([fieldName, message]) => {
-    const fieldElement = getFieldElement(form, fieldName);
-
-    if (!fieldElement) {
-      return;
-    }
-
-    fieldElement.classList.add('input-error');
-    insertErrorMessage(fieldElement, message, fieldName);
-  });
+  sharedApplyErrors(form, fieldErrors, getFieldElement);
 }

@@ -62,11 +62,13 @@ export function logoutUser() {
 }
 
 function getHomePathForRole(role) {
-  if (role === 'admin') {
+  const normalizedRole = role?.toLowerCase();
+
+  if (normalizedRole === 'admin') {
     return '/views/admin/header/header.html#admin-dashboard';
   }
 
-  if (role === 'citizen' || role === 'user') {
+  if (normalizedRole === 'citizen' || normalizedRole === 'user') {
     return '/views/citizen/header/header.html#home';
   }
 
@@ -93,4 +95,3 @@ export async function redirectUser() {
     redirectToSignIn();
   }
 }
-

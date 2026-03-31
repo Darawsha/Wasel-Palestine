@@ -1,1 +1,0 @@
-// ModerationQueue JS
