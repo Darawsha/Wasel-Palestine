@@ -5,10 +5,18 @@ function fillEditIncidentForm(overlay, incident) {
   }
 
   form.querySelector('#editIncidentTitle').value = incident.title || '';
-  form.querySelector('#editIncidentDescription').value = incident.description || '';
+
+  form.querySelector('#editIncidentDescription').value =
+    incident.description || '';
   form.querySelector('#editIncidentType').value = incident.type || '';
   form.querySelector('#editIncidentSeverity').value = incident.severity || '';
-  form.querySelector('#editIncidentLocation').value = incident.checkpointId || incident.checkpoint?.id || '';
+
+  form.querySelector('#editIncidentLocation').value =
+    incident.location ||
+    incident.checkpoint?.name ||
+    incident.checkpointId ||
+    '';
+
   form.querySelector('#editIncidentStatus').value = incident.status || 'ACTIVE';
 }
 
@@ -39,7 +47,8 @@ async function ensureEditIncidentOverlay() {
   if (!document.querySelector('link[href*="EditIncident.css"]')) {
     const link = document.createElement('link');
     link.rel = 'stylesheet';
-    link.href = '/features/admin/incidents/EditIncident.css?v=' + new Date().getTime();
+    link.href =
+      '/features/admin/incidents/EditIncident.css?v=' + new Date().getTime();
     document.head.appendChild(link);
   }
 
@@ -74,7 +83,8 @@ export async function openEditIncidentModal(incident) {
   const overlay = await ensureEditIncidentOverlay();
   fillEditIncidentForm(overlay, incident);
 
-  const { bindEditIncidentSave } = await import('/features/admin/incidents/update_btn.js');
+  const { bindEditIncidentSave } =
+    await import('/features/admin/incidents/update_btn.js');
   bindEditIncidentSave(overlay, {
     incident,
     onClose: () => closeModal(overlay),

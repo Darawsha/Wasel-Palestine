@@ -51,19 +51,14 @@ function setButtonState(button, isSaving) {
   button.textContent = isSaving ? 'Saving...' : button.dataset.defaultLabel;
 }
 
-/**
- * Binds the save logic to the edit checkpoint form.
- * 
- * @param {HTMLElement} overlay - The modal overlay containing the form.
- * @param {Object} options - Context options (checkpoint, onClose callback).
- */
 export function bindEditCheckpointSave(overlay, options = {}) {
   const form = overlay?.querySelector('#editCheckpointForm');
-  const saveButton = overlay?.querySelector('#editCheckpointSaveBtn');
+  const saveButton =
+    overlay?.querySelector('#editIncidentSaveBtn') ||
+    overlay?.querySelector('#editCheckpointSaveBtn');
 
   if (!form) return;
 
-  // Store context on the form element for access during the submit event
   form.__checkpointContext = {
     checkpoint: options.checkpoint || null,
     onClose: options.onClose,
@@ -86,27 +81,32 @@ export function bindEditCheckpointSave(overlay, options = {}) {
 
     clearValidationErrors(form);
 
-    const payload = collectCheckpointFormData(form);
-    const validationResult = validateCheckpointPayload(payload);
-
-    if (!validationResult.isValid) {
-      applyValidationErrors(form, validationResult.errors);
-      if (validationResult.messages[0]) {
-        notifyError(validationResult.messages[0]);
-      }
-      return;
-    }
-
     setButtonState(saveButton, true);
 
-    try {
-      const updatedCheckpoint = await updateExistingCheckpoint(checkpoint.id, payload);
+    const payload = collectCheckpointFormData(form);
 
-      // Dispatch event to notify the page that a checkpoint was updated
+    try {
+      const validationResult = await validateCheckpointPayload(payload);
+
+      if (!validationResult.isValid) {
+        applyValidationErrors(form, validationResult.errors);
+        if (validationResult.messages[0]) {
+          notifyError(validationResult.messages[0]);
+        }
+
+        setButtonState(saveButton, false);
+        return;
+      }
+
+      const updatedCheckpoint = await updateExistingCheckpoint(
+        checkpoint.id,
+        payload,
+      );
+
       document.dispatchEvent(
         new CustomEvent('admin:checkpoint-updated', {
           detail: updatedCheckpoint,
-        })
+        }),
       );
 
       clearValidationErrors(form);

@@ -24,6 +24,12 @@ export class Incident {
   @Column({ type: 'text' })
   description: string;
 
+  @Column('decimal', { precision: 10, scale: 7, nullable: true })
+  latitude: number;
+
+  @Column('decimal', { precision: 10, scale: 7, nullable: true })
+  longitude: number;
+
   @Column({ type: 'text', nullable: true })
   location?: string;
 
@@ -49,7 +55,10 @@ export class Incident {
   @ManyToOne(() => Checkpoint, { nullable: true, onDelete: 'SET NULL' })
   checkpoint?: Checkpoint;
 
-  @OneToMany(() => IncidentStatusHistory, (statusHistory) => statusHistory.incident)
+  @OneToMany(
+    () => IncidentStatusHistory,
+    (statusHistory) => statusHistory.incident,
+  )
   statusHistory: IncidentStatusHistory[];
 
   @CreateDateColumn({ type: 'timestamp' })

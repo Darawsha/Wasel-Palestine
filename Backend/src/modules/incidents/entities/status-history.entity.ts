@@ -35,5 +35,4 @@ export class IncidentStatusHistory {
 
   @CreateDateColumn({ type: 'timestamp' })
   changedAt: Date;
-  //
 }

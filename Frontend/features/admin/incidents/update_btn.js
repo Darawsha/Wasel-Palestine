@@ -88,27 +88,29 @@ export function bindEditIncidentSave(overlay, options = {}) {
 
     clearEditValidationErrors(form);
 
+    setButtonState(saveButton, true);
+
     const payload = collectEditIncidentFormData(form);
 
-    // Checkpoint parsing (stubbing 1 if location isn't strictly an ID yet, 
-    // assuming the backend handles validation or DTO rules)
     const checkpointId = parseInt(payload.location) || undefined;
     payload.checkpointId = checkpointId;
 
-    const validationResult = validateEditIncidentPayload(payload);
+    const validationResult = await validateEditIncidentPayload(payload);
 
     if (!validationResult.isValid) {
       applyEditValidationErrors(form, validationResult.errors);
       if (validationResult.messages[0]) {
         notifyError(validationResult.messages[0]);
       }
+      setButtonState(saveButton, false);
       return;
     }
 
-    setButtonState(saveButton, true);
-
     try {
-      const updatedIncident = await updateExistingIncident(incident.id, payload);
+      const updatedIncident = await updateExistingIncident(
+        incident.id,
+        payload,
+      );
 
       document.dispatchEvent(
         new CustomEvent('admin:incident-updated', {
