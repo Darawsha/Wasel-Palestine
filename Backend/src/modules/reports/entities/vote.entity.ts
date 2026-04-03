@@ -1,8 +1,16 @@
-import { Column, Entity, ManyToOne, PrimaryGeneratedColumn, Unique,  } from 'typeorm';
+import { 
+  Column, 
+  Entity, 
+  ManyToOne, 
+  PrimaryGeneratedColumn, 
+  Unique, 
+  JoinColumn 
+} from 'typeorm';
 import { VoteType } from '../enums/VoteType.enum';
 import { Report } from './report.entity';
+import { User } from '../../users/entities/user.entity';
 
-  @Entity()
+@Entity('report_vote')
 @Unique(['userId', 'reportId'])
 export class ReportVote {
   @PrimaryGeneratedColumn()
@@ -18,5 +26,11 @@ export class ReportVote {
   type: VoteType;
 
   @ManyToOne(() => Report, (report) => report.votes, { onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'reportId' })
   report: Report;
+
+  
+  @ManyToOne(() => User, (user) => user.votes, { onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'userId' })
+  user: User;
 }

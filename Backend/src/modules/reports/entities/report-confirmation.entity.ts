@@ -1,7 +1,16 @@
-import { Column, Entity, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn } from 'typeorm';
+import {
+  Column,
+  Entity,
+  JoinColumn,
+  ManyToOne,
+  PrimaryGeneratedColumn,
+  Unique,
+} from 'typeorm';
+import { Report } from './report.entity';
+import { User } from '../../users/entities/user.entity';
 
-
-@Entity()
+@Entity('report_confirmation')
+@Unique(['reportId', 'userId'])
 export class ReportConfirmation {
   @PrimaryGeneratedColumn()
   id: number;
@@ -11,4 +20,12 @@ export class ReportConfirmation {
 
   @Column()
   userId: number;
+
+  @ManyToOne(() => Report, { onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'reportId' })
+  report: Report;
+
+  @ManyToOne(() => User, { onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'userId' })
+  user: User;
 }

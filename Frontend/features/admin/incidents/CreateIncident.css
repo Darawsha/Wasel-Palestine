@@ -149,6 +149,20 @@
     padding-left: 2.75rem !important;
 }
 
+.create-incident-overlay .field-hint {
+    margin: 0.5rem 0 0;
+    color: var(--text-muted, #64748b);
+    font-size: 0.75rem;
+    line-height: 1.5;
+}
+
+.create-incident-overlay input[readonly],
+.create-incident-overlay input.is-locked {
+    background-color: var(--surface-muted, #f8fafc);
+    color: var(--text-muted, #64748b);
+    cursor: not-allowed;
+}
+
 /* Custom Select Dropdown Arrow styling */
 .create-incident-overlay select {
     appearance: none;

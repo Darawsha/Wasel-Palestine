@@ -3,10 +3,12 @@ import {
   PrimaryGeneratedColumn,
   Column,
   CreateDateColumn,
+  JoinColumn,
   ManyToOne,
 } from 'typeorm';
 import { Checkpoint } from './checkpoint.entity';
 import { CheckpointStatus } from '../enums/checkpoint-status.enum';
+import { User } from '../../users/entities/user.entity';
 
 @Entity('checkpoint_status_history')
 export class CheckpointStatusHistory {
@@ -16,6 +18,7 @@ export class CheckpointStatusHistory {
   @ManyToOne(() => Checkpoint, (checkpoint) => checkpoint.statusHistory, {
     onDelete: 'CASCADE',
   })
+  @JoinColumn({ name: 'checkpointId' })
   checkpoint: Checkpoint;
 
   @Column({
@@ -29,6 +32,13 @@ export class CheckpointStatusHistory {
     enum: CheckpointStatus,
   })
   newStatus: CheckpointStatus;
+
+  @Column({ type: 'int', nullable: true })
+  changedByUserId?: number;
+
+  @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'changedByUserId' })
+  changedByUser?: User;
 
   @CreateDateColumn()
   changedAt: Date;

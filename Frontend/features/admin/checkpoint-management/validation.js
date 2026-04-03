@@ -60,15 +60,16 @@ function validateLength(value, field, label, min, max, errors) {
 /**
  * Validates the checkpoint data for both creation and update.
  */
-export async function validateCheckpointData(data) {
+export async function validateCheckpointData(data, options = {}) {
   const errors = [];
+  const requireStatus = options.requireStatus !== false;
 
   validateLength(data?.name, 'name', 'Checkpoint Name', 3, 100, errors);
   validateLength(data?.location, 'location', 'Location', 3, 255, errors);
 
-  if (!isRequired(data?.status)) {
+  if (requireStatus && !isRequired(data?.status)) {
     pushFieldError(errors, 'status', 'Status is required.');
-  } else if (!isValidStatus(data?.status)) {
+  } else if (data?.status && !isValidStatus(data?.status)) {
     pushFieldError(errors, 'status', 'Please select a valid status.');
   }
 
@@ -96,9 +97,10 @@ export async function validateCheckpointData(data) {
 export function collectCheckpointFormData(form) {
   const name = normalizeText(getFieldElement(form, 'name')?.value);
   const location = normalizeText(getFieldElement(form, 'location')?.value);
-  const status = normalizeText(
-    getFieldElement(form, 'status')?.value,
-  ).toUpperCase();
+  const statusField = getFieldElement(form, 'status');
+  const status = statusField?.disabled
+    ? ''
+    : normalizeText(statusField?.value).toUpperCase();
   const notes = normalizeText(getFieldElement(form, 'notes')?.value);
 
   return {
@@ -112,8 +114,8 @@ export function collectCheckpointFormData(form) {
 /**
  * Validates the form payload and returns a status object.
  */
-export async function validateCheckpointPayload(payload) {
-  const errorList = await validateCheckpointData(payload);
+export async function validateCheckpointPayload(payload, options = {}) {
+  const errorList = await validateCheckpointData(payload, options);
 
   return {
     isValid: errorList.length === 0,

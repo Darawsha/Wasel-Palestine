@@ -56,6 +56,7 @@ export function bindEditCheckpointSave(overlay, options = {}) {
   const saveButton =
     overlay?.querySelector('#editIncidentSaveBtn') ||
     overlay?.querySelector('#editCheckpointSaveBtn');
+  const statusField = form?.querySelector('#cpStatus');
 
   if (!form) return;
 
@@ -86,7 +87,9 @@ export function bindEditCheckpointSave(overlay, options = {}) {
     const payload = collectCheckpointFormData(form);
 
     try {
-      const validationResult = await validateCheckpointPayload(payload);
+      const validationResult = await validateCheckpointPayload(payload, {
+        requireStatus: !statusField?.disabled,
+      });
 
       if (!validationResult.isValid) {
         applyValidationErrors(form, validationResult.errors);
@@ -96,6 +99,10 @@ export function bindEditCheckpointSave(overlay, options = {}) {
 
         setButtonState(saveButton, false);
         return;
+      }
+
+      if (statusField?.disabled) {
+        delete payload.status;
       }
 
       const updatedCheckpoint = await updateExistingCheckpoint(

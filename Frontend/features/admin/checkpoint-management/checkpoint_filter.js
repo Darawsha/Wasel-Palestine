@@ -8,8 +8,13 @@ const SEARCH_FILTER_SELECTOR = '[data-checkpoint-search-filter]';
  */
 export function getFilters(root) {
   if (!root) return {};
+
+  const selectedStatus =
+    root.querySelector(STATUS_FILTER_SELECTOR)?.value || '';
+
   return {
-    status: root.querySelector(STATUS_FILTER_SELECTOR)?.value || '',
+    currentStatus: selectedStatus,
+    status: selectedStatus,
     search: root.querySelector(SEARCH_FILTER_SELECTOR)?.value || '',
   };
 }

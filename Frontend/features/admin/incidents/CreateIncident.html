@@ -1,74 +1,156 @@
 <div class="create-incident-card">
-    <div class="modal-header">
-        <h2 class="modal-title">Create New Incident</h2>
-        <button type="button" class="btn-close" id="createIncidentCloseBtn" aria-label="Close">
-            <span class="material-symbols-outlined">close</span>
-        </button>
+  <div class="modal-header">
+    <h2 class="modal-title">Create New Incident</h2>
+    <button
+      type="button"
+      class="btn-close"
+      id="createIncidentCloseBtn"
+      aria-label="Close"
+    >
+      <span class="material-symbols-outlined">close</span>
+    </button>
+  </div>
+
+  <form id="createIncidentForm" novalidate>
+    <div class="form-group">
+      <label for="incidentTitle"
+        >Title <span class="text-danger">*</span></label
+      >
+      <div class="input-wrapper">
+        <span class="material-symbols-outlined icon-left">title</span>
+        <input
+          type="text"
+          id="incidentTitle"
+          placeholder="Enter incident title..."
+          class="pl-10"
+        />
+      </div>
     </div>
 
-    <form id="createIncidentForm" novalidate>
-        <div class="form-group">
-            <label for="incidentTitle">Title <span class="text-danger">*</span></label>
-            <div class="input-wrapper">
-                <span class="material-symbols-outlined icon-left">title</span>
-                <input type="text" id="incidentTitle" placeholder="Enter incident title..." class="pl-10" />
-            </div>
+    <div class="form-row">
+      <div class="form-group flex-1">
+        <label for="incidentType"
+          >Type <span class="text-danger">*</span></label
+        >
+        <div class="select-wrapper relative-wrapper">
+          <select id="incidentType">
+            <option value="" disabled selected hidden>Select type</option>
+            <option value="CLOSURE">Closure</option>
+            <option value="DELAY">Delay</option>
+            <option value="ACCIDENT">Accident</option>
+            <option value="WEATHER_HAZARD">Weather</option>
+          </select>
         </div>
+      </div>
+      <div class="form-group flex-1">
+        <label for="incidentSeverity"
+          >Severity <span class="text-danger">*</span></label
+        >
+        <div class="select-wrapper relative-wrapper">
+          <select id="incidentSeverity">
+            <option value="" disabled selected hidden>Select severity</option>
+            <option value="CRITICAL">Critical</option>
+            <option value="HIGH">High</option>
+            <option value="MEDIUM">Medium</option>
+            <option value="LOW">Low</option>
+          </select>
+        </div>
+      </div>
+    </div>
 
-        <div class="form-row">
-            <div class="form-group flex-1">
-                <label for="incidentType">Type <span class="text-danger">*</span></label>
-                <div class="select-wrapper relative-wrapper">
-                    <select id="incidentType">
-                        <option value="" disabled selected hidden>Select type</option>
-                        <option value="CLOSURE">Closure</option>
-                        <option value="DELAY">Delay</option>
-                        <option value="ACCIDENT">Accident</option>
-                        <option value="WEATHER_HAZARD">Weather</option>
-                    </select>
-                </div>
-            </div>
-            <div class="form-group flex-1">
-                <label for="incidentSeverity">Severity <span class="text-danger">*</span></label>
-                <div class="select-wrapper relative-wrapper">
-                    <select id="incidentSeverity">
-                        <option value="" disabled selected hidden>Select severity</option>
-                        <option value="CRITICAL">Critical</option>
-                        <option value="HIGH">High</option>
-                        <option value="MEDIUM">Medium</option>
-                        <option value="LOW">Low</option>
-                    </select>
-                </div>
-            </div>
-        </div>
+    <div class="form-group" id="incidentCheckpointGroup">
+      <label for="incidentCheckpoint">Checkpoint</label>
+      <div class="select-wrapper relative-wrapper">
+        <select id="incidentCheckpoint">
+          <option value="">No checkpoint</option>
+        </select>
+      </div>
+      <p class="field-hint">
+        Checkpoint linking is available only for closure, delay, and accident
+        incidents.
+      </p>
+    </div>
 
-        <div class="form-group">
-            <label for="incidentLocation">Location</label>
-            <div class="input-wrapper">
-                <span class="material-symbols-outlined icon-left">location_on</span>
-                <input type="text" id="incidentLocation" placeholder="Enter location (optional)..." class="pl-10" />
-            </div>
-        </div>
+    <div class="form-group" id="incidentImpactGroup" hidden>
+      <label for="incidentImpactStatus"
+        >Impact on Checkpoint <span class="text-danger">*</span></label
+      >
+      <div class="select-wrapper relative-wrapper">
+        <select id="incidentImpactStatus" disabled>
+          <option value="" selected>Select checkpoint impact</option>
+          <option value="ACTIVE">Open</option>
+          <option value="CLOSED">Closed</option>
+          <option value="RESTRICTED">Restricted</option>
+          <option value="DELAYED">Delayed</option>
+        </select>
+      </div>
+      <p class="field-hint">
+        This value becomes the linked checkpoint status while the incident is
+        active and verified.
+      </p>
+    </div>
 
-        <div class="form-group">
-            <label for="incidentDescription">Description <span class="text-danger">*</span></label>
-            <textarea id="incidentDescription" rows="3" placeholder="Describe the incident..."></textarea>
-        </div>
+    <div class="form-group">
+      <label for="incidentLocation">Location</label>
+      <div class="input-wrapper">
+        <span class="material-symbols-outlined icon-left">location_on</span>
+        <input
+          type="text"
+          id="incidentLocation"
+          placeholder="Enter location (optional)..."
+          class="pl-10"
+        />
+      </div>
+      <p class="field-hint">
+        Selecting a checkpoint locks this field to the checkpoint location.
+        Clearing the selection keeps the current coordinates and unlocks
+        editing.
+      </p>
+    </div>
 
-        <div class="form-group">
-            <label for="incidentStatus">Status</label>
-            <div class="select-wrapper relative-wrapper">
-                <select id="incidentStatus">
-                    <option value="ACTIVE" selected>Active</option>
-                    <option value="VERIFIED">Verified</option>
-                    <option value="CLOSED">Closed</option>
-                </select>
-            </div>
-        </div>
+    <div class="form-group">
+      <label for="incidentDescription"
+        >Description <span class="text-danger">*</span></label
+      >
+      <textarea
+        id="incidentDescription"
+        rows="3"
+        placeholder="Describe the incident..."
+      ></textarea>
+    </div>
 
-        <div class="form-actions mt-4">
-            <button type="button" class="btn-cancel-text" id="createIncidentCancelBtn">Cancel</button>
-            <button type="submit" class="btn-primary" id="createIncidentSaveBtn">Add Incident</button>
+    <div class="form-row">
+      <div class="form-group flex-1">
+        <label for="incidentStatus">Status</label>
+        <div class="select-wrapper relative-wrapper">
+          <select id="incidentStatus">
+            <option value="ACTIVE" selected>Active</option>
+            <option value="CLOSED">Closed</option>
+          </select>
         </div>
-    </form>
+      </div>
+      <div class="form-group flex-1">
+        <label for="incidentVerification">Verification</label>
+        <div class="select-wrapper relative-wrapper">
+          <select id="incidentVerification">
+            <option value="false" selected>Not Verified</option>
+            <option value="true">Verified</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <div class="form-actions mt-4">
+      <button
+        type="button"
+        class="btn-cancel-text"
+        id="createIncidentCancelBtn"
+      >
+        Cancel
+      </button>
+      <button type="submit" class="btn-primary" id="createIncidentSaveBtn">
+        Add Incident
+      </button>
+    </div>
+  </form>
 </div>

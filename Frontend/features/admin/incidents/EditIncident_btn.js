@@ -11,13 +11,16 @@ function fillEditIncidentForm(overlay, incident) {
   form.querySelector('#editIncidentType').value = incident.type || '';
   form.querySelector('#editIncidentSeverity').value = incident.severity || '';
 
-  form.querySelector('#editIncidentLocation').value =
-    incident.location ||
-    incident.checkpoint?.name ||
-    incident.checkpointId ||
-    '';
+  form.querySelector('#editIncidentLocation').value = incident.location || '';
+  form.querySelector('#editIncidentImpactStatus').value =
+    incident.impactStatus || '';
 
-  form.querySelector('#editIncidentStatus').value = incident.status || 'ACTIVE';
+  const normalizedStatus =
+    incident.status === 'VERIFIED' ? 'ACTIVE' : incident.status || 'ACTIVE';
+  form.querySelector('#editIncidentStatus').value = normalizedStatus;
+  form.querySelector('#editIncidentVerification').value = incident.isVerified
+    ? 'true'
+    : 'false';
 }
 
 function closeModal(overlay) {
@@ -82,6 +85,28 @@ export async function openEditIncidentModal(incident) {
 
   const overlay = await ensureEditIncidentOverlay();
   fillEditIncidentForm(overlay, incident);
+
+  const form = overlay?.querySelector('#editIncidentForm');
+  if (form) {
+    const { initializeIncidentCheckpointSync } = await import(
+      '/features/admin/incidents/incident_checkpoint_sync.js'
+    );
+
+    await initializeIncidentCheckpointSync(form, {
+      checkpointSelector: '#editIncidentCheckpoint',
+      checkpointContainerSelector: '#editIncidentCheckpointGroup',
+      impactSelector: '#editIncidentImpactStatus',
+      impactContainerSelector: '#editIncidentImpactGroup',
+      typeSelector: '#editIncidentType',
+      locationSelector: '#editIncidentLocation',
+      initialCheckpointId: incident.checkpoint?.id ?? incident.checkpointId,
+      initialCheckpoint: incident.checkpoint,
+      initialImpactStatus: incident.impactStatus,
+      initialLocation: incident.location,
+      initialLatitude: incident.latitude,
+      initialLongitude: incident.longitude,
+    });
+  }
 
   const { bindEditIncidentSave } =
     await import('/features/admin/incidents/update_btn.js');

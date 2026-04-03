@@ -1,32 +1,36 @@
 import {
   BadRequestException,
+  ConflictException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { Incident } from './entities/incident.entity';
+
 import { Checkpoint } from '../checkpoints/entities/checkpoint.entity';
-import { IncidentStatusHistory } from './entities/status-history.entity';
 import { CreateIncidentDto } from './dto/create-incident.dto';
-import { UpdateIncidentDto } from './dto/update-incident.dto';
+import { getHaversineDistanceSql } from '../../common/utils/geo.util';
 import {
   IncidentQueryDto,
   IncidentSortBy,
   SortOrder,
 } from './dto/incident-query.dto';
+import { PaginationQueryDto } from './dto/pagination-query.dto';
+import { UpdateIncidentDto } from './dto/update-incident.dto';
+import { Incident } from './entities/incident.entity';
+import { IncidentStatusHistory } from './entities/status-history.entity';
 import { IncidentStatus } from './enums/incident-status.enum';
-import { SortStrategy } from './strategies/sort.strategy';
-import { CheckpointStrategy } from './strategies/checkpoint.strategy';
-import {
-  SeverityStrategy,
-  SeverityUpdateStrategy,
-} from './strategies/severity.strategy';
-import { TypeStrategy } from './strategies/type.strategy';
-import { StatusStrategy } from './strategies/status.strategy';
-import { TitleStrategy } from './strategies/title.strategy';
-import { DescriptionStrategy } from './strategies/description.strategy';
-import { TypeUpdateStrategy } from './strategies/type-update.strategy';
+import { IncidentAlertObserver } from './observers/incident-created.observer';
+import { IncidentQueryStrategyService } from './services/incident-query-strategy.service';
+import { IncidentStatusLifecycleService } from './services/incident-status-lifecycle.service';
+import { IncidentUpdateStrategyService } from './services/incident-update-strategy.service';
+import { IncidentCheckpointSyncService } from './sync/incident-checkpoint-sync.service';
+import { MapFilterQueryDto } from '../map/dto/map-filter-query.dto';
+
+type IncidentAlertState = {
+  isVerified: boolean;
+  status: IncidentStatus;
+};
 
 @Injectable()
 export class IncidentsService {
@@ -34,24 +38,75 @@ export class IncidentsService {
     @InjectRepository(Incident)
     private readonly incidentsRepository: Repository<Incident>,
 
-    @InjectRepository(Checkpoint)
-    private readonly checkpointsRepository: Repository<Checkpoint>,
-
     @InjectRepository(IncidentStatusHistory)
     private readonly incidentStatusHistoryRepository: Repository<IncidentStatusHistory>,
+
+    private readonly incidentQueryStrategyService: IncidentQueryStrategyService,
+    private readonly incidentUpdateStrategyService: IncidentUpdateStrategyService,
+    private readonly incidentStatusLifecycleService: IncidentStatusLifecycleService,
+    private readonly incidentAlertObserver: IncidentAlertObserver,
+    private readonly incidentCheckpointSyncService: IncidentCheckpointSyncService,
   ) {}
 
-  async create(createIncidentDto: CreateIncidentDto): Promise<Incident> {
-    let checkpoint: Checkpoint | null = null;
+  async verifyIncident(id: number) {
+    const incident = await this.findOne(id);
+    const previousAlertState = this.createIncidentAlertState(incident);
+    const previousSnapshot =
+      this.incidentCheckpointSyncService.createCheckpointSnapshot(incident);
 
-    if (createIncidentDto.checkpointId) {
-      checkpoint = await this.checkpointsRepository.findOne({
-        where: { id: createIncidentDto.checkpointId },
+    if (incident.isVerified || incident.verifiedAt) {
+      return { message: 'Incident is already verified' };
+    }
+
+    this.incidentCheckpointSyncService.applyIncidentVerificationState(
+      incident,
+      true,
+    );
+
+    const updatedIncident =
+      await this.incidentCheckpointSyncService.saveIncident({
+        incident,
+        previousSnapshot,
       });
 
-      if (!checkpoint) {
-        throw new NotFoundException(
-          `Checkpoint with id ${createIncidentDto.checkpointId} not found`,
+    this.dispatchPostCommitAlerts(updatedIncident, previousAlertState);
+
+    return updatedIncident;
+  }
+
+  async create(
+    createIncidentDto: CreateIncidentDto,
+    changedByUserId?: number,
+  ): Promise<Incident> {
+    const nextStatus = createIncidentDto.status ?? IncidentStatus.ACTIVE;
+
+    if (nextStatus === IncidentStatus.ACTIVE) {
+      await this.ensureNoOtherActiveIncidentWithTitle(createIncidentDto.title);
+    }
+
+    if (
+      createIncidentDto.latitude !== undefined &&
+      createIncidentDto.longitude !== undefined &&
+      createIncidentDto.latitude !== null &&
+      createIncidentDto.longitude !== null
+    ) {
+      const distanceThreshold = 50;
+
+      const existingByLocation = await this.incidentsRepository
+        .createQueryBuilder('incident')
+        .where('incident.status = :status', { status: IncidentStatus.ACTIVE })
+        .andWhere(`${getHaversineDistanceSql('incident')} < :distance`, {
+          distance: distanceThreshold,
+        })
+        .setParameters({
+          lat: createIncidentDto.latitude,
+          lng: createIncidentDto.longitude,
+        })
+        .getOne();
+
+      if (existingByLocation) {
+        throw new ConflictException(
+          'Duplicate Alert: An active incident is already reported within 50 meters of this exact location.',
         );
       }
     }
@@ -59,16 +114,40 @@ export class IncidentsService {
     const incident = this.incidentsRepository.create({
       title: createIncidentDto.title,
       description: createIncidentDto.description,
-      latitude: createIncidentDto?.latitude,
-      longitude: createIncidentDto?.longitude,
-      location: createIncidentDto.location ?? undefined,
       type: createIncidentDto.type,
       severity: createIncidentDto.severity,
-      status: createIncidentDto.status ?? IncidentStatus.ACTIVE,
-      checkpoint: checkpoint ?? undefined,
+      status: nextStatus,
+      impactStatus: createIncidentDto.impactStatus,
+      checkpoint:
+        createIncidentDto.checkpointId !== undefined &&
+        createIncidentDto.checkpointId !== null
+          ? ({ id: createIncidentDto.checkpointId } as Checkpoint)
+          : undefined,
     });
 
-    return this.incidentsRepository.save(incident);
+    this.incidentCheckpointSyncService.applyIncidentLocationSnapshot(incident, {
+      location: createIncidentDto.location,
+      latitude: createIncidentDto.latitude,
+      longitude: createIncidentDto.longitude,
+    });
+
+    this.incidentCheckpointSyncService.applyIncidentVerificationState(
+      incident,
+      createIncidentDto.isVerified ?? false,
+      changedByUserId,
+      { defaultToFalse: true },
+    );
+
+    const savedIncident = await this.incidentCheckpointSyncService.saveIncident(
+      {
+        incident,
+        changedByUserId,
+      },
+    );
+
+    this.dispatchPostCommitAlerts(savedIncident);
+
+    return savedIncident;
   }
 
   async findAll(incidentQueryDto: IncidentQueryDto) {
@@ -87,11 +166,14 @@ export class IncidentsService {
       .createQueryBuilder('incident')
       .leftJoinAndSelect('incident.checkpoint', 'checkpoint');
 
-    StatusStrategy.apply(queryBuilder, status);
-    TypeStrategy.apply(queryBuilder, type);
-    SeverityStrategy.apply(queryBuilder, severity);
-    CheckpointStrategy.apply(queryBuilder, checkpointId);
-    SortStrategy.apply(queryBuilder, sortBy, sortOrder);
+    this.incidentQueryStrategyService.apply(queryBuilder, {
+      status,
+      type,
+      severity,
+      checkpointId,
+      sortBy,
+      sortOrder,
+    });
 
     queryBuilder.skip((page - 1) * limit).take(limit);
 
@@ -106,6 +188,150 @@ export class IncidentsService {
         totalPages: Math.ceil(total / limit),
       },
     };
+  }
+
+  async findAllPaginated(paginationQuery: PaginationQueryDto) {
+    const {
+      page = 1,
+      limit = 10,
+      status,
+      type,
+      severity,
+      isVerified,
+      checkpointId,
+      search,
+      startDate,
+      endDate,
+      sortBy = IncidentSortBy.CREATED_AT,
+      sortOrder = SortOrder.DESC,
+    } = paginationQuery;
+
+    this.assertValidPaginationDateRange(startDate, endDate);
+
+    const queryBuilder = this.incidentsRepository
+      .createQueryBuilder('incident')
+      .leftJoinAndSelect('incident.checkpoint', 'checkpoint');
+
+    if (status) {
+      queryBuilder.andWhere('incident.status = :status', { status });
+    }
+
+    if (type) {
+      queryBuilder.andWhere('incident.type = :type', { type });
+    }
+
+    if (severity) {
+      queryBuilder.andWhere('incident.severity = :severity', { severity });
+    }
+
+    if (typeof isVerified === 'boolean') {
+      queryBuilder.andWhere('incident.isVerified = :isVerified', {
+        isVerified,
+      });
+    }
+
+    if (checkpointId) {
+      queryBuilder.andWhere('incident.checkpointId = :checkpointId', {
+        checkpointId,
+      });
+    }
+
+    if (search) {
+      const normalizedSearch = `%${search.toLowerCase()}%`;
+      queryBuilder.andWhere(
+        `(
+          LOWER(incident.title) LIKE :search OR
+          LOWER(incident.description) LIKE :search OR
+          LOWER(COALESCE(incident.location, '')) LIKE :search
+        )`,
+        { search: normalizedSearch },
+      );
+    }
+
+    if (startDate) {
+      queryBuilder.andWhere('incident.createdAt >= :startDate', { startDate });
+    }
+
+    if (endDate) {
+      queryBuilder.andWhere('incident.createdAt <= :endDate', { endDate });
+    }
+
+    queryBuilder.orderBy(`incident.${sortBy}`, sortOrder);
+    queryBuilder.skip((page - 1) * limit).take(limit);
+
+    const [data, total] = await queryBuilder.getManyAndCount();
+
+    return {
+      data,
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
+  }
+
+  async getFilteredIncidents(filterDto: MapFilterQueryDto): Promise<Incident[]> {
+    const { types, severity, startDate, endDate } = filterDto;
+    this.assertValidMapDateRange(startDate, endDate);
+
+    const hasDateRange = Boolean(startDate && endDate);
+
+    if (hasDateRange) {
+      const historyQueryBuilder = this.incidentStatusHistoryRepository
+        .createQueryBuilder('incidentHistory')
+        .innerJoin('incidentHistory.incident', 'incident')
+        .where('incidentHistory.changedAt BETWEEN :startDate AND :endDate', {
+          startDate,
+          endDate,
+        });
+
+      if (types && types.length > 0) {
+        historyQueryBuilder.andWhere('incident.type IN (:...types)', { types });
+      }
+
+      if (severity) {
+        historyQueryBuilder.andWhere('incident.severity = :severity', {
+          severity,
+        });
+      }
+
+      const rawIncidentIds = await historyQueryBuilder
+        .select('DISTINCT incident.id', 'id')
+        .orderBy('incident.id', 'ASC')
+        .getRawMany<{ id: number | string }>();
+
+      const incidentIds = rawIncidentIds
+        .map((row) => Number(row.id))
+        .filter((id) => Number.isInteger(id) && id > 0);
+
+      if (incidentIds.length === 0) {
+        return [];
+      }
+
+      return this.incidentsRepository
+        .createQueryBuilder('incident')
+        .leftJoinAndSelect('incident.checkpoint', 'checkpoint')
+        .where('incident.id IN (:...incidentIds)', { incidentIds })
+        .orderBy('incident.updatedAt', 'DESC')
+        .getMany();
+    }
+
+    const queryBuilder = this.incidentsRepository
+      .createQueryBuilder('incident')
+      .leftJoinAndSelect('incident.checkpoint', 'checkpoint')
+      .where('incident.status = :status', { status: IncidentStatus.ACTIVE });
+
+    if (types && types.length > 0) {
+      queryBuilder.andWhere('incident.type IN (:...types)', { types });
+    }
+
+    if (severity) {
+      queryBuilder.andWhere('incident.severity = :severity', { severity });
+    }
+
+    return queryBuilder.orderBy('incident.updatedAt', 'DESC').getMany();
   }
 
   async findOne(id: number): Promise<Incident> {
@@ -127,86 +353,134 @@ export class IncidentsService {
     changedByUserId?: number,
   ): Promise<Incident> {
     const incident = await this.findOne(id);
+    const previousAlertState = this.createIncidentAlertState(incident);
     const previousStatus = incident.status;
+    const previousSnapshot =
+      this.incidentCheckpointSyncService.createCheckpointSnapshot(incident);
 
     if (updateIncidentDto.checkpointId !== undefined) {
       if (updateIncidentDto.checkpointId === null) {
         incident.checkpoint = undefined;
+        incident.checkpointId = null;
+        incident.impactStatus = null;
       } else {
-        const checkpoint = await this.checkpointsRepository.findOne({
-          where: { id: updateIncidentDto.checkpointId },
-        });
-
-        if (!checkpoint) {
-          throw new NotFoundException(
-            `Checkpoint with id ${updateIncidentDto.checkpointId} not found`,
-          );
-        }
-
-        incident.checkpoint = checkpoint;
+        incident.checkpoint = {
+          id: updateIncidentDto.checkpointId,
+        } as Checkpoint;
       }
     }
 
-    TitleStrategy.apply(incident, updateIncidentDto);
-    DescriptionStrategy.apply(incident, updateIncidentDto);
+    this.incidentUpdateStrategyService.apply(incident, updateIncidentDto);
 
-    TypeUpdateStrategy.apply(incident, updateIncidentDto);
-    SeverityUpdateStrategy.apply(incident, updateIncidentDto);
+    this.incidentCheckpointSyncService.applyIncidentLocationSnapshot(incident, {
+      location: updateIncidentDto.location,
+      latitude: updateIncidentDto.latitude,
+      longitude: updateIncidentDto.longitude,
+    });
 
-    if (updateIncidentDto.location !== undefined) {
-      incident.location = updateIncidentDto.location ?? undefined;
-    }
-
-    if (
-      updateIncidentDto.latitude !== undefined ||
-      updateIncidentDto.longitude !== undefined
-    ) {
-      incident.latitude = updateIncidentDto.latitude;
-      incident.longitude = updateIncidentDto.longitude;
-    }
-
-    this.applyStatusUpdate(incident, updateIncidentDto.status, changedByUserId);
-
-    return this.saveIncidentWithHistory(
+    this.incidentStatusLifecycleService.applyStatusUpdate(
       incident,
-      previousStatus,
+      updateIncidentDto.status,
       changedByUserId,
     );
+
+    if (incident.status === IncidentStatus.ACTIVE) {
+      await this.ensureNoOtherActiveIncidentWithTitle(
+        incident.title,
+        incident.id,
+      );
+    }
+
+    this.incidentCheckpointSyncService.applyIncidentVerificationState(
+      incident,
+      updateIncidentDto.isVerified,
+      changedByUserId,
+    );
+
+    const savedIncident = await this.incidentCheckpointSyncService.saveIncident(
+      {
+        incident,
+        previousSnapshot,
+        previousStatus,
+        changedByUserId,
+      },
+    );
+
+    this.dispatchPostCommitAlerts(savedIncident, previousAlertState);
+
+    return savedIncident;
   }
 
   async verify(id: number, userId: number): Promise<Incident> {
     const incident = await this.findOne(id);
-    const previousStatus = incident.status;
+    const previousAlertState = this.createIncidentAlertState(incident);
+    const previousSnapshot =
+      this.incidentCheckpointSyncService.createCheckpointSnapshot(incident);
 
     if (incident.status === IncidentStatus.CLOSED) {
       throw new BadRequestException('Closed incident cannot be verified');
     }
 
-    if (incident.status === IncidentStatus.VERIFIED) {
-      throw new BadRequestException('Incident is already verified');
+    if (incident.isVerified || incident.verifiedAt) {
+      throw new BadRequestException('Incident is already verified by admin');
     }
 
-    this.applyStatusSnapshot(incident, IncidentStatus.VERIFIED, userId);
+    this.incidentCheckpointSyncService.applyIncidentVerificationState(
+      incident,
+      true,
+      userId,
+    );
 
-    return this.saveIncidentWithHistory(incident, previousStatus, userId);
+    const savedIncident = await this.incidentCheckpointSyncService.saveIncident(
+      {
+        incident,
+        previousSnapshot,
+        changedByUserId: userId,
+      },
+    );
+
+    this.dispatchPostCommitAlerts(savedIncident, previousAlertState);
+
+    return savedIncident;
   }
 
   async close(id: number, userId: number): Promise<Incident> {
     const incident = await this.findOne(id);
+    const previousAlertState = this.createIncidentAlertState(incident);
     const previousStatus = incident.status;
+    const previousSnapshot =
+      this.incidentCheckpointSyncService.createCheckpointSnapshot(incident);
 
     if (incident.status === IncidentStatus.CLOSED) {
       throw new BadRequestException('Incident is already closed');
     }
 
-    this.applyStatusSnapshot(incident, IncidentStatus.CLOSED, userId);
+    this.incidentStatusLifecycleService.applyStatusSnapshot(
+      incident,
+      IncidentStatus.CLOSED,
+      userId,
+    );
 
-    return this.saveIncidentWithHistory(incident, previousStatus, userId);
+    const savedIncident = await this.incidentCheckpointSyncService.saveIncident(
+      {
+        incident,
+        previousSnapshot,
+        previousStatus,
+        changedByUserId: userId,
+      },
+    );
+
+    this.dispatchPostCommitAlerts(savedIncident, previousAlertState);
+
+    return savedIncident;
   }
 
-  async remove(id: number): Promise<void> {
+  async remove(id: number, changedByUserId?: number): Promise<void> {
     const incident = await this.findOne(id);
-    await this.incidentsRepository.remove(incident);
+    await this.incidentCheckpointSyncService.removeIncident(
+      incident,
+      changedByUserId,
+    );
   }
 
   async countIncidents(): Promise<number> {
@@ -286,6 +560,7 @@ export class IncidentsService {
       points,
     };
   }
+
   async getHistory(id: number): Promise<IncidentStatusHistory[]> {
     await this.findOne(id);
 
@@ -300,84 +575,126 @@ export class IncidentsService {
     });
   }
 
-  private applyStatusUpdate(
-    incident: Incident,
-    nextStatus: IncidentStatus | undefined,
-    changedByUserId?: number,
-  ): void {
-    if (nextStatus === undefined || nextStatus === incident.status) {
-      return;
-    }
-
-    this.applyStatusSnapshot(incident, nextStatus, changedByUserId);
-  }
-
-  private applyStatusSnapshot(
-    incident: Incident,
-    nextStatus: IncidentStatus,
-    changedByUserId?: number,
-  ): void {
-    const changedAt = new Date();
-    incident.status = nextStatus;
-
-    if (nextStatus === IncidentStatus.ACTIVE) {
-      incident.verifiedByUserId = undefined;
-      incident.verifiedAt = undefined;
-      incident.closedByUserId = undefined;
-      incident.closedAt = undefined;
-      return;
-    }
-
-    if (nextStatus === IncidentStatus.VERIFIED) {
-      incident.verifiedByUserId = changedByUserId;
-      incident.verifiedAt = changedAt;
-      incident.closedByUserId = undefined;
-      incident.closedAt = undefined;
-      return;
-    }
-
-    if (nextStatus === IncidentStatus.CLOSED) {
-      incident.closedByUserId = changedByUserId;
-      incident.closedAt = changedAt;
-    }
-  }
-
-  private async saveIncidentWithHistory(
-    incident: Incident,
-    previousStatus: IncidentStatus,
-    changedByUserId?: number,
-  ): Promise<Incident> {
-    const hasStatusChange = previousStatus !== incident.status;
-
-    return this.incidentsRepository.manager.transaction(async (manager) => {
-      const incidentRepository = manager.getRepository(Incident);
-      const savedIncident = await incidentRepository.save(incident);
-
-      if (!hasStatusChange) {
-        return savedIncident;
-      }
-
-      const incidentStatusHistoryRepository = manager.getRepository(
-        IncidentStatusHistory,
-      );
-
-      const historyRecord = incidentStatusHistoryRepository.create({
-        incident: savedIncident,
-        oldStatus: previousStatus,
-        newStatus: savedIncident.status,
-        changedByUserId,
-      });
-
-      await incidentStatusHistoryRepository.save(historyRecord);
-      return savedIncident;
-    });
-  }
-
   async findAllIncidents(incidentQueryDto: IncidentQueryDto) {
     const result = await this.findAll(incidentQueryDto);
     return {
       data: result.data,
       meta: result.meta,
     };
+  }
+
+  private createIncidentAlertState(incident: Incident): IncidentAlertState {
+    return {
+      isVerified: Boolean(incident.isVerified),
+      status: incident.status,
+    };
+  }
+
+  private async ensureNoOtherActiveIncidentWithTitle(
+    title: string,
+    currentIncidentId?: number,
+  ): Promise<void> {
+    const queryBuilder = this.incidentsRepository
+      .createQueryBuilder('incident')
+      .where('incident.title = :title', { title })
+      .andWhere('incident.status = :status', {
+        status: IncidentStatus.ACTIVE,
+      });
+
+    if (currentIncidentId !== undefined) {
+      queryBuilder.andWhere('incident.id != :currentIncidentId', {
+        currentIncidentId,
+      });
+    }
+
+    const existingIncident = await queryBuilder.getOne();
+
+    if (existingIncident) {
+      throw new ConflictException(
+        'Duplicate Alert: An active incident with this exact title already exists.',
+      );
+    }
+  }
+
+  private dispatchPostCommitAlerts(
+    incident: Incident,
+    previousState?: IncidentAlertState,
+  ): void {
+    if (this.didTransitionToVerifiedActive(previousState, incident)) {
+      this.incidentAlertObserver.notifyIncidentVerified(incident);
+    }
+
+    if (this.didTransitionToClosed(previousState, incident)) {
+      this.incidentAlertObserver.notifyIncidentResolved(incident);
+    }
+  }
+
+  private didTransitionToVerifiedActive(
+    previousState: IncidentAlertState | undefined,
+    incident: Incident,
+  ): boolean {
+    const isCurrentVerifiedActive =
+      incident.isVerified && incident.status === IncidentStatus.ACTIVE;
+
+    if (!isCurrentVerifiedActive) {
+      return false;
+    }
+
+    if (!previousState) {
+      return true;
+    }
+
+    return !(
+      previousState.isVerified && previousState.status === IncidentStatus.ACTIVE
+    );
+  }
+
+  private didTransitionToClosed(
+    previousState: IncidentAlertState | undefined,
+    incident: Incident,
+  ): boolean {
+    if (!previousState) {
+      return false;
+    }
+
+    return (
+      previousState.status !== IncidentStatus.CLOSED &&
+      incident.status === IncidentStatus.CLOSED
+    );
+  }
+
+  private assertValidMapDateRange(
+    startDate?: Date,
+    endDate?: Date,
+  ): void {
+    const hasStartDate = Boolean(startDate);
+    const hasEndDate = Boolean(endDate);
+
+    if (hasStartDate !== hasEndDate) {
+      throw new BadRequestException(
+        'startDate and endDate must be provided together.',
+      );
+    }
+
+    if (!hasStartDate || !hasEndDate) {
+      return;
+    }
+
+    if (startDate.getTime() > endDate.getTime()) {
+      throw new BadRequestException('startDate must be before endDate.');
+    }
+  }
+
+  private assertValidPaginationDateRange(
+    startDate?: Date,
+    endDate?: Date,
+  ): void {
+    if (!startDate || !endDate) {
+      return;
+    }
+
+    if (startDate.getTime() > endDate.getTime()) {
+      throw new BadRequestException('startDate must be before endDate.');
+    }
   }
 }

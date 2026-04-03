@@ -8,6 +8,7 @@ import {
   Delete,
   ParseIntPipe,
   Query,
+  Request,
   UseGuards,
 } from '@nestjs/common';
 import { CheckpointsService } from './checkpoints.service';
@@ -71,8 +72,13 @@ export class CheckpointsController {
   update(
     @Param('id', ParseIntPipe) id: number,
     @Body() updateCheckpointDto: UpdateCheckpointDto,
+    @Request() req,
   ) {
-    return this.checkpointsService.update(id, updateCheckpointDto);
+    return this.checkpointsService.update(
+      id,
+      updateCheckpointDto,
+      req.user.userId,
+    );
   }
 
   @Roles(UserRole.ADMIN)
@@ -80,8 +86,13 @@ export class CheckpointsController {
   updateStatus(
     @Param('id', ParseIntPipe) id: number,
     @Body() updateStatusDto: UpdateStatusDto,
+    @Request() req,
   ) {
-    return this.checkpointsService.updateStatus(id, updateStatusDto);
+    return this.checkpointsService.updateStatus(
+      id,
+      updateStatusDto,
+      req.user.userId,
+    );
   }
 
   @Roles(UserRole.ADMIN)

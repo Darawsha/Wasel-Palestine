@@ -92,10 +92,7 @@ export function bindEditIncidentSave(overlay, options = {}) {
 
     const payload = collectEditIncidentFormData(form);
 
-    const checkpointId = parseInt(payload.location) || undefined;
-    payload.checkpointId = checkpointId;
-
-    const validationResult = await validateEditIncidentPayload(payload);
+    const validationResult = await validateEditIncidentPayload(form, payload);
 
     if (!validationResult.isValid) {
       applyEditValidationErrors(form, validationResult.errors);

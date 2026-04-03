@@ -19,7 +19,9 @@
   let localIncidents = [];
 
   function getIncidentById(id) {
-    return localIncidents.find((incident) => incident.id === Number(id)) || null;
+    return (
+      localIncidents.find((incident) => incident.id === Number(id)) || null
+    );
   }
 
   function getPageRoot() {
@@ -40,18 +42,18 @@
     const totalPages =
       total > 0
         ? Math.max(
-          Number.isFinite(reportedTotalPages) && reportedTotalPages > 0
-            ? Math.floor(reportedTotalPages)
-            : 0,
-          Math.ceil(total / limit),
-        )
+            Number.isFinite(reportedTotalPages) && reportedTotalPages > 0
+              ? Math.floor(reportedTotalPages)
+              : 0,
+            Math.ceil(total / limit),
+          )
         : 0;
     const page =
       totalPages > 0
         ? Math.min(
-          normalizePositiveInteger(meta.page, DEFAULT_PAGE),
-          totalPages,
-        )
+            normalizePositiveInteger(meta.page, DEFAULT_PAGE),
+            totalPages,
+          )
         : DEFAULT_PAGE;
 
     return { total, page, limit, totalPages };
@@ -112,12 +114,16 @@
       case 'ACTIVE':
         return 'Active';
       case 'VERIFIED':
-        return 'Verified';
+        return 'Active';
       case 'CLOSED':
         return 'Closed';
       default:
         return 'N/A';
     }
+  }
+
+  function formatVerificationLabel(isVerified) {
+    return isVerified ? 'Yes' : 'No';
   }
 
   function getTypeBadgeClass(type) {
@@ -155,7 +161,7 @@
       case 'ACTIVE':
         return 'badge-active';
       case 'VERIFIED':
-        return 'badge-verified';
+        return 'badge-active';
       case 'CLOSED':
         return 'badge-closed';
       default:
@@ -163,8 +169,13 @@
     }
   }
 
+  function getVerificationBadgeClass(isVerified) {
+    return isVerified ? 'badge-active' : 'badge-closed';
+  }
+
   function buildIncidentRow(incident) {
     const row = document.createElement('tr');
+    const checkpointName = incident?.checkpoint?.name || 'N/A';
     const location = incident?.location || 'N/A';
 
     row.innerHTML = `
@@ -176,7 +187,11 @@
       <td>
         <span class="severity-badge ${getSeverityBadgeClass(incident?.severity)}">${escapeHtml(formatSeverityLabel(incident?.severity))}</span>
       </td>
+      <td class="cell-checkpoint">${escapeHtml(checkpointName)}</td>
       <td class="cell-location">${escapeHtml(location)}</td>
+      <td>
+        <span class="status-badge ${getVerificationBadgeClass(incident?.isVerified)}">${escapeHtml(formatVerificationLabel(incident?.isVerified))}</span>
+      </td>
       <td>
         <span class="status-badge ${getStatusBadgeClass(incident?.status)}">${escapeHtml(formatStatusLabel(incident?.status))}</span>
       </td>
@@ -193,7 +208,7 @@
 
   function buildMessageRow(message) {
     const row = document.createElement('tr');
-    row.innerHTML = `<td colspan="9" class="text-center">${escapeHtml(message)}</td>`;
+    row.innerHTML = `<td colspan="11" class="text-center">${escapeHtml(message)}</td>`;
     return row;
   }
 
@@ -241,23 +256,28 @@
     rangeElement.textContent = `${start}-${end}`;
   }
 
-
-
   function getDependencies() {
     if (!dependenciesPromise) {
       dependenciesPromise = Promise.all([
         import('/Controllers/incidents.controller.js'),
         import('./incidents_filter.js'),
         import('./pagination.js'),
-        import('./incident_actions.js')
-      ]).then(([controllerModule, filterModule, paginationModule, actionMenuModule]) => ({
-        loadIncidentsPage: controllerModule.loadIncidentsPage,
-        getFilters: filterModule.getFilters,
-        bindFilters: filterModule.bindFilters,
-        bindFrontendSearch: filterModule.bindFrontendSearch,
-        renderPagination: paginationModule.renderPagination,
-        bindIncidentActionMenus: actionMenuModule.bindIncidentActionMenus,
-      }));
+        import('./incident_actions.js'),
+      ]).then(
+        ([
+          controllerModule,
+          filterModule,
+          paginationModule,
+          actionMenuModule,
+        ]) => ({
+          loadIncidentsPage: controllerModule.loadIncidentsPage,
+          getFilters: filterModule.getFilters,
+          bindFilters: filterModule.bindFilters,
+          bindFrontendSearch: filterModule.bindFrontendSearch,
+          renderPagination: paginationModule.renderPagination,
+          bindIncidentActionMenus: actionMenuModule.bindIncidentActionMenus,
+        }),
+      );
     }
     return dependenciesPromise;
   }
@@ -278,7 +298,8 @@
     root.dataset.incidentsState = 'loading';
 
     try {
-      const { loadIncidentsPage, getFilters, renderPagination } = await getDependencies();
+      const { loadIncidentsPage, getFilters, renderPagination } =
+        await getDependencies();
 
       const response = await loadIncidentsPage({
         page: requestedPage,
@@ -321,8 +342,8 @@
     }
     root.dataset.incidentsInitialized = 'true';
 
-
-    const { bindFilters, bindFrontendSearch, bindIncidentActionMenus } = await getDependencies();
+    const { bindFilters, bindFrontendSearch, bindIncidentActionMenus } =
+      await getDependencies();
     bindFrontendSearch(root, TABLE_BODY_SELECTOR);
 
     bindIncidentActionMenus(root, { getIncidentById });
@@ -359,6 +380,10 @@
     });
 
     document.addEventListener('admin:incident-deleted', () => {
+      loadIncidentPage(pageState.page);
+    });
+
+    document.addEventListener('admin:checkpoint-updated', () => {
       loadIncidentPage(pageState.page);
     });
 

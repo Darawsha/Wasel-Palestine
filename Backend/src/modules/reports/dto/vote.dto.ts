@@ -1,9 +1,11 @@
-import { IsEnum, IsNumber } from 'class-validator';
+import { IsEnum, IsNumber, IsOptional } from 'class-validator';
 import { VoteType } from '../enums/VoteType.enum';
-export class VoteReportDto {
-  @IsNumber()
-  reportId: number;
 
+export class VoteReportDto {
   @IsEnum(VoteType)
   type: VoteType;
+
+  @IsOptional()
+  @IsNumber()
+  userId?: number;
 }

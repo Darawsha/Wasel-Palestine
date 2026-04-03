@@ -10,18 +10,24 @@ function normalizePositiveInteger(value, fallback) {
     : fallback;
 }
 
-function buildMeta(meta = {}, requestPage = DEFAULT_PAGE, requestLimit = DEFAULT_LIMIT) {
+function buildMeta(
+  meta = {},
+  requestPage = DEFAULT_PAGE,
+  requestLimit = DEFAULT_LIMIT,
+) {
   const total = Math.max(Number(meta.total) || 0, 0);
   const limit = normalizePositiveInteger(meta.limit, requestLimit);
-  const totalPages = total > 0
-    ? Math.max(Number(meta.totalPages) || 0, Math.ceil(total / limit))
-    : 0;
+  const totalPages =
+    total > 0
+      ? Math.max(Number(meta.totalPages) || 0, Math.ceil(total / limit))
+      : 0;
 
   return {
     total,
-    page: totalPages > 0
-      ? Math.min(normalizePositiveInteger(meta.page, requestPage), totalPages)
-      : requestPage,
+    page:
+      totalPages > 0
+        ? Math.min(normalizePositiveInteger(meta.page, requestPage), totalPages)
+        : requestPage,
     limit,
     totalPages,
   };
@@ -39,8 +45,7 @@ export async function getCheckpointsPage(params = {}) {
       params: {
         page: requestPage,
         limit: requestLimit,
-        status: params.status || undefined,
-        search: params.search || undefined,
+        currentStatus: params.currentStatus || params.status || undefined,
       },
     });
 
@@ -55,6 +60,28 @@ export async function getCheckpointsPage(params = {}) {
       meta: buildMeta({}, requestPage, requestLimit),
     };
   }
+}
+
+export async function getAllCheckpoints(params = {}) {
+  const checkpoints = [];
+  const requestLimit = normalizePositiveInteger(params.limit, 100);
+  let page = DEFAULT_PAGE;
+  let totalPages = DEFAULT_PAGE;
+
+  while (page <= totalPages) {
+    const response = await getCheckpointsPage({
+      ...params,
+      page,
+      limit: requestLimit,
+    });
+
+    checkpoints.push(...(Array.isArray(response?.data) ? response.data : []));
+
+    totalPages = normalizePositiveInteger(response?.meta?.totalPages, page);
+    page += 1;
+  }
+
+  return checkpoints;
 }
 
 /**

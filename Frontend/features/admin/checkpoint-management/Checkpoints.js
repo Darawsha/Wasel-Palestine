@@ -36,25 +36,20 @@
   function normalizeMeta(meta = {}) {
     const total = Math.max(Number(meta.total) || 0, 0);
     const limit = normalizePositiveInteger(meta.limit, DEFAULT_LIMIT);
-    const reportedTotalPages = Number(meta.totalPages);
-    const totalPages =
-      total > 0
-        ? Math.max(
-          Number.isFinite(reportedTotalPages) && reportedTotalPages > 0
-            ? Math.floor(reportedTotalPages)
-            : 0,
-          Math.ceil(total / limit),
-        )
-        : 0;
+    const totalPages = total > 0 ? Math.ceil(total / limit) : 0;
     const page =
       totalPages > 0
         ? Math.min(
-          normalizePositiveInteger(meta.page, DEFAULT_PAGE),
-          totalPages,
-        )
+            normalizePositiveInteger(meta.page, DEFAULT_PAGE),
+            totalPages,
+          )
         : DEFAULT_PAGE;
 
     return { total, page, limit, totalPages };
+  }
+
+  function resolveCheckpointStatus(checkpoint) {
+    return checkpoint?.currentStatus || checkpoint?.status || '';
   }
 
   function escapeHtml(value) {
@@ -111,12 +106,14 @@
 
   function buildCheckpointRow(checkpoint) {
     const row = document.createElement('tr');
+    const status = resolveCheckpointStatus(checkpoint);
+
     row.innerHTML = `
       <td class="cell-id">#${escapeHtml(checkpoint?.id ?? '--')}</td>
       <td class="cell-name">${escapeHtml(checkpoint?.name || 'N/A')}</td>
       <td class="cell-location">${escapeHtml(checkpoint?.location || 'N/A')}</td>
       <td>
-        <span class="status-badge ${getStatusBadgeClass(checkpoint?.status)}">${escapeHtml(formatStatusLabel(checkpoint?.status))}</span>
+        <span class="status-badge ${getStatusBadgeClass(status)}">${escapeHtml(formatStatusLabel(status))}</span>
       </td>
       <td class="cell-date">${escapeHtml(formatDate(checkpoint?.updatedAt))}</td>
       <td class="cell-actions text-right">
@@ -167,15 +164,22 @@
         import('/Controllers/checkpoint-management.controller.js'),
         import('./checkpoint_filter.js'),
         import('./pagination.js'),
-        import('./checkpoint_action.js')
-      ]).then(([controllerModule, filterModule, paginationModule, actionMenuModule]) => ({
-        loadCheckpointsPage: controllerModule.loadCheckpointsPage,
-        getFilters: filterModule.getFilters,
-        bindFilters: filterModule.bindFilters,
-        bindFrontendSearch: filterModule.bindFrontendSearch,
-        renderPagination: paginationModule.renderPagination,
-        bindCheckpointActionMenus: actionMenuModule.bindCheckpointActionMenus,
-      }));
+        import('./checkpoint_action.js'),
+      ]).then(
+        ([
+          controllerModule,
+          filterModule,
+          paginationModule,
+          actionMenuModule,
+        ]) => ({
+          loadCheckpointsPage: controllerModule.loadCheckpointsPage,
+          getFilters: filterModule.getFilters,
+          bindFilters: filterModule.bindFilters,
+          bindFrontendSearch: filterModule.bindFrontendSearch,
+          renderPagination: paginationModule.renderPagination,
+          bindCheckpointActionMenus: actionMenuModule.bindCheckpointActionMenus,
+        }),
+      );
     }
     return dependenciesPromise;
   }
@@ -194,7 +198,8 @@
     }
 
     try {
-      const { loadCheckpointsPage, getFilters, renderPagination } = await getDependencies();
+      const { loadCheckpointsPage, getFilters, renderPagination } =
+        await getDependencies();
 
       const response = await loadCheckpointsPage({
         page: requestedPage,
@@ -211,13 +216,13 @@
       renderCheckpoints(root, localCheckpoints);
       updatePaginationUI(root, pageState);
 
-      const paginationContainer = root.querySelector('[data-checkpoint-pagination-controls]');
+      const paginationContainer = root.querySelector(
+        '[data-checkpoint-pagination-controls]',
+      );
       if (paginationContainer) {
-        renderPagination(paginationContainer, {
-          currentPage: pageState.page,
-          totalPages: pageState.totalPages,
-          onPageChange: (p) => loadCheckpointPage(p),
-        });
+        renderPagination(paginationContainer, pageState, (p) =>
+          loadCheckpointPage(p),
+        );
       }
     } catch (error) {
       if (requestId !== activeRequestId) return;
@@ -234,11 +239,8 @@
     if (!root || root.dataset.checkpointsInitialized === 'true') return;
     root.dataset.checkpointsInitialized = 'true';
 
-    const { 
-      bindFilters, 
-      bindFrontendSearch, 
-      bindCheckpointActionMenus
-    } = await getDependencies();
+    const { bindFilters, bindFrontendSearch, bindCheckpointActionMenus } =
+      await getDependencies();
 
     bindFrontendSearch(root, TABLE_BODY_SELECTOR);
     bindCheckpointActionMenus(root, { getCheckpointById });
@@ -260,7 +262,8 @@
   }
 
   function observePageMount() {
-    const mainContainer = document.getElementById('flexible_main') || document.body;
+    const mainContainer =
+      document.getElementById('flexible_main') || document.body;
     const observer = new MutationObserver(() => {
       const root = getPageRoot();
       if (root && root.dataset.checkpointsInitialized !== 'true') {
@@ -269,7 +272,7 @@
     });
 
     observer.observe(mainContainer, { childList: true, subtree: true });
-    
+
     // Initial check
     if (getPageRoot()) initializeCheckpointsPage();
   }

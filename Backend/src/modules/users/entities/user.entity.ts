@@ -5,9 +5,11 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
   Index,
+  OneToMany,
 } from 'typeorm';
 import { Exclude } from 'class-transformer';
 import { UserRole } from '../../../common/enums/user-role.enum';
+import { ReportVote } from '../../reports/entities/vote.entity';
 
 @Entity('user')
 export class User {
@@ -46,5 +48,8 @@ export class User {
 
   @UpdateDateColumn({ name: 'updated_at' })
   updatedAt: Date;
+
+  @OneToMany(() => ReportVote, (vote) => vote.user)
+  votes: ReportVote[];
 }
 

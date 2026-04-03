@@ -28,9 +28,24 @@ function buildPageSequence(currentPage, totalPages) {
     return [1, 2, 3, 4, 'ellipsis', totalPages];
   }
   if (currentPage >= totalPages - 2) {
-    return [1, 'ellipsis', totalPages - 3, totalPages - 2, totalPages - 1, totalPages];
+    return [
+      1,
+      'ellipsis',
+      totalPages - 3,
+      totalPages - 2,
+      totalPages - 1,
+      totalPages,
+    ];
   }
-  return [1, 'ellipsis', currentPage - 1, currentPage, currentPage + 1, 'ellipsis', totalPages];
+  return [
+    1,
+    'ellipsis',
+    currentPage - 1,
+    currentPage,
+    currentPage + 1,
+    'ellipsis',
+    totalPages,
+  ];
 }
 
 function createPageButton(label, options = {}) {
@@ -54,12 +69,13 @@ function createEllipsis() {
 
 /**
  * Renders the pagination controls.
- * 
+ *
  * @param {HTMLElement} rootParent - The container for the pagination controls.
  * @param {Object} options - Pagination options (currentPage, totalPages, onPageChange).
  */
 export function renderPagination(rootParent, options = {}) {
-  const controls = rootParent.querySelector(PAGINATION_CONTROLS_SELECTOR) || rootParent;
+  const controls =
+    rootParent.querySelector(PAGINATION_CONTROLS_SELECTOR) || rootParent;
   if (!controls) return;
 
   const totalPages = Math.max(Number(options.totalPages) || 0, 0);
@@ -68,6 +84,17 @@ export function renderPagination(rootParent, options = {}) {
 
   const fragment = document.createDocumentFragment();
   controls.innerHTML = '';
+
+  if (totalPages <= 1) {
+    fragment.appendChild(
+      createPageButton(String(currentPage || 1), {
+        active: true,
+        disabled: true,
+      }),
+    );
+    controls.appendChild(fragment);
+    return;
+  }
 
   // Previous Button
   const previousButton = createPageButton('Previous', {
@@ -87,7 +114,7 @@ export function renderPagination(rootParent, options = {}) {
       createPageButton(String(item), {
         page: item,
         active: item === currentPage,
-      })
+      }),
     );
   });
 
