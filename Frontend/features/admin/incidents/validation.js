@@ -6,14 +6,22 @@ import {
 } from '/shared/ui_validation.js';
 
 import { isLocationReal } from '/shared/location_validator.js';
+import {
+  getIncidentResolvedLocation,
+  isCheckpointLinkAllowedForType,
+  setIncidentResolvedLocation,
+} from '/features/admin/incidents/incident_checkpoint_sync.js';
 
 const FIELD_SELECTORS = {
   title: '#incidentTitle',
   description: '#incidentDescription',
   type: '#incidentType',
   severity: '#incidentSeverity',
+  checkpointId: '#incidentCheckpoint',
+  impactStatus: '#incidentImpactStatus',
   location: '#incidentLocation',
   status: '#incidentStatus',
+  isVerified: '#incidentVerification',
 };
 
 export function getFieldElement(form, fieldName) {
@@ -39,8 +47,17 @@ export function isValidSeverity(severity) {
 }
 
 export function isValidStatus(status) {
-  const validStatuses = ['ACTIVE', 'VERIFIED', 'CLOSED'];
+  const validStatuses = ['ACTIVE', 'CLOSED'];
   return validStatuses.includes(status);
+}
+
+export function isValidImpactStatus(impactStatus) {
+  const validImpactStatuses = ['ACTIVE', 'CLOSED', 'RESTRICTED', 'DELAYED'];
+  return validImpactStatuses.includes(impactStatus);
+}
+
+export function isValidCheckpointLink(type, checkpointId) {
+  return !checkpointId || isCheckpointLinkAllowedForType(type);
 }
 
 function validateLength(value, field, label, min, max, errors) {
@@ -69,7 +86,51 @@ function validateLength(value, field, label, min, max, errors) {
   }
 }
 
-export async function validateAddIncidentData(data) {
+async function resolveIncidentLocation(form, data, errors) {
+  const location = normalizeText(data?.location);
+
+  if (!location) {
+    return;
+  }
+
+  if (data?.checkpointId) {
+    const resolvedLocation = getIncidentResolvedLocation(form);
+
+    if (resolvedLocation) {
+      data.latitude = resolvedLocation.latitude;
+      data.longitude = resolvedLocation.longitude;
+    }
+
+    return;
+  }
+
+  const resolvedLocation = getIncidentResolvedLocation(form);
+  if (resolvedLocation && resolvedLocation.location === location) {
+    data.latitude = resolvedLocation.latitude;
+    data.longitude = resolvedLocation.longitude;
+    return;
+  }
+
+  const locationResult = await isLocationReal(location);
+  if (!locationResult.isValid) {
+    pushFieldError(
+      errors,
+      'location',
+      'The location provided could not be found. Please enter a valid address.',
+    );
+    return;
+  }
+
+  data.latitude = locationResult.lat;
+  data.longitude = locationResult.lon;
+  setIncidentResolvedLocation(form, {
+    location,
+    latitude: locationResult.lat,
+    longitude: locationResult.lon,
+  });
+}
+
+export async function validateAddIncidentData(form, data) {
   const errors = [];
 
   validateLength(data?.title, 'title', 'Title', 3, 150, errors);
@@ -94,19 +155,31 @@ export async function validateAddIncidentData(data) {
     pushFieldError(errors, 'severity', 'Please select a valid severity.');
   }
 
-  if (data?.location && isRequired(data.location)) {
-    const locationResult = await isLocationReal(data.location);
-    if (!locationResult.isValid) {
+  if (!isValidCheckpointLink(data?.type, data?.checkpointId)) {
+    pushFieldError(
+      errors,
+      'checkpointId',
+      'Invalid incident type for checkpoint linking',
+    );
+  }
+
+  if (data?.checkpointId) {
+    if (!isRequired(data?.impactStatus)) {
       pushFieldError(
         errors,
-        'location',
-        'The location provided could not be found. Please enter a valid address.',
+        'impactStatus',
+        'Impact on checkpoint is required when linking a checkpoint.',
       );
-    } else {
-      data.latitude = locationResult.lat;
-      data.longitude = locationResult.lon;
+    } else if (!isValidImpactStatus(data?.impactStatus)) {
+      pushFieldError(
+        errors,
+        'impactStatus',
+        'Please select a valid checkpoint impact.',
+      );
     }
   }
+
+  await resolveIncidentLocation(form, data, errors);
 
   if (data?.status && !isValidStatus(data?.status)) {
     pushFieldError(errors, 'status', 'Please select a valid status.');
@@ -126,23 +199,34 @@ export function collectAddIncidentFormData(form) {
   const severity = normalizeText(
     getFieldElement(form, 'severity')?.value,
   ).toUpperCase();
+  const checkpointIdValue = normalizeText(
+    getFieldElement(form, 'checkpointId')?.value,
+  );
+  const impactStatus = normalizeText(
+    getFieldElement(form, 'impactStatus')?.value,
+  ).toUpperCase();
   const location = normalizeText(getFieldElement(form, 'location')?.value);
   const status = normalizeText(
     getFieldElement(form, 'status')?.value,
   ).toUpperCase();
+  const isVerified =
+    normalizeText(getFieldElement(form, 'isVerified')?.value) === 'true';
 
   return {
     title,
     description,
     type,
     severity,
+    checkpointId: checkpointIdValue ? Number(checkpointIdValue) : undefined,
+    impactStatus: impactStatus || undefined,
     location: location || undefined,
     status: status || undefined,
+    isVerified,
   };
 }
 
-export async function validateAddIncidentPayload(payload) {
-  const errorList = await validateAddIncidentData(payload);
+export async function validateAddIncidentPayload(form, payload) {
+  const errorList = await validateAddIncidentData(form, payload);
 
   return {
     isValid: errorList.length === 0,
@@ -165,6 +249,8 @@ if (typeof window !== 'undefined') {
     isValidType,
     isValidSeverity,
     isValidStatus,
+    isValidImpactStatus,
+    isValidCheckpointLink,
     validateAddIncidentData,
   };
 }

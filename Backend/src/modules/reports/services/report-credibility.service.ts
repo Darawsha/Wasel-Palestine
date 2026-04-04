@@ -1,5 +1,8 @@
-
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { ReportVote } from '../entities/vote.entity';
 import { ReportConfirmation } from '../entities/report-confirmation.entity';
 import { Repository } from 'typeorm';
@@ -27,8 +30,12 @@ export class ReportCredibilityService {
   }
 
   async updateReportConfidence(reportId: number) {
-    const up = await this.voteRepo.count({ where: { reportId, type: VoteType.UP } });
-    const down = await this.voteRepo.count({ where: { reportId, type: VoteType.DOWN } });
+    const up = await this.voteRepo.count({
+      where: { reportId, type: VoteType.UP },
+    });
+    const down = await this.voteRepo.count({
+      where: { reportId, type: VoteType.DOWN },
+    });
     const confirmations = await this.confirmRepo.count({ where: { reportId } });
 
     const score = this.calculateScore(up, down, confirmations);
@@ -39,16 +46,40 @@ export class ReportCredibilityService {
   }
 
   async vote(reportId: number, userId: number, type: 'UP' | 'DOWN') {
-    const exists = await this.voteRepo.findOne({ where: { reportId, userId } });
-    if (exists) throw new BadRequestException('Already voted');
+    if (!userId) {
+      throw new BadRequestException('User ID is required to vote');
+    }
 
-    await this.reportRepo.save({  reportId, userId, type });
+    const report = await this.reportRepo.findOne({ where: { reportId } });
+    if (!report) throw new NotFoundException('Report not found');
+
+    const exists = await this.voteRepo.findOne({ where: { reportId, userId } });
+    if (exists) {
+      if (exists.type === type) {
+        throw new BadRequestException('Already voted with this type');
+      }
+
+      // Update vote type if it changed
+      exists.type = type as VoteType;
+      await this.voteRepo.save(exists);
+    } else {
+      await this.voteRepo.save({ reportId, userId, type: type as VoteType });
+    }
 
     await this.updateReportConfidence(reportId);
   }
 
   async confirm(reportId: number, userId: number) {
-    const exists = await this.confirmRepo.findOne({ where: { reportId, userId } });
+    if (!userId) {
+      throw new BadRequestException('User ID is required to confirm');
+    }
+
+    const report = await this.reportRepo.findOne({ where: { reportId } });
+    if (!report) throw new NotFoundException('Report not found');
+
+    const exists = await this.confirmRepo.findOne({
+      where: { reportId, userId },
+    });
     if (exists) throw new BadRequestException('Already confirmed');
 
     await this.confirmRepo.save({ reportId, userId });
@@ -56,7 +87,3 @@ export class ReportCredibilityService {
     await this.updateReportConfidence(reportId);
   }
 }
-
-
-
-

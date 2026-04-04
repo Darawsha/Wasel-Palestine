@@ -1,6 +1,33 @@
 // Admin/Pages/Incidents/CreateIncident_btn.js
 
 (function () {
+  async function initializeCheckpointSync(overlay) {
+    const form = overlay?.querySelector('#createIncidentForm');
+    if (!form) {
+      return null;
+    }
+
+    const { initializeIncidentCheckpointSync } = await import(
+      '/features/admin/incidents/incident_checkpoint_sync.js'
+    );
+
+    await initializeIncidentCheckpointSync(form, {
+      checkpointSelector: '#incidentCheckpoint',
+      checkpointContainerSelector: '#incidentCheckpointGroup',
+      impactSelector: '#incidentImpactStatus',
+      impactContainerSelector: '#incidentImpactGroup',
+      typeSelector: '#incidentType',
+      locationSelector: '#incidentLocation',
+      initialCheckpointId: form.querySelector('#incidentCheckpoint')?.value,
+      initialImpactStatus: form.querySelector('#incidentImpactStatus')?.value,
+      initialLocation: form.querySelector('#incidentLocation')?.value,
+      initialLatitude: form.dataset.incidentResolvedLatitude,
+      initialLongitude: form.dataset.incidentResolvedLongitude,
+    });
+
+    return form;
+  }
+
   const initCreateIncidentBtn = () => {
     const createBtn = document.getElementById('createIncidentBtn');
     if (!createBtn || createBtn.dataset.modalBound) return;
@@ -79,10 +106,10 @@
 
                 const payload = collectAddIncidentFormData(form);
 
-                payload.checkpointId = parseInt(payload.location) || undefined;
-
-                const validationResult =
-                  await validateAddIncidentPayload(payload);
+                const validationResult = await validateAddIncidentPayload(
+                  form,
+                  payload,
+                );
 
                 if (!validationResult.isValid) {
                   applyValidationErrors(form, validationResult.errors);
@@ -109,8 +136,19 @@
                   window.showSuccess('Incident created successfully.');
                 else alert('Incident created successfully.');
 
-                closeModal(overlay);
                 form.reset();
+                const { resetIncidentCheckpointSync } = await import(
+                  '/features/admin/incidents/incident_checkpoint_sync.js'
+                );
+                resetIncidentCheckpointSync(form, {
+                  checkpointSelector: '#incidentCheckpoint',
+                  checkpointContainerSelector: '#incidentCheckpointGroup',
+                  impactSelector: '#incidentImpactStatus',
+                  impactContainerSelector: '#incidentImpactGroup',
+                  typeSelector: '#incidentType',
+                  locationSelector: '#incidentLocation',
+                });
+                closeModal(overlay);
               } catch (err) {
                 console.error('Failed to create incident:', err);
                 const errorMsg =
@@ -129,6 +167,8 @@
           return;
         }
       }
+
+      await initializeCheckpointSync(overlay);
 
       requestAnimationFrame(() => {
         overlay.classList.add('show');

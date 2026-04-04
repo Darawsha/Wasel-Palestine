@@ -11,6 +11,7 @@ import { User } from './entities/user.entity';
 import { PasswordService } from '../../core/services/password/password.service';
 import { UserRole } from '../../common/enums/user-role.enum';
 import { UserQueryDto } from './dto/user-query.dto';
+import { AlertsService } from '../alerts/alerts.service';
 
 @Injectable()
 export class UsersService {
@@ -18,6 +19,7 @@ export class UsersService {
     @InjectRepository(User)
     private usersRepository: Repository<User>,
     private passwordService: PasswordService,
+    private readonly alertsService: AlertsService,
   ) {}
 
   /**

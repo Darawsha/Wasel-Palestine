@@ -19,6 +19,7 @@ import { RolesGuard } from '../../core/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { UserRole } from '../../common/enums/user-role.enum';
 import { IncidentQueryDto } from './dto/incident-query.dto';
+import { PaginationQueryDto } from './dto/pagination-query.dto';
 
 @Controller({ path: 'incidents', version: '1' })
 export class IncidentsController {
@@ -27,21 +28,29 @@ export class IncidentsController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
   @Post()
-  createFromCollection(@Body() createIncidentDto: CreateIncidentDto) {
-    return this.create(createIncidentDto);
+  createFromCollection(
+    @Body() createIncidentDto: CreateIncidentDto,
+    @Request() req,
+  ) {
+    return this.incidentsService.create(createIncidentDto, req.user.userId);
+  }
+
+  @Patch(':id/verify')
+  verifyIncident(@Param('id', ParseIntPipe) id: number) {
+    return this.incidentsService.verifyIncident(id);
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
   @Post('create')
-  create(@Body() createIncidentDto: CreateIncidentDto) {
-    return this.incidentsService.create(createIncidentDto);
+  create(@Body() createIncidentDto: CreateIncidentDto, @Request() req) {
+    return this.incidentsService.create(createIncidentDto, req.user.userId);
   }
 
   @UseGuards(JwtAuthGuard)
   @Get()
-  findAllFromCollection(@Query() incidentQueryDto: IncidentQueryDto) {
-    return this.findAll(incidentQueryDto);
+  getAllIncidents(@Query() paginationQuery: PaginationQueryDto) {
+    return this.incidentsService.findAllPaginated(paginationQuery);
   }
 
   @UseGuards(JwtAuthGuard)
@@ -50,15 +59,16 @@ export class IncidentsController {
     return this.incidentsService.findAll(incidentQueryDto);
   }
 
-    @UseGuards(JwtAuthGuard)
-    @Get('getAll')
-    async findAllIncidents(@Query() incidentQueryDto: IncidentQueryDto) {
-        const result = await this.incidentsService.findAllIncidents(incidentQueryDto);
-        return {
-          data: result.data,
-          meta: result.meta,
-        };
-      }
+  @UseGuards(JwtAuthGuard)
+  @Get('getAll')
+  async findAllIncidents(@Query() incidentQueryDto: IncidentQueryDto) {
+    const result =
+      await this.incidentsService.findAllIncidents(incidentQueryDto);
+    return {
+      data: result.data,
+      meta: result.meta,
+    };
+  }
 
   @UseGuards(JwtAuthGuard)
   @Get('counts')
@@ -129,8 +139,7 @@ export class IncidentsController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
   @Delete(':id')
-  remove(@Param('id', ParseIntPipe) id: number) {
-    return this.incidentsService.remove(id);
+  remove(@Param('id', ParseIntPipe) id: number, @Request() req) {
+    return this.incidentsService.remove(id, req.user.userId);
   }
 }
-

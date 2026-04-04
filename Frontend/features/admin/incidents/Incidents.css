@@ -162,7 +162,7 @@
 
 .incidents-table {
   width: 100%;
-  min-width: 1000px;
+  min-width: 1180px;
   text-align: left;
   border-collapse: collapse;
 }
@@ -184,11 +184,13 @@
 .col-id {
   width: 5rem;
 }
+.col-checkpoint,
 .col-type,
 .col-severity,
 .col-location,
+.col-verified,
 .col-status {
-  width: 8rem;
+  width: 8.5rem;
 }
 .col-date {
   width: 7rem;
@@ -230,6 +232,7 @@
   color: var(--text-dark);
 }
 
+.cell-checkpoint,
 .cell-location,
 .cell-date {
   font-size: 0.875rem;

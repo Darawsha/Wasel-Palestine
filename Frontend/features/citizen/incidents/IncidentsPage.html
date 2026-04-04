@@ -39,6 +39,7 @@
           <span class="material-symbols-outlined search-icon">search</span>
           <input
             class="search-input"
+            data-incidents-search-filter
             placeholder="Search incidents..."
             type="text"
           />
@@ -47,11 +48,12 @@
         <div class="toolbar">
           <div class="filter-group">
             <div class="select-wrapper">
-              <select class="filter-select">
-                <option>Type: All</option>
-                <option>Road Closure</option>
-                <option>Delay</option>
-                <option>Accident</option>
+              <select class="filter-select" data-incidents-type-filter>
+                <option value="">Type: All</option>
+                <option value="CLOSURE">Road Closure</option>
+                <option value="DELAY">Delay</option>
+                <option value="ACCIDENT">Accident</option>
+                <option value="WEATHER_HAZARD">Weather Hazard</option>
               </select>
               <span class="material-symbols-outlined select-arrow"
                 >expand_more</span
@@ -59,11 +61,12 @@
             </div>
 
             <div class="select-wrapper">
-              <select class="filter-select">
-                <option>Severity: All</option>
-                <option>Critical</option>
-                <option>High</option>
-                <option>Medium</option>
+              <select class="filter-select" data-incidents-severity-filter>
+                <option value="">Severity: All</option>
+                <option value="CRITICAL">Critical</option>
+                <option value="HIGH">High</option>
+                <option value="MEDIUM">Medium</option>
+                <option value="LOW">Low</option>
               </select>
               <span class="material-symbols-outlined select-arrow"
                 >expand_more</span
@@ -71,11 +74,11 @@
             </div>
 
             <div class="select-wrapper">
-              <select class="filter-select">
-                <option>Status: All</option>
-                <option>Active</option>
-                <option>Verified</option>
-                <option>Closed</option>
+              <select class="filter-select" data-incidents-status-filter>
+                <option value="">Status: All</option>
+                <option value="ACTIVE">Active</option>
+                <option value="VERIFIED">Verified</option>
+                <option value="CLOSED">Closed</option>
               </select>
               <span class="material-symbols-outlined select-arrow"
                 >expand_more</span
@@ -86,20 +89,25 @@
               <span class="material-symbols-outlined date-icon"
                 >calendar_today</span
               >
-              <input class="filter-date" type="text" value="Last 24 Hours" />
+              <select class="filter-date" data-incidents-timeframe-filter>
+                <option value="ALL">All Time</option>
+                <option value="24H" selected>Last 24 Hours</option>
+                <option value="7D">Last 7 Days</option>
+                <option value="30D">Last 30 Days</option>
+              </select>
             </div>
           </div>
 
           <div class="toolbar-stats">
-            <span>Showing 24 incidents</span>
-            <button class="sort-btn">
+            <span data-incidents-total-label>Showing 0 incidents</span>
+            <button class="sort-btn" data-incidents-sort-btn>
               Sort: Newest First
               <span class="material-symbols-outlined">sort</span>
             </button>
           </div>
         </div>
 
-        <div class="incident-grid">
+        <div class="incident-grid" data-incidents-grid>
           <article class="incident-card">
             <div class="card-header">
               <div class="type-tag">
@@ -225,34 +233,15 @@
           </article>
         </div>
 
-        <nav class="pagination">
-          <button class="page-nav disabled">
-            <span class="material-symbols-outlined">chevron_left</span>
-            Previous
-          </button>
-          <div class="page-numbers">
-            <button class="page-btn active">1</button>
-            <button class="page-btn">2</button>
-            <button class="page-btn">3</button>
-            <span class="dots">...</span>
-            <button class="page-btn">12</button>
-          </div>
-          <button class="page-nav">
-            Next
-            <span class="material-symbols-outlined">chevron_right</span>
-          </button>
+        <nav class="pagination" data-incidents-pagination>
+          <p class="pagination-summary">Showing 0 incidents</p>
         </nav>
       </main>
     </div>
 
-    <script type="module">
-      import { loadPageHeader } from "/views/citizen/header/header-loader.js";
-      import { initIncidentsPage } from "./IncidentsPage.js";
-
-      await loadPageHeader("incidents");
-      initIncidentsPage({
-        mainEl: document.getElementById("spa-page-incidents"),
-      });
-    </script>
+    <script src="/features/citizen/incidents/incident_filters.js"></script>
+    <script src="/features/citizen/incidents/pagination.js"></script>
+    <script src="/features/citizen/incidents/viewIncidentsDetails.js"></script>
+    <script src="/features/citizen/incidents/IncidentsPage.js"></script>
   </body>
 </html>

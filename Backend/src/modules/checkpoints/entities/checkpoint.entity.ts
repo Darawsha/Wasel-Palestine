@@ -1,4 +1,4 @@
-import { Column, Entity, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn, OneToMany } from 'typeorm';
+import { Column, Entity, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn, OneToMany, Unique } from 'typeorm';
 import { Exclude } from 'class-transformer';
 import { CheckpointStatus } from '../enums/checkpoint-status.enum';
 import { CheckpointStatusHistory } from './status-history.entity';
@@ -10,6 +10,7 @@ import { Incident } from '../../incidents/entities/incident.entity';
  * including their name, location (latitude & longitude), status, and metadata.
  */
 @Entity('checkpoint')
+@Unique(['name'])
 export class Checkpoint {
 
   @PrimaryGeneratedColumn()

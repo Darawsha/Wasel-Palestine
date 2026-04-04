@@ -21,6 +21,7 @@ import { JwtAuthGuard } from '../../core/guards/jwt-auth.guard';
 import { RolesGuard } from '../../core/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { UserRole } from '../../common/enums/user-role.enum';
+import { AuthGuard } from '@nestjs/passport';
 
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles(UserRole.ADMIN)

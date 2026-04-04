@@ -10,8 +10,14 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule } from '@nestjs/config';
 import { CheckpointsModule } from './modules/checkpoints/checkpoints.module';
 import { IncidentsModule } from './modules/incidents/incidents.module';
+import { ReportsModule } from './modules/reports/reports.module';
 import { AuthMiddleware } from './core/middleware/authMiddleware';
 import { typeOrmConfig } from './core/database/typeorm.config';
+import { EventEmitterModule } from '@nestjs/event-emitter';
+import { AlertsModule } from './modules/alerts/alerts.module';
+import { MapModule } from './modules/map/map.module';
+
+
 import { ReportsModule } from './modules/reports/reports.module';
 import { RouteModule } from './modules/route/route.module';
 const projectRoot = process.cwd();
@@ -26,12 +32,15 @@ const projectRoot = process.cwd();
     CheckpointsModule,
     IncidentsModule,
     ReportsModule,
+    MapModule,
     RouteModule,
     
     ServeStaticModule.forRoot({
       rootPath: join(projectRoot, 'Frontend'),
       exclude: ['/api*wildcard'],
     }),
+    EventEmitterModule.forRoot(),
+    AlertsModule,
   ],
 
   controllers: [AppController],

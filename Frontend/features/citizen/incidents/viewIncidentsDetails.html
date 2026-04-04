@@ -1,0 +1,71 @@
+<section
+  class="incident-details-card"
+  role="dialog"
+  aria-modal="true"
+  aria-labelledby="incident-details-title"
+>
+  <header class="incident-details-header">
+    <div>
+      <p class="incident-details-kicker">Incident Details</p>
+      <h2 id="incident-details-title" data-incident-title>Incident</h2>
+    </div>
+    <button
+      type="button"
+      class="incident-details-close"
+      data-incident-details-close
+      aria-label="Close details"
+    >
+      <span class="material-symbols-outlined" aria-hidden="true">close</span>
+    </button>
+  </header>
+
+  <div class="incident-details-content" data-incident-details-content>
+    <div class="incident-details-chip-row">
+      <span class="incident-chip" data-incident-type>Type</span>
+      <span class="incident-chip" data-incident-severity>Severity</span>
+      <span class="incident-chip" data-incident-status>Status</span>
+    </div>
+
+    <div class="incident-details-grid">
+      <article class="incident-details-item">
+        <h3>Location</h3>
+        <p data-incident-location>-</p>
+      </article>
+      <article class="incident-details-item">
+        <h3>Created At</h3>
+        <p data-incident-created>-</p>
+      </article>
+      <article class="incident-details-item">
+        <h3>Last Updated</h3>
+        <p data-incident-updated>-</p>
+      </article>
+    </div>
+
+    <article class="incident-description">
+      <h3>Description</h3>
+      <p data-incident-description>-</p>
+    </article>
+
+    <section class="checkpoint-details" data-incident-checkpoint-section hidden>
+      <h3>Related Checkpoint</h3>
+      <div class="checkpoint-grid">
+        <article class="incident-details-item">
+          <h4>Name</h4>
+          <p data-checkpoint-name>-</p>
+        </article>
+        <article class="incident-details-item">
+          <h4>Location</h4>
+          <p data-checkpoint-location>-</p>
+        </article>
+        <article class="incident-details-item">
+          <h4>Status</h4>
+          <p data-checkpoint-status>-</p>
+        </article>
+        <article class="incident-details-item">
+          <h4>Coordinates</h4>
+          <p data-checkpoint-coordinates>-</p>
+        </article>
+      </div>
+    </section>
+  </div>
+</section>

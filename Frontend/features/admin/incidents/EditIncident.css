@@ -168,6 +168,20 @@
   padding-left: 2.75rem !important;
 }
 
+.edit-incident-overlay .field-hint {
+  margin: 0.5rem 0 0;
+  color: var(--text-muted, #64748b);
+  font-size: 0.75rem;
+  line-height: 1.5;
+}
+
+.edit-incident-overlay input[readonly],
+.edit-incident-overlay input.is-locked {
+  background-color: var(--surface-muted, #f8fafc);
+  color: var(--text-muted, #64748b);
+  cursor: not-allowed;
+}
+
 .edit-incident-overlay select {
   appearance: none;
   -webkit-appearance: none;

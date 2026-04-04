@@ -4,6 +4,10 @@ export async function loadCheckpointsPage(params = {}) {
   return checkpointService.getCheckpointsPage(params);
 }
 
+export async function loadAllCheckpoints(params = {}) {
+  return checkpointService.getAllCheckpoints(params);
+}
+
 export async function getCheckpoint(id) {
   return checkpointService.getCheckpointById(id);
 }

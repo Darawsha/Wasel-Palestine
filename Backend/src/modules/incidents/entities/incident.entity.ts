@@ -4,19 +4,27 @@ import {
   Column,
   CreateDateColumn,
   UpdateDateColumn,
+  JoinColumn,
   ManyToOne,
   OneToMany,
+  RelationId,
+  Unique,
 } from 'typeorm';
 import { IncidentType } from '../enums/incident-type.enum';
 import { IncidentSeverity } from '../enums/incident-severity.enum';
 import { IncidentStatus } from '../enums/incident-status.enum';
 import { Checkpoint } from '../../checkpoints/entities/checkpoint.entity';
 import { IncidentStatusHistory } from './status-history.entity';
+import { CheckpointStatus } from '../../checkpoints/enums/checkpoint-status.enum';
 
 @Entity('incidents')
 export class Incident {
+  @Unique(['title', 'latitude', 'longitude'])
   @PrimaryGeneratedColumn()
   id: number;
+
+  @Column({ name: 'is_verified', default: false })
+  isVerified: boolean;
 
   @Column({ length: 150 })
   title: string;
@@ -52,8 +60,22 @@ export class Incident {
   })
   status: IncidentStatus;
 
-  @ManyToOne(() => Checkpoint, { nullable: true, onDelete: 'SET NULL' })
+  @Column({
+    type: 'enum',
+    enum: CheckpointStatus,
+    nullable: true,
+  })
+  impactStatus?: CheckpointStatus | null;
+
+  @ManyToOne(() => Checkpoint, (checkpoint) => checkpoint.incidents, {
+    nullable: true,
+    onDelete: 'SET NULL',
+  })
+  @JoinColumn({ name: 'checkpointId' })
   checkpoint?: Checkpoint;
+
+  @RelationId((incident: Incident) => incident.checkpoint)
+  checkpointId?: number | null;
 
   @OneToMany(
     () => IncidentStatusHistory,
