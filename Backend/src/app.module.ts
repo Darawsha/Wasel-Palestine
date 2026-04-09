@@ -18,18 +18,23 @@ import { AlertsModule } from './modules/alerts/alerts.module';
 import { MapModule } from './modules/map/map.module';
 
 
+import { ReportsModule } from './modules/reports/reports.module';
+import { RouteModule } from './modules/route/route.module';
 const projectRoot = process.cwd();
-
 @Module({
   imports: [
     UsersModule,
     AuthModule,
-    ConfigModule.forRoot(),
+        ConfigModule.forRoot({
+      isGlobal: true,
+    }),
     TypeOrmModule.forRoot(typeOrmConfig),
     CheckpointsModule,
     IncidentsModule,
     ReportsModule,
     MapModule,
+    RouteModule,
+    
     ServeStaticModule.forRoot({
       rootPath: join(projectRoot, 'Frontend'),
       exclude: ['/api*wildcard'],
@@ -37,6 +42,7 @@ const projectRoot = process.cwd();
     EventEmitterModule.forRoot(),
     AlertsModule,
   ],
+
   controllers: [AppController],
   providers: [AppService],
 })
@@ -46,6 +52,7 @@ export class AppModule implements NestModule {
       .apply(AuthMiddleware)
       .forRoutes('*'); // Match all routes in the Nest app under the 'api' prefix
   }
+  
 }
 
 

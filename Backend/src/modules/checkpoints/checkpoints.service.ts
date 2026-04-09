@@ -405,3 +405,14 @@ export class CheckpointsService {
     }
   }
 }
+  async findActiveForRouteEstimation(): Promise<Checkpoint[]> {
+  return this.checkpointsRepository.find({
+    where: {
+      currentStatus: CheckpointStatus.ACTIVE,
+    },
+  });
+}
+
+
+
+}
