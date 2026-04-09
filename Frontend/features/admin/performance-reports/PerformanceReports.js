@@ -8,9 +8,10 @@
   const SVG_WIDTH = 400;
   const CHART_TOP = 24;
   const CHART_BOTTOM = 160;
+  const EMPTY_CHART_PATH = 'M0,150 L400,150';
 
   let dependenciesPromise;
-  let activeDays = 7;
+  let activeDays = 30;
   let activeRequestId = 0;
 
   function getPageRoot() {
@@ -137,9 +138,14 @@
     );
   }
 
+  function getDefaultActiveTab(root) {
+    return root.querySelector('.perf-tabs .tab-btn.active')
+      || root.querySelector('.perf-tabs .tab-btn');
+  }
+
   function buildChartPath(points) {
     if (!Array.isArray(points) || points.length === 0) {
-      return 'M0,150 L400,150';
+      return EMPTY_CHART_PATH;
     }
 
     const maxValue = Math.max(...points.map((point) => Number(point?.value) || 0), 1);
@@ -154,6 +160,44 @@
         return `${index === 0 ? 'M' : 'L'}${x.toFixed(2)},${Math.max(CHART_TOP, y).toFixed(2)}`;
       })
       .join(' ');
+  }
+
+  function resetPrimaryChart(root, annotationText = '') {
+    const card = getChartCardByTitle(root, 'Incidents Over Selected Period');
+    const svg = card?.querySelector('.chart-svg');
+    if (!svg) {
+      return;
+    }
+
+    const mainPath = svg.querySelector('path');
+    const thresholdLine = svg.querySelector('line');
+    const annotation = svg.querySelector('text');
+
+    if (mainPath) {
+      mainPath.setAttribute('d', EMPTY_CHART_PATH);
+    }
+
+    if (thresholdLine) {
+      thresholdLine.setAttribute('y1', '100');
+      thresholdLine.setAttribute('y2', '100');
+    }
+
+    if (annotation) {
+      annotation.textContent = annotationText;
+    }
+  }
+
+  function resetSecondaryChart(root) {
+    const card = getChartCardByTitle(root, 'Citizen Registrations');
+    const svg = card?.querySelector('.chart-svg');
+    if (!svg) {
+      return;
+    }
+
+    const mainPath = svg.querySelector('path');
+    if (mainPath) {
+      mainPath.setAttribute('d', EMPTY_CHART_PATH);
+    }
   }
 
   function renderPrimaryChart(root, report) {
@@ -259,6 +303,39 @@
     );
   }
 
+  function renderLoadingInsights(root) {
+    const list = root.querySelector(ANALYSIS_LIST_SELECTOR);
+    if (!list) {
+      return;
+    }
+
+    list.innerHTML = `
+      <li class="analysis-item">
+        <div class="bullet-orange"></div>
+        <div class="item-content">
+          <p class="item-title">Loading operational data</p>
+          <p class="item-desc">Refreshing incidents, reports, citizens, and checkpoints metrics.</p>
+        </div>
+      </li>
+    `;
+  }
+
+  function renderComparisonMessage(root, metric, before, after, improvement) {
+    const tbody = root.querySelector(COMPARISON_BODY_SELECTOR);
+    if (!tbody) {
+      return;
+    }
+
+    tbody.replaceChildren(
+      buildComparisonRow({
+        metric,
+        before,
+        after,
+        improvement,
+      }),
+    );
+  }
+
   function renderSummary(root, report) {
     renameMetricCard(root, 'Avg Response Time', report.summary.primaryMetric.label);
     renameMetricCard(root, 'P95 Latency', report.summary.secondaryMetric.label);
@@ -301,6 +378,10 @@
     setCardMetric(root, 'Reports Queue', '...', 'Queue');
     setCardMetric(root, 'New Citizens', '...', 'Good');
     setCardMetric(root, 'Resolution Rate', '...', 'Normal');
+    resetPrimaryChart(root, 'Loading live queue threshold...');
+    resetSecondaryChart(root);
+    renderLoadingInsights(root);
+    renderComparisonMessage(root, 'Loading', '...', '...', '...');
   }
 
   function renderErrorState(root) {
@@ -308,6 +389,9 @@
     setCardMetric(root, 'Reports Queue', 'N/A', 'Fair');
     setCardMetric(root, 'New Citizens', 'N/A', 'Fair');
     setCardMetric(root, 'Resolution Rate', 'N/A', 'Watch');
+    resetPrimaryChart(root, 'Live threshold unavailable');
+    resetSecondaryChart(root);
+    renderComparisonMessage(root, 'API data unavailable', 'N/A', 'N/A', 'Retry');
 
     const list = root.querySelector(ANALYSIS_LIST_SELECTOR);
     if (list) {
@@ -398,8 +482,18 @@
       return;
     }
 
+    const defaultActiveTab = getDefaultActiveTab(root);
+    if (defaultActiveTab) {
+      defaultActiveTab.classList.add('active');
+    }
+
     root.dataset.performanceInitialized = 'true';
     bindTabs(root);
+    if (defaultActiveTab) {
+      void handleTabClick(defaultActiveTab);
+      return;
+    }
+
     void hydratePerformanceReport(activeDays);
   }
 

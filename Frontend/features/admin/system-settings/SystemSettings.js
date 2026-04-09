@@ -11,6 +11,7 @@
 
   let dependenciesPromise;
   let latestSnapshot = null;
+  let isSaving = false;
 
   function getPageRoot() {
     return document.querySelector(PAGE_SELECTOR);
@@ -126,16 +127,61 @@
     }
   }
 
+  function normalizeSnapshotForComparison(snapshot) {
+    if (!snapshot) {
+      return null;
+    }
+
+    return {
+      platformName: snapshot.platformName || '',
+      primaryLanguage: snapshot.primaryLanguage || 'English',
+      timezone: snapshot.timezone || '',
+      accessTokenExpiry: snapshot.accessTokenExpiry || '',
+      refreshTokenExpiry: snapshot.refreshTokenExpiry || '',
+      minPasswordLength: String(snapshot.minPasswordLength || ''),
+      requireMixedCase: Boolean(snapshot.requireMixedCase),
+      requireNumeric: Boolean(snapshot.requireNumeric),
+      requireSpecialCharacters: Boolean(snapshot.requireSpecialCharacters),
+      apiBaseUrl: snapshot.apiBaseUrl || '',
+      routingEndpointUrl: snapshot.routingEndpointUrl || '',
+      routingApiKey: snapshot.routingApiKey || '',
+      routingTimeout: snapshot.routingTimeout || '',
+      routingCacheTtl: snapshot.routingCacheTtl || '',
+      weatherEndpointUrl: snapshot.weatherEndpointUrl || '',
+      weatherApiKey: snapshot.weatherApiKey || '',
+      weatherTimeout: snapshot.weatherTimeout || '',
+      weatherCacheTtl: snapshot.weatherCacheTtl || '',
+    };
+  }
+
+  function hasUnsavedChanges(elements) {
+    const currentSnapshot = normalizeSnapshotForComparison(collectSnapshot(elements));
+    const baselineSnapshot = normalizeSnapshotForComparison(latestSnapshot);
+    return JSON.stringify(currentSnapshot) !== JSON.stringify(baselineSnapshot);
+  }
+
+  function updateActionButtons(elements) {
+    const dirty = hasUnsavedChanges(elements);
+
+    if (elements.saveButton) {
+      elements.saveButton.disabled = isSaving || !dirty;
+    }
+
+    if (elements.discardButton) {
+      elements.discardButton.disabled = isSaving || !dirty;
+    }
+  }
+
   function revealApiKeyInput(input) {
     if (!input) {
       return;
     }
 
-    input.type = 'text';
+    input.type = 'password';
     const toggle = input.closest('.input-with-icon')?.querySelector('.visibility-icon');
     if (toggle) {
-      toggle.textContent = 'visibility_off';
-      toggle.title = 'Hide API key';
+      toggle.textContent = 'visibility';
+      toggle.title = 'Show API key';
     }
   }
 
@@ -189,6 +235,7 @@
 
     if (elements.routingApiKey) {
       elements.routingApiKey.value = snapshot.routingApiKey || '';
+      elements.routingApiKey.placeholder = snapshot.routingApiKeyMasked || '';
       revealApiKeyInput(elements.routingApiKey);
     }
 
@@ -206,6 +253,7 @@
 
     if (elements.weatherApiKey) {
       elements.weatherApiKey.value = snapshot.weatherApiKey || '';
+      elements.weatherApiKey.placeholder = snapshot.weatherApiKeyMasked || '';
       revealApiKeyInput(elements.weatherApiKey);
     }
 
@@ -311,6 +359,11 @@
     }, 1200);
   }
 
+  function setBusyState(elements, isBusy) {
+    isSaving = isBusy;
+    updateActionButtons(elements);
+  }
+
   function bindAccordionBehavior(root) {
     root.querySelectorAll(ACCORDION_HEADER_SELECTOR).forEach((header) => {
       if (header.dataset.bound === 'true') {
@@ -376,19 +429,31 @@
 
     trackableFields.forEach((field) => {
       field.addEventListener('input', () => {
+        const isDirty = hasUnsavedChanges(elements);
         setStatus(
           elements,
-          'You have unsaved changes. Saving will apply the API base URL immediately for new frontend requests.',
-          'Draft',
+          isDirty
+            ? 'You have unsaved changes. Saving will apply the API base URL immediately for new frontend requests.'
+            : (latestSnapshot?.runtimeStatus?.copy || 'Runtime configuration loaded.'),
+          isDirty
+            ? 'Draft'
+            : (latestSnapshot?.runtimeStatus?.badge || latestSnapshot?.configSource || 'Ready'),
         );
+        updateActionButtons(elements);
       });
 
       field.addEventListener('change', () => {
+        const isDirty = hasUnsavedChanges(elements);
         setStatus(
           elements,
-          'You have unsaved changes. Saving will apply the API base URL immediately for new frontend requests.',
-          'Draft',
+          isDirty
+            ? 'You have unsaved changes. Saving will apply the API base URL immediately for new frontend requests.'
+            : (latestSnapshot?.runtimeStatus?.copy || 'Runtime configuration loaded.'),
+          isDirty
+            ? 'Draft'
+            : (latestSnapshot?.runtimeStatus?.badge || latestSnapshot?.configSource || 'Ready'),
         );
+        updateActionButtons(elements);
       });
     });
 
@@ -402,15 +467,31 @@
     }
 
     const elements = collectElements(root);
-    const controller = await getDependencies();
-    latestSnapshot = await controller.loadSystemSettings();
-    applySnapshot(elements, latestSnapshot);
-    setStatus(
-      elements,
-      `Linked APIs: ${latestSnapshot.linkedApis.map((api) => `${api.name} -> ${api.url}`).join(' | ')}`,
-      latestSnapshot.configSource || 'Ready',
-    );
-    root.dataset.systemSettingsState = 'loaded';
+    setStatus(elements, 'Loading current app and API configuration.', 'Loading');
+    root.dataset.systemSettingsState = 'loading';
+
+    try {
+      const controller = await getDependencies();
+      latestSnapshot = await controller.loadSystemSettings();
+      applySnapshot(elements, latestSnapshot);
+      setStatus(
+        elements,
+        latestSnapshot.runtimeStatus?.copy
+          || `Linked APIs: ${latestSnapshot.linkedApis.map((api) => `${api.name} -> ${api.url}`).join(' | ')}`,
+        latestSnapshot.runtimeStatus?.badge || latestSnapshot.configSource || 'Ready',
+      );
+      root.dataset.systemSettingsState = 'loaded';
+      updateActionButtons(elements);
+    } catch (error) {
+      console.error('Failed to hydrate system settings page', error);
+      setStatus(
+        elements,
+        'Could not load current runtime configuration. Existing values remain editable.',
+        'Error',
+      );
+      root.dataset.systemSettingsState = 'error';
+      updateActionButtons(elements);
+    }
   }
 
   async function handleSave(elements) {
@@ -424,29 +505,63 @@
       return;
     }
 
-    controller.saveSystemSettings(nextSnapshot);
-    latestSnapshot = controller.applySettings(nextSnapshot);
-    applySnapshot(elements, latestSnapshot);
+    try {
+      setBusyState(elements, true);
+      setStatus(
+        elements,
+        'Applying runtime configuration and updating linked frontend API clients.',
+        'Applying',
+      );
 
-    setStatus(
-      elements,
-      `Linked APIs updated: ${latestSnapshot.linkedApis.map((api) => `${api.name} -> ${api.url}`).join(' | ')}`,
-      'Applied',
-    );
-    flashButtonState(elements.saveButton, 'Applied');
+      controller.saveSystemSettings(nextSnapshot);
+      controller.applySettings(nextSnapshot);
+      latestSnapshot = await controller.loadSystemSettings();
+      applySnapshot(elements, latestSnapshot);
+
+      setStatus(
+        elements,
+        latestSnapshot.runtimeStatus?.copy
+          || `Linked APIs updated: ${latestSnapshot.linkedApis.map((api) => `${api.name} -> ${api.url}`).join(' | ')}`,
+        latestSnapshot.runtimeStatus?.badge || 'Applied',
+      );
+      flashButtonState(elements.saveButton, 'Applied');
+    } catch (error) {
+      console.error('Failed to save system settings', error);
+      setStatus(
+        elements,
+        'Runtime configuration could not be applied. Please review the current values and try again.',
+        'Error',
+      );
+      flashButtonState(elements.saveButton, 'Retry Save');
+    } finally {
+      setBusyState(elements, false);
+    }
   }
 
   async function handleDiscard(elements) {
-    const controller = await getDependencies();
-    latestSnapshot = await controller.resetSystemSettings();
-    applySnapshot(elements, latestSnapshot);
+    try {
+      setBusyState(elements, true);
+      const controller = await getDependencies();
+      latestSnapshot = await controller.resetSystemSettings();
+      applySnapshot(elements, latestSnapshot);
 
-    setStatus(
-      elements,
-      `Draft discarded. Reverted to ${latestSnapshot.configSource.toLowerCase()} values.`,
-      'Reset',
-    );
-    flashButtonState(elements.discardButton, 'Reset');
+      setStatus(
+        elements,
+        `Draft discarded. Reverted to ${latestSnapshot.configSource.toLowerCase()} values.`,
+        'Reset',
+      );
+      flashButtonState(elements.discardButton, 'Reset');
+    } catch (error) {
+      console.error('Failed to discard system settings draft', error);
+      setStatus(
+        elements,
+        'Draft could not be discarded right now. Please try again.',
+        'Error',
+      );
+      flashButtonState(elements.discardButton, 'Retry');
+    } finally {
+      setBusyState(elements, false);
+    }
   }
 
   function initializeSystemSettingsPage() {
@@ -461,6 +576,7 @@
 
     const elements = collectElements(root);
     bindDraftTracking(root, elements);
+    updateActionButtons(elements);
 
     elements.saveButton?.addEventListener('click', () => {
       void handleSave(elements);

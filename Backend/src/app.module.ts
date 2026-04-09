@@ -1,22 +1,20 @@
-import { Module, NestModule, MiddlewareConsumer } from '@nestjs/common';
-import { AppController } from './app.controller';
-import { AppService } from './app.service';
-import { UsersModule } from './modules/users/users.module';
-import { AuthModule } from './modules/auth/auth.module';
+import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { ServeStaticModule } from '@nestjs/serve-static';
 import { join } from 'path';
+import { AppController } from './app.controller';
+import { AppService } from './app.service';
+import { AuthModule } from './modules/auth/auth.module';
+import { UsersModule } from './modules/users/users.module';
 
-import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule } from '@nestjs/config';
+import { EventEmitterModule } from '@nestjs/event-emitter';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { typeOrmConfig } from './core/database/typeorm.config';
+import { AuthMiddleware } from './core/middleware/authMiddleware';
+import { AlertsModule } from './modules/alerts/alerts.module';
 import { CheckpointsModule } from './modules/checkpoints/checkpoints.module';
 import { IncidentsModule } from './modules/incidents/incidents.module';
-import { ReportsModule } from './modules/reports/reports.module';
-import { AuthMiddleware } from './core/middleware/authMiddleware';
-import { typeOrmConfig } from './core/database/typeorm.config';
-import { EventEmitterModule } from '@nestjs/event-emitter';
-import { AlertsModule } from './modules/alerts/alerts.module';
 import { MapModule } from './modules/map/map.module';
-
 
 import { ReportsModule } from './modules/reports/reports.module';
 import { RouteModule } from './modules/route/route.module';
@@ -25,7 +23,7 @@ const projectRoot = process.cwd();
   imports: [
     UsersModule,
     AuthModule,
-        ConfigModule.forRoot({
+    ConfigModule.forRoot({
       isGlobal: true,
     }),
     TypeOrmModule.forRoot(typeOrmConfig),
@@ -34,7 +32,7 @@ const projectRoot = process.cwd();
     ReportsModule,
     MapModule,
     RouteModule,
-    
+
     ServeStaticModule.forRoot({
       rootPath: join(projectRoot, 'Frontend'),
       exclude: ['/api*wildcard'],
@@ -48,11 +46,6 @@ const projectRoot = process.cwd();
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
-    consumer
-      .apply(AuthMiddleware)
-      .forRoutes('*'); // Match all routes in the Nest app under the 'api' prefix
+    consumer.apply(AuthMiddleware).forRoutes('*'); // Match all routes in the Nest app under the 'api' prefix
   }
-  
 }
-
-

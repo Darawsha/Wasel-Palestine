@@ -14,6 +14,28 @@ function readCount(response) {
   return Number.isFinite(count) ? count : 0;
 }
 
+function readTotal(response) {
+  const total = Number(response?.total);
+  if (Number.isFinite(total)) {
+    return Math.max(total, 0);
+  }
+
+  const metaTotal = Number(response?.meta?.total);
+  if (Number.isFinite(metaTotal)) {
+    return Math.max(metaTotal, 0);
+  }
+
+  if (Array.isArray(response?.data)) {
+    return response.data.length;
+  }
+
+  if (Array.isArray(response)) {
+    return response.length;
+  }
+
+  return 0;
+}
+
 function normalizePositiveInteger(value, fallback) {
   const normalizedValue = Number(value);
   return Number.isFinite(normalizedValue) && normalizedValue > 0
@@ -135,6 +157,15 @@ function buildUserRegistrationBucketsFallback(months = 6) {
   };
 }
 
+function formatResponseTime(value) {
+  const normalizedValue = Number(value);
+  const safeValue = Number.isFinite(normalizedValue) && normalizedValue >= 0
+    ? normalizedValue
+    : 0;
+
+  return Math.round(safeValue);
+}
+
 function normalizeUserRegistrationBuckets(response, months = 6) {
   const fallback = buildUserRegistrationBucketsFallback(months);
   const rawBuckets = Array.isArray(response?.buckets)
@@ -193,6 +224,39 @@ export async function getCheckpointsCount() {
   }
 }
 
+export async function getPendingReportsCount() {
+  try {
+    const response = await apiGet('/reports', {
+      params: {
+        page: 1,
+        limit: 1,
+        status: 'pending',
+      },
+    });
+
+    return readTotal(response);
+  } catch (err) {
+    console.error('Failed to fetch pending reports count', err);
+    return 0;
+  }
+}
+
+export async function getSubscriptionsCount() {
+  try {
+    const response = await apiGet('/subscriptions', {
+      params: {
+        page: 1,
+        limit: 1,
+      },
+    });
+
+    return readTotal(response);
+  } catch (err) {
+    console.error('Failed to fetch subscriptions count', err);
+    return 0;
+  }
+}
+
 export async function getCitizensRegistrationTrend(days = 7) {
   try {
     const response = await apiGet('/users/registration-trend', {
@@ -229,5 +293,18 @@ export async function getUserRegistrationBuckets(months = 6) {
   } catch (err) {
     console.error('Failed to fetch user registration buckets', err);
     return buildUserRegistrationBucketsFallback(months);
+  }
+}
+
+export async function getDashboardResponseTime() {
+  const requestStartedAt = window.performance?.now?.() ?? Date.now();
+
+  try {
+    await apiGet('/incidents/active-count');
+    const requestFinishedAt = window.performance?.now?.() ?? Date.now();
+    return formatResponseTime(requestFinishedAt - requestStartedAt);
+  } catch (err) {
+    console.error('Failed to fetch dashboard response time', err);
+    return 0;
   }
 }

@@ -16,6 +16,8 @@ const DEFAULT_ENV = {
 };
 
 const WEATHER_API_FALLBACK_KEY = '51e8b6c810274f0296602528261803';
+const DEFAULT_PLATFORM_NAME = 'Wasel Palestine';
+const DEFAULT_PRIMARY_LANGUAGE = 'English';
 
 let cachedEnv = null;
 
@@ -70,6 +72,91 @@ function inferEnvironment(apiBaseUrl) {
   return 'Production';
 }
 
+function maskSecret(value) {
+  const normalizedValue = String(value || '');
+  return normalizedValue ? '*'.repeat(Math.min(Math.max(normalizedValue.length, 8), 16)) : '';
+}
+
+function buildLinkedApis(apiBaseUrl, envOrSnapshot) {
+  return [
+    {
+      name: 'Platform API',
+      url: apiBaseUrl,
+      status: apiBaseUrl ? 'Configured' : 'Missing',
+    },
+    {
+      name: 'Routing API',
+      url: envOrSnapshot.routingEndpointUrl,
+      status: envOrSnapshot.routingEndpointUrl ? 'Configured' : 'Missing',
+    },
+    {
+      name: 'Weather API',
+      url: envOrSnapshot.weatherEndpointUrl,
+      status: envOrSnapshot.weatherEndpointUrl ? 'Configured' : 'Missing',
+    },
+  ];
+}
+
+async function probePlatformApi(apiBaseUrl) {
+  const normalizedUrl = String(apiBaseUrl || '').trim();
+
+  if (!normalizedUrl) {
+    return {
+      status: 'Missing',
+      detail: 'Platform API base URL is not configured.',
+    };
+  }
+
+  const startTime = window.performance?.now?.() ?? Date.now();
+
+  try {
+    const response = await fetch(`${normalizedUrl.replace(/\/$/, '')}/incidents/active-count`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    const endTime = window.performance?.now?.() ?? Date.now();
+    const durationMs = Math.max(0, Math.round(endTime - startTime));
+
+    if (!response.ok) {
+      return {
+        status: 'Degraded',
+        detail: `Platform API responded with HTTP ${response.status}.`,
+      };
+    }
+
+    return {
+      status: 'Connected',
+      detail: `Platform API reachable in ${durationMs}ms.`,
+    };
+  } catch (_error) {
+    return {
+      status: 'Unreachable',
+      detail: 'Platform API could not be reached from the current frontend runtime.',
+    };
+  }
+}
+
+function buildRuntimeSummary(snapshot, platformProbe) {
+  const configuredApis = Array.isArray(snapshot.linkedApis)
+    ? snapshot.linkedApis.filter((api) => api.url).length
+    : 0;
+
+  const badge = platformProbe?.status || snapshot.configSource || 'Ready';
+  const copy = [
+    `${snapshot.environment} environment`,
+    `${configuredApis}/3 APIs configured`,
+    platformProbe?.detail || 'Runtime configuration loaded.',
+  ].join(' | ');
+
+  return {
+    badge,
+    copy,
+  };
+}
+
 async function loadEnv() {
   if (cachedEnv) {
     return cachedEnv;
@@ -104,8 +191,8 @@ function buildDefaults(env) {
   const apiBaseUrl = window.AppConfig?.API_BASE_URL || '';
 
   return {
-    platformName: 'Wasel Palestine',
-    primaryLanguage: 'English',
+    platformName: DEFAULT_PLATFORM_NAME,
+    primaryLanguage: DEFAULT_PRIMARY_LANGUAGE,
     timezone: mapTimezoneToOptionLabel(
       Intl.DateTimeFormat().resolvedOptions().timeZone,
     ),
@@ -132,20 +219,10 @@ function buildDefaults(env) {
       env.WEATHER_API_CACHE_TTL || DEFAULT_ENV.WEATHER_API_CACHE_TTL,
     weatherFallbackCoords:
       env.WEATHER_FALLBACK_COORDS || DEFAULT_ENV.WEATHER_FALLBACK_COORDS,
-    linkedApis: [
-      {
-        name: 'Platform API',
-        url: apiBaseUrl,
-      },
-      {
-        name: 'Routing API',
-        url: env.ROUTING_API_URL || DEFAULT_ENV.ROUTING_API_URL,
-      },
-      {
-        name: 'Weather API',
-        url: env.WEATHER_API_URL || DEFAULT_ENV.WEATHER_API_URL,
-      },
-    ],
+    linkedApis: buildLinkedApis(apiBaseUrl, {
+      routingEndpointUrl: env.ROUTING_API_URL || DEFAULT_ENV.ROUTING_API_URL,
+      weatherEndpointUrl: env.WEATHER_API_URL || DEFAULT_ENV.WEATHER_API_URL,
+    }),
   };
 }
 
@@ -193,7 +270,7 @@ export async function loadSystemSettingsSnapshot() {
     }
     : defaults;
 
-  return draft
+  const snapshot = draft
     ? {
       ...baseSnapshot,
       ...draft,
@@ -201,6 +278,23 @@ export async function loadSystemSettingsSnapshot() {
       environment: inferEnvironment(draft.apiBaseUrl || baseSnapshot.apiBaseUrl),
     }
     : baseSnapshot;
+
+  const linkedApis = buildLinkedApis(snapshot.apiBaseUrl, snapshot);
+  const platformProbe = await probePlatformApi(snapshot.apiBaseUrl);
+
+  return {
+    ...snapshot,
+    routingApiKeyMasked: maskSecret(snapshot.routingApiKey),
+    weatherApiKeyMasked: maskSecret(snapshot.weatherApiKey),
+    linkedApis,
+    runtimeStatus: buildRuntimeSummary(
+      {
+        ...snapshot,
+        linkedApis,
+      },
+      platformProbe,
+    ),
+  };
 }
 
 export function saveSystemSettingsDraft(draft) {
@@ -212,20 +306,9 @@ export function applySystemSettings(snapshot) {
     ...snapshot,
     environment: inferEnvironment(snapshot.apiBaseUrl),
     configSource: 'Saved Runtime Override',
-    linkedApis: [
-      {
-        name: 'Platform API',
-        url: snapshot.apiBaseUrl,
-      },
-      {
-        name: 'Routing API',
-        url: snapshot.routingEndpointUrl,
-      },
-      {
-        name: 'Weather API',
-        url: snapshot.weatherEndpointUrl,
-      },
-    ],
+    linkedApis: buildLinkedApis(snapshot.apiBaseUrl, snapshot),
+    routingApiKeyMasked: maskSecret(snapshot.routingApiKey),
+    weatherApiKeyMasked: maskSecret(snapshot.weatherApiKey),
   };
 
   applyApiBaseUrl(appliedSnapshot.apiBaseUrl);
