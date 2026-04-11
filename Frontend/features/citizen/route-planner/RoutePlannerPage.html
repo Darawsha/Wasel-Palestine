@@ -59,8 +59,10 @@
                     >
                     <input
                       type="text"
+                      data-route-from
                       value="Ramallah Center"
                       placeholder="Current location"
+                      autocomplete="off"
                     />
                   </div>
                 </div>
@@ -73,8 +75,10 @@
                     >
                     <input
                       type="text"
+                      data-route-to
                       value="Bethlehem Manger Square"
                       placeholder="Enter destination"
+                      autocomplete="off"
                     />
                   </div>
                 </div>
@@ -89,47 +93,42 @@
                     <span class="material-symbols-outlined">shield</span>
                     <span>Avoid checkpoints</span>
                   </div>
-                  <input type="checkbox" checked />
+                  <input type="checkbox" data-route-avoid-checkpoints checked />
                 </label>
                 <label class="preference-item">
                   <div class="pref-label">
                     <span class="material-symbols-outlined">warning</span>
                     <span>Avoid restricted areas</span>
                   </div>
-                  <input type="checkbox" checked />
+                  <input type="checkbox" data-route-avoid-restricted checked />
                 </label>
               </div>
             </section>
 
-            <button class="btn-primary">Calculate Route</button>
+            <button class="btn-primary" type="button" data-route-submit>
+              Calculate Route
+            </button>
+            <p class="route-status" data-route-status aria-live="polite"></p>
 
             <section class="route-results">
               <div class="metrics-card">
                 <div class="metric">
                   <span class="metric-label">Distance</span>
-                  <span class="metric-value">23.4 km</span>
+                  <span class="metric-value" data-route-distance>--</span>
                 </div>
                 <div class="divider"></div>
                 <div class="metric text-right">
                   <span class="metric-label">Duration</span>
-                  <span class="metric-value">47 min</span>
+                  <span class="metric-value" data-route-duration>--</span>
                 </div>
               </div>
 
               <div class="factors-list">
                 <h3>Affecting Factors</h3>
-                <div class="factor-pill factor-yellow">
-                  <span class="material-symbols-outlined">security</span>
-                  <p>2 active checkpoints along this route</p>
-                </div>
-                <div class="factor-pill factor-orange">
-                  <span class="material-symbols-outlined">construction</span>
-                  <p>Road construction near Bethlehem</p>
-                </div>
-                <div class="factor-pill factor-blue">
-                  <span class="material-symbols-outlined">cloudy_snowing</span>
-                  <p>Light rain expected in 2 hours</p>
-                </div>
+                <p class="factors-empty" data-route-factors-empty>
+                  Calculate a route to see live conditions for this trip.
+                </p>
+                <div data-route-factors></div>
               </div>
             </section>
           </div>
@@ -137,6 +136,30 @@
 
         <section class="map-area">
           <div id="static-map" style="width: 100%; height: 100%"></div>
+          <aside class="legend-card" aria-label="Map legend">
+            <ul class="legend-list" role="list">
+              <li class="legend-item">
+                <span class="legend-dot legend-dot--open" aria-hidden="true"></span>
+                Open
+              </li>
+              <li class="legend-item">
+                <span class="legend-dot legend-dot--delayed" aria-hidden="true"></span>
+                Delayed
+              </li>
+              <li class="legend-item">
+                <span class="legend-dot legend-dot--closed" aria-hidden="true"></span>
+                Closed
+              </li>
+              <li class="legend-item">
+                <span class="legend-shape legend-shape--report" aria-hidden="true"></span>
+                Report
+              </li>
+              <li class="legend-item">
+                <span class="legend-shape legend-shape--incident" aria-hidden="true"></span>
+                Incident
+              </li>
+            </ul>
+          </aside>
         </section>
       </main>
     </div>

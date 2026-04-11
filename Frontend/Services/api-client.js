@@ -45,6 +45,7 @@ function buildRequestConfig(path, options = {}) {
     data: options.data,
     params: options.params,
     headers,
+    signal: options.signal,
   };
 }
 
@@ -72,6 +73,7 @@ async function requestWithFetch(config) {
     method: config.method,
     headers: config.headers,
     body: config.data ? JSON.stringify(config.data) : undefined,
+    signal: config.signal,
   });
 
   const text = await response.text();

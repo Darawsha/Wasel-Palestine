@@ -15,6 +15,8 @@ export const INCIDENT_TYPE_COLORS = {
   DEFAULT: '#f97316',
 };
 
+export const REPORT_COLOR = '#3b82f6';
+
 const iconCache = new Map();
 
 function normalizeUpper(value) {
@@ -81,6 +83,19 @@ export function getDynamicIcon(entityType, value, leaflet = window.L) {
       iconSize: [20, 20],
       iconAnchor: [10, 10],
       popupAnchor: [0, -10],
+    });
+
+    iconCache.set(cacheKey, icon);
+    return icon;
+  }
+
+  if (normalizedEntityType === 'REPORT') {
+    const icon = leaflet.divIcon({
+      className: 'custom-report-icon',
+      html: `<div style="width: 12px; height: 12px; background-color: ${REPORT_COLOR}; transform: rotate(45deg); border-radius: 2px; box-shadow: 0px 2px 3px rgba(0,0,0,0.3);"></div>`,
+      iconSize: [16, 16],
+      iconAnchor: [8, 8],
+      popupAnchor: [0, -8],
     });
 
     iconCache.set(cacheKey, icon);

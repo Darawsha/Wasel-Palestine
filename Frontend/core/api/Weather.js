@@ -1,155 +1,277 @@
-const defaultEnv = {
-  WEATHER_API_KEY: "",
-  WEATHER_FALLBACK_COORDS: "32.1744,35.2856",
-};
+(function (global) {
+  const WEATHER_WIDGET_SELECTOR = '#spa-page-home .weather-widget';
+  const GEOLOCATION_OPTIONS = {
+    enableHighAccuracy: true,
+    timeout: 10000,
+    maximumAge: 0,
+  };
 
-let cachedEnv = null;
+  const weatherState = {
+    watchId: null,
+    requestToken: 0,
+    lastCoordinatesKey: '',
+  };
 
-async function loadEnv() {
-  if (cachedEnv) return cachedEnv;
+  function getWeatherWidget() {
+    return document.querySelector(WEATHER_WIDGET_SELECTOR);
+  }
 
-  cachedEnv = { ...defaultEnv };
+  function escapeHtml(value) {
+    return String(value || '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
 
-  try {
-    const res = await fetch("/.env", { cache: "no-cache" });
-    if (res.ok) {
-      const text = await res.text();
-      text.split(/\r?\n/).forEach((line) => {
-        const match = line.match(/^\s*([A-Z0-9_]+)\s*=\s*(.*)\s*$/i);
-        if (match && match[1]) {
-          cachedEnv[match[1]] = match[2];
-        }
-      });
+  function getWeatherIcon(conditionText, isDay) {
+    const mainWeather = String(conditionText || '').toLowerCase();
+
+    if (mainWeather.includes('cloud') || mainWeather.includes('overcast')) {
+      return isDay ? 'cloud' : 'nights_stay';
     }
-  } catch (err) {
-    console.warn("Could not load .env, using defaults.", err);
+
+    if (
+      mainWeather.includes('rain') ||
+      mainWeather.includes('drizzle') ||
+      mainWeather.includes('shower')
+    ) {
+      return 'rainy';
+    }
+
+    if (
+      mainWeather.includes('snow') ||
+      mainWeather.includes('ice') ||
+      mainWeather.includes('sleet')
+    ) {
+      return 'ac_unit';
+    }
+
+    if (mainWeather.includes('thunder')) {
+      return 'thunderstorm';
+    }
+
+    return isDay ? 'wb_sunny' : 'dark_mode';
   }
 
-  // Fallback to previously inlined key if none is provided in .env
-  if (!cachedEnv.WEATHER_API_KEY) {
-    cachedEnv.WEATHER_API_KEY = "51e8b6c810274f0296602528261803";
-  }
+  function renderWidgetState(message, icon) {
+    const weather = getWeatherWidget();
+    if (!weather) return;
 
-  return cachedEnv;
-}
-
-function getWeatherIcon(conditionText, isNight) {
-  const mainWeather = conditionText.toLowerCase();
-
-  if (mainWeather.includes("cloud") || mainWeather.includes("overcast")) {
-    return isNight ? "nights_stay" : "cloud";
-  }
-  if (
-    mainWeather.includes("rain") ||
-    mainWeather.includes("drizzle") ||
-    mainWeather.includes("shower")
-  ) {
-    return "rainy";
-  }
-  if (
-    mainWeather.includes("snow") ||
-    mainWeather.includes("ice") ||
-    mainWeather.includes("sleet")
-  ) {
-    return "ac_unit";
-  }
-  if (mainWeather.includes("thunder")) {
-    return "thunderstorm";
-  }
-
-  return isNight ? "dark_mode" : "wb_sunny";
-}
-
-function renderWeather(data) {
-  const weather = document.querySelector(".weather-widget");
-  if (!weather) return;
-
-  if (data.error) {
     weather.innerHTML = `
       <div class="weather-top">
-         <span class="material-symbols-outlined weather-icon fill-1" aria-hidden="true" style="color: red;">error</span>
-         <span class="weather-temp">N/A</span>
+        <span class="material-symbols-outlined weather-icon fill-1" aria-hidden="true">${icon}</span>
+        <span class="weather-temp">--</span>
       </div>
-      <div class="weather-desc">API Error: ${data.error.message}</div>
+      <div class="weather-desc">${escapeHtml(message)}</div>
+      <div class="weather-wind">
+        <span class="material-symbols-outlined" aria-hidden="true">air</span>
+        <span>-- km/h</span>
+      </div>
     `;
-    return;
   }
 
-  const isNight = data.current.is_day === 0;
-  const icon = getWeatherIcon(data.current.condition.text, isNight);
-  const temp = Math.round(data.current.temp_c);
-  const windSpeedKmh = Math.round(data.current.wind_kph);
+  function renderWeather(data) {
+    const weather = getWeatherWidget();
+    if (!weather) return;
 
-  weather.innerHTML = `
-    <div class="weather-top">
-      <span class="material-symbols-outlined weather-icon fill-1" aria-hidden="true">${icon}</span>
-      <span class="weather-temp">${temp}°C</span>
-    </div>
-    <div class="weather-desc">${data.current.condition.text}</div>
-    <div class="weather-wind">
-      <span class="material-symbols-outlined" aria-hidden="true">air</span>
-      <span>${windSpeedKmh} km/h</span>
-    </div>
-  `;
-}
+    const conditionText = String(data?.conditionText || '').trim();
+    const temperatureCelsius = Number(data?.temperatureCelsius);
+    const windKph = Number(data?.windKph);
+    const isDay = Boolean(data?.isDay);
 
-async function fetchWeatherByQuery(query) {
-  const env = await loadEnv();
-  const key = env.WEATHER_API_KEY;
-
-  if (!key) {
-    console.error("Weather API key missing. Set WEATHER_API_KEY in .env");
-    const weather = document.querySelector(".weather-widget");
-    if (weather) {
-      weather.innerHTML = "Weather API key missing.";
+    if (
+      !conditionText ||
+      !Number.isFinite(temperatureCelsius) ||
+      !Number.isFinite(windKph)
+    ) {
+      renderWidgetState('Unable to load weather for your current location.', 'error');
+      return;
     }
-    return;
+
+    const icon = getWeatherIcon(conditionText, isDay);
+
+    weather.innerHTML = `
+      <div class="weather-top">
+        <span class="material-symbols-outlined weather-icon fill-1" aria-hidden="true">${icon}</span>
+        <span class="weather-temp">${Math.round(temperatureCelsius)}&deg;C</span>
+      </div>
+      <div class="weather-desc">${escapeHtml(conditionText)}</div>
+      <div class="weather-wind">
+        <span class="material-symbols-outlined" aria-hidden="true">air</span>
+        <span>${Math.round(windKph)} km/h</span>
+      </div>
+    `;
   }
 
-  fetch(`https://api.weatherapi.com/v1/current.json?key=${key}&q=${query}`)
-    .then((res) => res.json())
-    .then((data) => {
-      renderWeather(data);
-    })
-    .catch((err) => {
-      console.error("Weather API Error:", err);
-      const weather = document.querySelector(".weather-widget");
-      if (weather) {
-        weather.innerHTML = "Unable to load weather data.";
-      }
-    });
-}
+  function buildApiBaseUrl() {
+    return global.AppConfig?.API_BASE_URL || `${global.location.origin}/api/v1`;
+  }
 
-async function initWeatherWidget() {
-  const weather = document.querySelector(".weather-widget");
-  if (!weather) return;
-
-  weather.innerHTML = "Detecting your location...";
-
-  const env = await loadEnv();
-  const fallbackCoords = env.WEATHER_FALLBACK_COORDS || "32.1744,35.2856";
-
-  if ("geolocation" in navigator) {
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        const { latitude, longitude } = position.coords;
-        fetchWeatherByQuery(`${latitude},${longitude}`);
-      },
-      () => {
-        fetchWeatherByQuery(fallbackCoords);
-      },
-      {
-        enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 0,
-      },
+  function buildWeatherUrl(latitude, longitude) {
+    const baseUrl = buildApiBaseUrl();
+    const url = new URL(
+      'weather/current',
+      baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`,
     );
-  } else {
-    fetchWeatherByQuery(fallbackCoords);
-  }
-}
 
-window.initWeatherWidget = initWeatherWidget;
-initWeatherWidget().catch((err) =>
-  console.error("Failed to initialize weather widget", err),
-);
+    url.searchParams.set('latitude', String(latitude));
+    url.searchParams.set('longitude', String(longitude));
+
+    return url.toString();
+  }
+
+  function buildRequestHeaders() {
+    const headers = {
+      Accept: 'application/json',
+    };
+    const token =
+      global.localStorage?.getItem('token') ||
+      global.localStorage?.getItem('jwtToken');
+
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+    }
+
+    return headers;
+  }
+
+  async function fetchCurrentWeather(latitude, longitude, requestToken) {
+    const response = await global.fetch(buildWeatherUrl(latitude, longitude), {
+      method: 'GET',
+      headers: buildRequestHeaders(),
+    });
+
+    let payload = null;
+
+    try {
+      payload = await response.json();
+    } catch {
+      payload = null;
+    }
+
+    if (requestToken !== weatherState.requestToken) {
+      return;
+    }
+
+    if (!response.ok) {
+      const message =
+        String(payload?.message || '').trim() ||
+        'Unable to load weather for your current location.';
+      throw new Error(message);
+    }
+
+    renderWeather(payload);
+  }
+
+  function clearWeatherWatch() {
+    if (
+      weatherState.watchId !== null &&
+      'geolocation' in navigator &&
+      typeof navigator.geolocation.clearWatch === 'function'
+    ) {
+      navigator.geolocation.clearWatch(weatherState.watchId);
+    }
+
+    weatherState.watchId = null;
+  }
+
+  function destroyWeatherWidget() {
+    weatherState.requestToken += 1;
+    weatherState.lastCoordinatesKey = '';
+    clearWeatherWatch();
+  }
+
+  function formatGeolocationError(error) {
+    if (error?.code === 1) {
+      return 'Location permission denied. Weather unavailable.';
+    }
+
+    if (error?.code === 2) {
+      return 'Current location unavailable. Weather unavailable.';
+    }
+
+    if (error?.code === 3) {
+      return 'Location request timed out. Weather unavailable.';
+    }
+
+    return 'Current location unavailable. Weather unavailable.';
+  }
+
+  function handlePosition(position) {
+    const weather = getWeatherWidget();
+    if (!weather) {
+      destroyWeatherWidget();
+      return;
+    }
+
+    const latitude = Number(position?.coords?.latitude);
+    const longitude = Number(position?.coords?.longitude);
+
+    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+      weatherState.requestToken += 1;
+      weatherState.lastCoordinatesKey = '';
+      renderWidgetState('Current location unavailable. Weather unavailable.', 'error');
+      return;
+    }
+
+    const coordinatesKey = `${latitude.toFixed(6)},${longitude.toFixed(6)}`;
+    if (coordinatesKey === weatherState.lastCoordinatesKey) {
+      return;
+    }
+
+    weatherState.lastCoordinatesKey = coordinatesKey;
+    const requestToken = ++weatherState.requestToken;
+
+    renderWidgetState('Updating weather for your current location...', 'near_me');
+    void fetchCurrentWeather(latitude, longitude, requestToken).catch((error) => {
+      if (requestToken !== weatherState.requestToken) {
+        return;
+      }
+
+      console.error('Weather API Error:', error);
+      renderWidgetState(
+        String(error?.message || 'Unable to load weather for your current location.'),
+        'error',
+      );
+    });
+  }
+
+  function handlePositionError(error) {
+    weatherState.requestToken += 1;
+    weatherState.lastCoordinatesKey = '';
+    renderWidgetState(formatGeolocationError(error), 'location_off');
+  }
+
+  function initWeatherWidget() {
+    const weather = getWeatherWidget();
+    if (!weather) {
+      destroyWeatherWidget();
+      return;
+    }
+
+    destroyWeatherWidget();
+    renderWidgetState('Detecting your current location...', 'my_location');
+
+    if (
+      !('geolocation' in navigator) ||
+      typeof navigator.geolocation.watchPosition !== 'function'
+    ) {
+      renderWidgetState(
+        'Geolocation is not supported in this browser.',
+        'location_off',
+      );
+      return;
+    }
+
+    weatherState.watchId = navigator.geolocation.watchPosition(
+      handlePosition,
+      handlePositionError,
+      GEOLOCATION_OPTIONS,
+    );
+  }
+
+  global.initWeatherWidget = initWeatherWidget;
+  global.destroyWeatherWidget = destroyWeatherWidget;
+})(window);

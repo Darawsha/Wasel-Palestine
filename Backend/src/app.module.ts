@@ -10,16 +10,14 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule } from '@nestjs/config';
 import { CheckpointsModule } from './modules/checkpoints/checkpoints.module';
 import { IncidentsModule } from './modules/incidents/incidents.module';
-import { ReportsModule } from './modules/reports/reports.module';
 import { AuthMiddleware } from './core/middleware/authMiddleware';
 import { typeOrmConfig } from './core/database/typeorm.config';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { AlertsModule } from './modules/alerts/alerts.module';
 import { MapModule } from './modules/map/map.module';
-
-
 import { ReportsModule } from './modules/reports/reports.module';
 import { RouteModule } from './modules/route/route.module';
+import { WeatherModule } from './modules/weather/weather.module';
 const projectRoot = process.cwd();
 @Module({
   imports: [
@@ -31,10 +29,10 @@ const projectRoot = process.cwd();
     TypeOrmModule.forRoot(typeOrmConfig),
     CheckpointsModule,
     IncidentsModule,
-    ReportsModule,
     MapModule,
     RouteModule,
-    
+    ReportsModule,
+    WeatherModule,
     ServeStaticModule.forRoot({
       rootPath: join(projectRoot, 'Frontend'),
       exclude: ['/api*wildcard'],
@@ -50,9 +48,8 @@ export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
     consumer
       .apply(AuthMiddleware)
-      .forRoutes('*'); // Match all routes in the Nest app under the 'api' prefix
+      .forRoutes('*');
   }
-  
 }
 
 

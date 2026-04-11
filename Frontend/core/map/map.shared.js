@@ -1,5 +1,5 @@
 (function (global) {
-  const TILE_URL = "https://tile.openstreetmap.org/{z}/{x}/{y}.png";
+  const TILE_URL = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
   const TILE_OPTIONS = {
     maxZoom: 19,
     attribution:
@@ -21,7 +21,7 @@
 
   var returnedMap = null;
   function createMap(element, view, options) {
-    if (!element || typeof global.L === "undefined") return null;
+    if (!element || typeof global.L === 'undefined') return null;
 
     const map = global.L.map(element, options || {});
     const targetView = view || MAP_VIEWS.home;
@@ -32,12 +32,15 @@
   }
 
   function addBaseLayer(map) {
-    if (!map || typeof global.L === "undefined") return null;
+    if (!map || typeof global.L === 'undefined') return null;
     return global.L.tileLayer(TILE_URL, TILE_OPTIONS).addTo(map);
   }
 
   function destroyMap(map) {
     if (!map) return;
+    if (returnedMap === map) {
+      returnedMap = null;
+    }
     map.remove();
   }
 

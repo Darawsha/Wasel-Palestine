@@ -1,7 +1,7 @@
 function closeFilter() {
   const filterPanel = document.querySelector("#spa-page-home .filter-panel");
   const showPanelBtn = document.querySelector("#spa-page-home .show-panel-btn");
-  const legendCard = document.querySelector(".legend-card");
+  const legendCard = document.querySelector("#spa-page-home .legend-card");
 
   if (legendCard) {
     legendCard.classList.add("moveL");

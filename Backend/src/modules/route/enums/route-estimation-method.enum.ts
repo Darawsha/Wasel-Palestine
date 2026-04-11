@@ -1,3 +1,4 @@
 export enum RouteEstimationMethod {
   OPENROUTE_ROUTING = 'OPENROUTE_ROUTING',
+  LOCATIONIQ_ROUTING = 'LOCATIONIQ_ROUTING',
 }

@@ -34,5 +34,6 @@ import { ReportValidationService } from './services/report-validation.service';
     ReportModerationService,
     ReportValidationService,
   ],
+  exports: [ReportsService],
 })
 export class ReportsModule {}

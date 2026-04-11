@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Report } from '../entities/report.entity';
 import { Repository } from 'typeorm';
@@ -6,6 +10,31 @@ import { CreateReportDto } from '../dto/create-report.dto';
 import { UpdateReportDto } from '../dto/update-report.dto';
 import { ReportQueryDto } from '../dto/report-query.dto';
 import { ReportValidationService } from './report-validation.service';
+import { ReportStatus } from '../enums/report-status.enum';
+import { ReportCategory } from '../enums/report-category.enum';
+import { MapFilterQueryDto } from '../../map/dto/map-filter-query.dto';
+import { IncidentType } from '../../incidents/enums/incident-type.enum';
+
+const MAP_VISIBLE_REPORT_STATUSES = [
+  ReportStatus.PENDING,
+  ReportStatus.UNDER_REVIEW,
+  ReportStatus.APPROVED,
+];
+
+const REPORT_CATEGORIES_BY_INCIDENT_TYPE: Partial<
+  Record<IncidentType, ReportCategory[]>
+> = {
+  [IncidentType.CLOSURE]: [
+    ReportCategory.ROAD_CLOSURE,
+    ReportCategory.CHECKPOINT_ISSUE,
+  ],
+  [IncidentType.DELAY]: [
+    ReportCategory.DELAY,
+    ReportCategory.CHECKPOINT_ISSUE,
+  ],
+  [IncidentType.ACCIDENT]: [ReportCategory.ACCIDENT],
+  [IncidentType.WEATHER_HAZARD]: [ReportCategory.HAZARD],
+};
 
 @Injectable()
 export class ReportsService {
@@ -99,5 +128,75 @@ export class ReportsService {
     const report = await this.findOne(id);
     Object.assign(report, dto);
     return this.reportRepo.save(report);
+  }
+
+  async getMapReports(filterDto: MapFilterQueryDto): Promise<Report[]> {
+    const { types, startDate, endDate } = filterDto;
+    this.assertValidMapDateRange(startDate, endDate);
+
+    const queryBuilder = this.reportRepo
+      .createQueryBuilder('report')
+      .where('report.status IN (:...statuses)', {
+        statuses: MAP_VISIBLE_REPORT_STATUSES,
+      });
+    const reportCategories = this.resolveReportCategories(types);
+
+    if (Array.isArray(types) && types.length > 0) {
+      if (reportCategories.length === 0) {
+        return [];
+      }
+
+      queryBuilder.andWhere('report.category IN (:...categories)', {
+        categories: reportCategories,
+      });
+    }
+
+    if (startDate && endDate) {
+      queryBuilder.andWhere('report.createdAt BETWEEN :startDate AND :endDate', {
+        startDate,
+        endDate,
+      });
+    }
+
+    return queryBuilder.orderBy('report.updatedAt', 'DESC').getMany();
+  }
+
+  private resolveReportCategories(
+    incidentTypes?: IncidentType[],
+  ): ReportCategory[] {
+    if (!Array.isArray(incidentTypes) || incidentTypes.length === 0) {
+      return [];
+    }
+
+    return Array.from(
+      new Set(
+        incidentTypes.flatMap(
+          (incidentType) =>
+            REPORT_CATEGORIES_BY_INCIDENT_TYPE[incidentType] ?? [],
+        ),
+      ),
+    );
+  }
+
+  private assertValidMapDateRange(
+    startDate?: Date,
+    endDate?: Date,
+  ): void {
+    const hasStartDate = Boolean(startDate);
+    const hasEndDate = Boolean(endDate);
+
+    if (hasStartDate !== hasEndDate) {
+      throw new BadRequestException(
+        'startDate and endDate must be provided together.',
+      );
+    }
+
+    if (!hasStartDate || !hasEndDate) {
+      return;
+    }
+
+    if (startDate.getTime() > endDate.getTime()) {
+      throw new BadRequestException('startDate must be before endDate.');
+    }
   }
 }

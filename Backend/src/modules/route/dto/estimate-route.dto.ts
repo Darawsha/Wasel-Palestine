@@ -1,15 +1,11 @@
 import {
-  IsArray,
   IsBoolean,
   IsNumber,
   IsOptional,
   Max,
   Min,
-  ValidateNested,
 } from 'class-validator';
-import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { AvoidAreaDto } from './avoid-area.dto';
 
 export class EstimateRouteDto {
   @ApiProperty({ example: 32.2211, description: 'Start latitude' })
@@ -45,12 +41,10 @@ export class EstimateRouteDto {
   avoidCheckpoints?: boolean;
 
   @ApiPropertyOptional({
-    type: [AvoidAreaDto],
-    description: 'Optional circular areas to avoid',
+    example: true,
+    description: 'Whether the route should avoid incidents',
   })
   @IsOptional()
-  @IsArray()
-  @ValidateNested({ each: true })
-  @Type(() => AvoidAreaDto)
-  avoidAreas?: AvoidAreaDto[];
+  @IsBoolean()
+  avoidIncidents?: boolean;
 }

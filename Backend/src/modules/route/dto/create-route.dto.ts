@@ -1,4 +1,4 @@
-import { IsNumber, IsBoolean, IsArray, IsOptional } from 'class-validator';
+import { IsBoolean, IsNumber, IsOptional } from 'class-validator';
 
 export class CreateRouteDto {
   @IsNumber()
@@ -18,6 +18,6 @@ export class CreateRouteDto {
   avoidCheckpoints?: boolean;
 
   @IsOptional()
-  @IsArray()
-  avoidAreas?: string[];
+  @IsBoolean()
+  avoidIncidents?: boolean;
 }

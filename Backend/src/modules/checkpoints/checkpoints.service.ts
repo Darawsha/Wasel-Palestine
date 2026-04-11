@@ -404,15 +404,6 @@ export class CheckpointsService {
       throw new BadRequestException('startDate must be before endDate.');
     }
   }
-}
-  async findActiveForRouteEstimation(): Promise<Checkpoint[]> {
-  return this.checkpointsRepository.find({
-    where: {
-      currentStatus: CheckpointStatus.ACTIVE,
-    },
-  });
-}
-
-
 
 }
+
