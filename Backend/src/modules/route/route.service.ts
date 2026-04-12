@@ -293,9 +293,15 @@ export class RouteService {
     request: RoutingProviderRequest,
   ): Promise<RouteEstimationResult> {
     try {
-      return await this.openRouteRoutingProvider.getRoute(request);
+      return this.normalizeRouteEstimationResult(
+        request,
+        await this.openRouteRoutingProvider.getRoute(request),
+      );
     } catch {
-      return this.locationIqRoutingProvider.getRoute(request);
+      return this.normalizeRouteEstimationResult(
+        request,
+        await this.locationIqRoutingProvider.getRoute(request),
+      );
     }
   }
 
@@ -310,7 +316,10 @@ export class RouteService {
     },
   ): Promise<ResolvedRouteOption> {
     const routeResult = provider
-      ? await provider.getRoute(request)
+      ? this.normalizeRouteEstimationResult(
+          request,
+          await provider.getRoute(request),
+        )
       : await this.resolveRoute(request);
     const candidates = this.collectRouteCandidates(routeResult);
 
@@ -722,6 +731,169 @@ export class RouteService {
 
   private mergeWarnings(...warningGroups: string[][]): string[] {
     return [...new Set(warningGroups.flat().filter(Boolean))];
+  }
+
+  private normalizeRouteEstimationResult(
+    request: RoutingProviderRequest,
+    routeResult: RouteEstimationResult,
+  ): RouteEstimationResult {
+    return {
+      ...routeResult,
+      geometry: this.normalizeRouteGeometry(request, routeResult.geometry),
+      alternativeRoutes: Array.isArray(routeResult.alternativeRoutes)
+        ? routeResult.alternativeRoutes.map((candidate) => ({
+            ...candidate,
+            geometry: this.normalizeRouteGeometry(request, candidate.geometry),
+          }))
+        : routeResult.alternativeRoutes,
+    };
+  }
+
+  private normalizeRouteGeometry(
+    request: RoutingProviderRequest,
+    geometry: RouteEstimationResult['geometry'],
+  ): RouteEstimationResult['geometry'] {
+    return {
+      type: typeof geometry?.type === 'string' ? geometry.type : 'LineString',
+      coordinates: this.normalizeRouteCoordinates(
+        request,
+        Array.isArray(geometry?.coordinates) ? geometry.coordinates : [],
+      ),
+    };
+  }
+
+  private normalizeRouteCoordinates(
+    request: RoutingProviderRequest,
+    coordinates: number[][],
+  ): number[][] {
+    const normalizedCoordinates = coordinates
+      .map((coordinate) => {
+        const first = Number(coordinate?.[0]);
+        const second = Number(coordinate?.[1]);
+
+        if (!Number.isFinite(first) || !Number.isFinite(second)) {
+          return null;
+        }
+
+        return [first, second];
+      })
+      .filter((coordinate): coordinate is number[] => Array.isArray(coordinate));
+
+    if (normalizedCoordinates.length === 0) {
+      return [];
+    }
+
+    const shouldSwap = this.shouldSwapRouteCoordinateOrder(
+      request,
+      normalizedCoordinates,
+    );
+
+    if (!shouldSwap) {
+      return normalizedCoordinates;
+    }
+
+    return normalizedCoordinates.map(([first, second]) => [second, first]);
+  }
+
+  private shouldSwapRouteCoordinateOrder(
+    request: RoutingProviderRequest,
+    coordinates: number[][],
+  ): boolean {
+    const startLatitude = Number(request.startLatitude);
+    const startLongitude = Number(request.startLongitude);
+    const endLatitude = Number(request.endLatitude);
+    const endLongitude = Number(request.endLongitude);
+
+    if (
+      !Number.isFinite(startLatitude) ||
+      !Number.isFinite(startLongitude) ||
+      !Number.isFinite(endLatitude) ||
+      !Number.isFinite(endLongitude)
+    ) {
+      return false;
+    }
+
+    const start = { latitude: startLatitude, longitude: startLongitude };
+    const end = { latitude: endLatitude, longitude: endLongitude };
+    const firstCoordinate = coordinates[0];
+    const lastCoordinate = coordinates[coordinates.length - 1];
+
+    const geoJsonScore = Math.min(
+      this.calculateEndpointAlignmentScore(
+        firstCoordinate,
+        lastCoordinate,
+        start,
+        end,
+        false,
+      ),
+      this.calculateEndpointAlignmentScore(
+        lastCoordinate,
+        firstCoordinate,
+        start,
+        end,
+        false,
+      ),
+    );
+    const swappedScore = Math.min(
+      this.calculateEndpointAlignmentScore(
+        firstCoordinate,
+        lastCoordinate,
+        start,
+        end,
+        true,
+      ),
+      this.calculateEndpointAlignmentScore(
+        lastCoordinate,
+        firstCoordinate,
+        start,
+        end,
+        true,
+      ),
+    );
+
+    return swappedScore + Number.EPSILON < geoJsonScore;
+  }
+
+  private calculateEndpointAlignmentScore(
+    firstCoordinate: number[],
+    lastCoordinate: number[],
+    start: { latitude: number; longitude: number },
+    end: { latitude: number; longitude: number },
+    swapCoordinateOrder: boolean,
+  ): number {
+    const [firstLongitude, firstLatitude] = swapCoordinateOrder
+      ? [firstCoordinate[1], firstCoordinate[0]]
+      : [firstCoordinate[0], firstCoordinate[1]];
+    const [lastLongitude, lastLatitude] = swapCoordinateOrder
+      ? [lastCoordinate[1], lastCoordinate[0]]
+      : [lastCoordinate[0], lastCoordinate[1]];
+
+    return (
+      this.calculateSquaredCoordinateDistance(
+        firstLatitude,
+        firstLongitude,
+        start.latitude,
+        start.longitude,
+      ) +
+      this.calculateSquaredCoordinateDistance(
+        lastLatitude,
+        lastLongitude,
+        end.latitude,
+        end.longitude,
+      )
+    );
+  }
+
+  private calculateSquaredCoordinateDistance(
+    leftLatitude: number,
+    leftLongitude: number,
+    rightLatitude: number,
+    rightLongitude: number,
+  ): number {
+    const latitudeDelta = leftLatitude - rightLatitude;
+    const longitudeDelta = leftLongitude - rightLongitude;
+
+    return latitudeDelta * latitudeDelta + longitudeDelta * longitudeDelta;
   }
 
   private buildContext(

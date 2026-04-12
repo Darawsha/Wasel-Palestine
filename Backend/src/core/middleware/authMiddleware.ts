@@ -11,10 +11,13 @@ export class AuthMiddleware implements NestMiddleware {
     ) { }
 
     // API routes that don't require a token
-    private readonly publicPaths = [
-        '/auth/signin',
-        '/auth/signup',
-    ];
+ private readonly publicPaths = [
+    '/auth/signin',
+    '/auth/signup',
+    '/auth/google',
+    '/auth/linkedin',
+'/auth/linkedin/callback',
+];
 
     use(req: Request, res: Response, next: NextFunction) {
         const url = req.originalUrl || req.url;

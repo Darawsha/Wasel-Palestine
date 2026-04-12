@@ -325,6 +325,31 @@ describe('RouteService', () => {
     expect(result.primaryRoute.metadata.compliance.isFullyCompliant).toBe(true);
   });
 
+  it('normalizes provider geometry to GeoJSON [longitude, latitude] order before returning it', async () => {
+    const reversedAvoidedRouteCoordinates = [
+      [32.03, 35.03],
+      [32.04, 35.04],
+    ];
+
+    openRouteRoutingProvider.getRoute
+      .mockResolvedValueOnce(createRouteResult(defaultRouteCoordinates))
+      .mockResolvedValueOnce(createRouteResult(reversedAvoidedRouteCoordinates));
+
+    const result = await service.estimateRoute({
+      startLatitude: 32,
+      startLongitude: 35,
+      endLatitude: 32.02,
+      endLongitude: 35.02,
+      avoidCheckpoints: true,
+      avoidIncidents: false,
+    });
+
+    expect(result.primaryRoute.kind).toBe('AVOIDED');
+    expect(result.primaryRoute.geometry.coordinates).toEqual(
+      avoidedRouteCoordinates,
+    );
+  });
+
   it('only applies checkpoint avoidance when the user selects checkpoint avoidance', async () => {
     openRouteRoutingProvider.getRoute
       .mockResolvedValueOnce(createRouteResult(defaultRouteCoordinates))

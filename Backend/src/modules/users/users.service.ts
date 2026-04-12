@@ -18,6 +18,7 @@ export class UsersService {
   constructor(
     @InjectRepository(User)
     private usersRepository: Repository<User>,
+
     private passwordService: PasswordService,
     private readonly alertsService: AlertsService,
   ) {}
@@ -34,10 +35,77 @@ export class UsersService {
     const user = this.usersRepository.create({
       ...rest,
       email: normalizedEmail,
-      password: hashedPassword,
+      passwordHash: hashedPassword,
       role: role ?? UserRole.CITIZEN,
     });
     return this.usersRepository.save(user);
+  }
+
+  async createGoogleUser(data: {
+    firstname: string;
+    lastname: string;
+    email: string;
+    googleId: string;
+    profileImage?: string | null;
+  }): Promise<User> {
+    return this.createSocialUser({
+      firstname: data.firstname,
+      lastname: data.lastname,
+      email: data.email,
+      provider: 'google',
+      providerId: data.googleId,
+      profileImage: data.profileImage,
+    });
+  }
+
+  async createLinkedinUser(data: {
+    firstname: string;
+    lastname: string;
+    email: string;
+    linkedinId: string;
+    profileImage?: string | null;
+  }): Promise<User> {
+    return this.createSocialUser({
+      firstname: data.firstname,
+      lastname: data.lastname,
+      email: data.email,
+      provider: 'linkedin',
+      providerId: data.linkedinId,
+      profileImage: data.profileImage,
+    });
+  }
+
+  async createSocialUser(data: {
+    firstname: string;
+    lastname: string;
+    email: string;
+    provider: string;
+    providerId?: string;
+    profileImage?: string | null;
+  }): Promise<User> {
+    const normalizedEmail = this.normalizeEmail(data.email);
+    const user = await this.usersRepository.findOne({
+      where: { email: normalizedEmail },
+    });
+
+    if (user) {
+      return user;
+    }
+
+    const newUser = this.usersRepository.create({
+      firstname: data.firstname,
+      lastname: data.lastname,
+      email: normalizedEmail,
+      passwordHash: null,
+      role: UserRole.CITIZEN,
+      googleId: data.provider === 'google' ? data.providerId : undefined,
+      linkedinId: data.provider === 'linkedin' ? data.providerId : undefined,
+      provider: data.provider,
+      profileImage: data.profileImage || null,
+      isVerified: true,
+    });
+
+    return this.usersRepository.save(newUser);
   }
 
   /**
@@ -105,7 +173,7 @@ export class UsersService {
     }
 
     if (password) {
-      user.password = await this.passwordService.hash(password);
+      user.passwordHash = await this.passwordService.hash(password);
     }
 
     Object.assign(user, rest);
@@ -236,6 +304,7 @@ export class UsersService {
       buckets,
     };
   }
+
   private async countCitizensRegisteredBetween(
     start: Date,
     end: Date,

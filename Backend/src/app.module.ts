@@ -5,6 +5,7 @@ import { UsersModule } from './modules/users/users.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { ServeStaticModule } from '@nestjs/serve-static';
 import { join } from 'path';
+import { existsSync } from 'fs';
 
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule } from '@nestjs/config';
@@ -19,12 +20,19 @@ import { ReportsModule } from './modules/reports/reports.module';
 import { RouteModule } from './modules/route/route.module';
 import { WeatherModule } from './modules/weather/weather.module';
 const projectRoot = process.cwd();
+const workspaceRoot = existsSync(join(projectRoot, 'Frontend'))
+  ? projectRoot
+  : join(projectRoot, '..');
+const envFilePath = Array.from(
+  new Set([join(projectRoot, '.env'), join(workspaceRoot, '.env')]),
+);
 @Module({
   imports: [
     UsersModule,
     AuthModule,
         ConfigModule.forRoot({
       isGlobal: true,
+      envFilePath,
     }),
     TypeOrmModule.forRoot(typeOrmConfig),
     CheckpointsModule,
@@ -34,7 +42,7 @@ const projectRoot = process.cwd();
     ReportsModule,
     WeatherModule,
     ServeStaticModule.forRoot({
-      rootPath: join(projectRoot, 'Frontend'),
+      rootPath: join(workspaceRoot, 'Frontend'),
       exclude: ['/api*wildcard'],
     }),
     EventEmitterModule.forRoot(),

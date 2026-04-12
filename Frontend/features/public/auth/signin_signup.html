@@ -10,6 +10,7 @@
       href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"
     />
     <link rel="stylesheet" href="./signin_signup.css" />
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
   </head>
 
   <body>
@@ -42,12 +43,14 @@
               <a href="#" class="social-icon">
                 <i class="fab fa-twitter"></i>
               </a>
-              <a href="#" class="social-icon">
-                <i class="fab fa-google"></i>
-              </a>
-              <a href="#" class="social-icon">
-                <i class="fab fa-linkedin-in"></i>
-              </a>
+              
+        <a href="#" class="social-icon" id="google-signin-btn">
+  <i class="fab fa-google"></i>
+</a>
+
+<a href="#" class="social-icon" id="linkedin-signin-btn">
+  <i class="fab fa-linkedin-in"></i>
+</a>
             </div>
           </form>
 
@@ -101,12 +104,13 @@
               <a href="#" class="social-icon">
                 <i class="fab fa-twitter"></i>
               </a>
-              <a href="#" class="social-icon">
-                <i class="fab fa-google"></i>
-              </a>
-              <a href="#" class="social-icon">
-                <i class="fab fa-linkedin-in"></i>
-              </a>
+           <a href="#" class="social-icon" id="google-signup-btn">
+  <i class="fab fa-google"></i>
+</a>
+
+<a href="#" class="social-icon" id="linkedin-signup-btn">
+  <i class="fab fa-linkedin-in"></i>
+</a>
             </div>
           </form>
         </div>
@@ -172,6 +176,7 @@
     <script type="module" src="/features/public/auth/signUpHandler.js"></script>
     <script type="module" src="/core/auth/authService.js"></script>
     <script type="module" src="/core/api/redirectUserBasedOnRule.js"></script>
+    <script type="module" src="/features/public/auth/socialAuthHandler.js"></script>
   </body>
 </html>
 

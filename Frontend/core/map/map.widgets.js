@@ -124,6 +124,18 @@
     destroyRoutePlannerMapWidget();
   }
 
+  function getMapForRoute(routeKey) {
+    if (routeKey === "home") {
+      return widgetsState.home.map;
+    }
+
+    if (routeKey === "route-planner") {
+      return widgetsState.routePlanner.map;
+    }
+
+    return null;
+  }
+
   global.AppMapWidgets = {
     initHomeMapWidget,
     destroyHomeMapWidget,
@@ -132,5 +144,6 @@
     initMapForRoute,
     destroyMapForRoute,
     destroyAllMaps,
+    getMapForRoute,
   };
 })(window);

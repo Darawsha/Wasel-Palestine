@@ -27,8 +27,8 @@ export class User {
   email: string;
 
   @Exclude()
-  @Column({ name: 'password_hash', nullable: false })
-  password: string;
+ @Column({ name: 'password_hash', nullable: true })
+passwordHash: string | null;
 
   @Column({
     type: 'enum',
@@ -51,5 +51,19 @@ export class User {
 
   @OneToMany(() => ReportVote, (vote) => vote.user)
   votes: ReportVote[];
-}
 
+@Column({ nullable: true })
+googleId?: string;
+
+@Column({ nullable: true })
+linkedinId?: string;
+
+@Column({ nullable: true })
+provider?: string;
+
+@Column({ nullable: true })
+profileImage?: string;
+
+@Column({ default: false })
+isVerified: boolean;
+}

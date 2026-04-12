@@ -107,7 +107,11 @@
   }
 
   function getMap() {
-    return global.AppMapShared?.getMapInstance?.() || null;
+    return (
+      global.AppMapWidgets?.getMapForRoute?.('route-planner') ||
+      global.AppMapShared?.getMapInstance?.() ||
+      null
+    );
   }
 
   async function ensureMapMarkerController() {
@@ -622,23 +626,33 @@
     clearFactors(elements, emptyFactorsMessage);
   }
 
-  function normalizeRouteCoordinates(coordinates) {
+  function normalizeRouteCoordinates(coordinates, endpoints) {
     if (!Array.isArray(coordinates)) {
       return [];
     }
 
-    return coordinates
+    const normalizedCoordinates = coordinates
       .map((coordinate) => {
-        const longitude = Number(coordinate?.[0]);
-        const latitude = Number(coordinate?.[1]);
+        const first = Number(coordinate?.[0]);
+        const second = Number(coordinate?.[1]);
 
-        if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+        if (!Number.isFinite(first) || !Number.isFinite(second)) {
           return null;
         }
 
-        return [longitude, latitude];
+        return [first, second];
       })
       .filter((coordinate) => Array.isArray(coordinate));
+
+    if (!normalizedCoordinates.length) {
+      return [];
+    }
+
+    if (!shouldSwapRouteCoordinateOrder(normalizedCoordinates, endpoints)) {
+      return normalizedCoordinates;
+    }
+
+    return normalizedCoordinates.map(([first, second]) => [second, first]);
   }
 
   function toLeafletCoordinates(coordinates) {
@@ -685,6 +699,7 @@
       weight: 5,
       opacity: 0.85,
     }).addTo(plannerLayerGroup);
+    routeLayer.bringToFront?.();
 
     global.L.marker([fromLocation.latitude, fromLocation.longitude], {
       icon: createRouteEndpointIcon('start'),
@@ -701,6 +716,129 @@
     map.fitBounds(routeLayer.getBounds(), {
       padding: [28, 28],
     });
+  }
+
+  function buildRouteEndpoints(fromLocation, toLocation) {
+    const startLatitude = Number(fromLocation?.latitude);
+    const startLongitude = Number(fromLocation?.longitude);
+    const endLatitude = Number(toLocation?.latitude);
+    const endLongitude = Number(toLocation?.longitude);
+
+    if (
+      !Number.isFinite(startLatitude) ||
+      !Number.isFinite(startLongitude) ||
+      !Number.isFinite(endLatitude) ||
+      !Number.isFinite(endLongitude)
+    ) {
+      return null;
+    }
+
+    return {
+      start: {
+        latitude: startLatitude,
+        longitude: startLongitude,
+      },
+      end: {
+        latitude: endLatitude,
+        longitude: endLongitude,
+      },
+    };
+  }
+
+  function shouldSwapRouteCoordinateOrder(coordinates, endpoints) {
+    if (!endpoints || coordinates.length === 0) {
+      return false;
+    }
+
+    const firstCoordinate = coordinates[0];
+    const lastCoordinate = coordinates[coordinates.length - 1];
+    const geoJsonScore = Math.min(
+      calculateEndpointAlignmentScore(
+        firstCoordinate,
+        lastCoordinate,
+        endpoints,
+        false,
+      ),
+      calculateEndpointAlignmentScore(
+        lastCoordinate,
+        firstCoordinate,
+        endpoints,
+        false,
+      ),
+    );
+    const swappedScore = Math.min(
+      calculateEndpointAlignmentScore(
+        firstCoordinate,
+        lastCoordinate,
+        endpoints,
+        true,
+      ),
+      calculateEndpointAlignmentScore(
+        lastCoordinate,
+        firstCoordinate,
+        endpoints,
+        true,
+      ),
+    );
+
+    return swappedScore + Number.EPSILON < geoJsonScore;
+  }
+
+  function calculateEndpointAlignmentScore(
+    firstCoordinate,
+    lastCoordinate,
+    endpoints,
+    shouldSwap,
+  ) {
+    const [firstLongitude, firstLatitude] = shouldSwap
+      ? [firstCoordinate[1], firstCoordinate[0]]
+      : [firstCoordinate[0], firstCoordinate[1]];
+    const [lastLongitude, lastLatitude] = shouldSwap
+      ? [lastCoordinate[1], lastCoordinate[0]]
+      : [lastCoordinate[0], lastCoordinate[1]];
+
+    return (
+      calculateSquaredCoordinateDistance(
+        firstLatitude,
+        firstLongitude,
+        endpoints.start.latitude,
+        endpoints.start.longitude,
+      ) +
+      calculateSquaredCoordinateDistance(
+        lastLatitude,
+        lastLongitude,
+        endpoints.end.latitude,
+        endpoints.end.longitude,
+      )
+    );
+  }
+
+  function calculateSquaredCoordinateDistance(
+    leftLatitude,
+    leftLongitude,
+    rightLatitude,
+    rightLongitude,
+  ) {
+    const latitudeDelta = Number(leftLatitude) - Number(rightLatitude);
+    const longitudeDelta = Number(leftLongitude) - Number(rightLongitude);
+    return latitudeDelta * latitudeDelta + longitudeDelta * longitudeDelta;
+  }
+
+  function normalizeRouteOptionGeometry(route, fromLocation, toLocation) {
+    if (!isRouteOption(route)) {
+      return route;
+    }
+
+    return {
+      ...route,
+      geometry: {
+        ...route.geometry,
+        coordinates: normalizeRouteCoordinates(
+          route.geometry.coordinates,
+          buildRouteEndpoints(fromLocation, toLocation),
+        ),
+      },
+    };
   }
 
   function normalizeUpper(value) {
@@ -836,13 +974,6 @@
     }
 
     return normalizedAnalysis;
-  }
-
-  function hasStrictCheckpointOnlyConflict(analysis, preferences) {
-    return (
-      isCheckpointOnlyPreference(preferences) &&
-      normalizeRouteAnalysis(analysis).checkpoints.length > 0
-    );
   }
 
   function projectToMeters(latitude, longitude, referenceLatitude) {
@@ -1375,6 +1506,12 @@
         selectedRoute = selectRouteOption(routeResponse);
       }
 
+      selectedRoute = normalizeRouteOptionGeometry(
+        selectedRoute,
+        fromLocation,
+        toLocation,
+      );
+
       if (!selectedRoute) {
         throw new Error('No route could be calculated for the selected points.');
       }
@@ -1414,11 +1551,9 @@
         contextResult.status === 'fulfilled' ? contextResult.value : null,
       );
 
-      if (hasStrictCheckpointOnlyConflict(finalRouteAnalysis, preferences)) {
-        renderNoCompliantRouteState(elements, routeResponse);
-        return;
-      }
-
+      // Backend compliance metadata is the source of truth for whether
+      // a checkpoint-only avoided route is valid. Frontend factor analysis
+      // remains informational and must not veto drawing the route.
       drawRouteOnMap(
         map,
         selectedRoute.geometry.coordinates,
