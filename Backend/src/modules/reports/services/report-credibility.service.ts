@@ -1,25 +1,26 @@
 import {
+  BadRequestException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
-  BadRequestException,
 } from '@nestjs/common';
-import { ReportVote } from '../entities/vote.entity';
-import { ReportConfirmation } from '../entities/report-confirmation.entity';
-import { Repository } from 'typeorm';
-import { Report } from '../entities/report.entity';
-import { VoteType } from '../enums/VoteType.enum';
 import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { ReportConfirmation } from '../entities/report-confirmation.entity';
+import { Report } from '../entities/report.entity';
+import { ReportVote } from '../entities/vote.entity';
+import { VoteType } from '../enums/VoteType.enum';
+import { ReportStatus } from '../enums/report-status.enum';
+
 @Injectable()
 export class ReportCredibilityService {
   constructor(
     @InjectRepository(ReportVote)
-    private voteRepo: Repository<ReportVote>,
-
+    private readonly voteRepo: Repository<ReportVote>,
     @InjectRepository(ReportConfirmation)
-    private confirmRepo: Repository<ReportConfirmation>,
-
+    private readonly confirmRepo: Repository<ReportConfirmation>,
     @InjectRepository(Report)
-    private reportRepo: Repository<Report>,
+    private readonly reportRepo: Repository<Report>,
   ) {}
 
   calculateScore(up: number, down: number, confirmations: number) {
@@ -43,6 +44,54 @@ export class ReportCredibilityService {
     await this.reportRepo.update(reportId, {
       confidenceScore: score,
     });
+
+    return score;
+  }
+
+  private ensureInteractiveStatus(report: Report) {
+    if (
+      report.status !== ReportStatus.PENDING &&
+      report.status !== ReportStatus.UNDER_REVIEW
+    ) {
+      throw new BadRequestException(
+        'Community interactions are only allowed on pending reports',
+      );
+    }
+  }
+
+  private async buildInteractionResponse(
+    reportId: number,
+    userId: number,
+    confidenceScore?: number,
+  ) {
+    const upVotes = await this.voteRepo.count({
+      where: { reportId, type: VoteType.UP },
+    });
+    const downVotes = await this.voteRepo.count({
+      where: { reportId, type: VoteType.DOWN },
+    });
+    const confirmations = await this.confirmRepo.count({ where: { reportId } });
+    const userVote = await this.voteRepo.findOne({
+      where: { reportId, userId },
+    });
+    const userConfirmation = await this.confirmRepo.findOne({
+      where: { reportId, userId },
+    });
+
+    return {
+      reportId,
+      confidenceScore:
+        typeof confidenceScore === 'number'
+          ? confidenceScore
+          : this.calculateScore(upVotes, downVotes, confirmations),
+      interactionSummary: {
+        upVotes,
+        downVotes,
+        confirmations,
+        userVoteType: userVote?.type ?? null,
+        isConfirmedByCurrentUser: Boolean(userConfirmation),
+      },
+    };
   }
 
   async vote(reportId: number, userId: number, type: 'UP' | 'DOWN') {
@@ -51,22 +100,37 @@ export class ReportCredibilityService {
     }
 
     const report = await this.reportRepo.findOne({ where: { reportId } });
-    if (!report) throw new NotFoundException('Report not found');
+    if (!report) {
+      throw new NotFoundException('Report not found');
+    }
 
-    const exists = await this.voteRepo.findOne({ where: { reportId, userId } });
-    if (exists) {
-      if (exists.type === type) {
+    this.ensureInteractiveStatus(report);
+
+    if (report.submittedByUserId === userId) {
+      throw new ForbiddenException('You cannot vote on your own report');
+    }
+
+    const existingVote = await this.voteRepo.findOne({
+      where: { reportId, userId },
+    });
+
+    if (existingVote) {
+      if (existingVote.type === type) {
         throw new BadRequestException('Already voted with this type');
       }
 
-      // Update vote type if it changed
-      exists.type = type as VoteType;
-      await this.voteRepo.save(exists);
+      existingVote.type = type as VoteType;
+      await this.voteRepo.save(existingVote);
     } else {
-      await this.voteRepo.save({ reportId, userId, type: type as VoteType });
+      await this.voteRepo.save({
+        reportId,
+        userId,
+        type: type as VoteType,
+      });
     }
 
-    await this.updateReportConfidence(reportId);
+    const confidenceScore = await this.updateReportConfidence(reportId);
+    return this.buildInteractionResponse(reportId, userId, confidenceScore);
   }
 
   async confirm(reportId: number, userId: number) {
@@ -75,15 +139,27 @@ export class ReportCredibilityService {
     }
 
     const report = await this.reportRepo.findOne({ where: { reportId } });
-    if (!report) throw new NotFoundException('Report not found');
+    if (!report) {
+      throw new NotFoundException('Report not found');
+    }
 
-    const exists = await this.confirmRepo.findOne({
+    this.ensureInteractiveStatus(report);
+
+    if (report.submittedByUserId === userId) {
+      throw new ForbiddenException('You cannot confirm your own report');
+    }
+
+    const existingConfirmation = await this.confirmRepo.findOne({
       where: { reportId, userId },
     });
-    if (exists) throw new BadRequestException('Already confirmed');
+
+    if (existingConfirmation) {
+      throw new BadRequestException('Already confirmed');
+    }
 
     await this.confirmRepo.save({ reportId, userId });
 
-    await this.updateReportConfidence(reportId);
+    const confidenceScore = await this.updateReportConfidence(reportId);
+    return this.buildInteractionResponse(reportId, userId, confidenceScore);
   }
 }
