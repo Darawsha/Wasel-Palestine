@@ -5,6 +5,9 @@ import {
   getIncidentsCount,
   getIncidentsCreatedTodayCount,
   getIncidentsTimeline,
+  getPendingReportsCount,
+  getSubscriptionsCount,
+  getDashboardResponseTime,
   getUserRegistrationBuckets,
 } from '/Services/admin_dashboard.service.js';
 
@@ -22,6 +25,18 @@ export function countIncidentsCreatedToday() {
 
 export function countCheckpoints() {
   return getCheckpointsCount();
+}
+
+export function countPendingReports() {
+  return getPendingReportsCount();
+}
+
+export function countSubscriptions() {
+  return getSubscriptionsCount();
+}
+
+export function getResponseTime() {
+  return getDashboardResponseTime();
 }
 
 export function getUserRegistrationTrend(days = 7) {

@@ -46,6 +46,18 @@ document.addEventListener('DOMContentLoaded', () => {
                     document.body.appendChild(script);
                 }
 
+                if (!document.querySelector('script[src*="ApplyHeaderAvatar.js"]')) {
+                    const script = document.createElement('script');
+                    script.src = '/features/admin/profile/ApplyHeaderAvatar.js';
+                    document.body.appendChild(script);
+                }
+
+                if (!document.querySelector('script[src*="AvatarUpload.js"]')) {
+                    const script = document.createElement('script');
+                    script.src = '/features/admin/profile/AvatarUpload.js';
+                    document.body.appendChild(script);
+                }
+
                 // Attach Close Events
                 // Close on backdrop click
                 overlay.addEventListener('click', (event) => {
@@ -68,6 +80,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         window.initProfileAvatarUpload?.(overlay);
+        window.initAdminProfile?.(overlay);
 
         // 3. Show Modal
         // Small delay to ensure display:flex renders before opacity transition triggers

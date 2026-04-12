@@ -22,17 +22,17 @@
       
 
       <div class="form-card">
-        <form>
+        <form data-report-form>
           <div class="form-group">
             <label class="form-label">
               Category <span class="required">*</span>
             </label>
-            <select class="form-control select-icon">
+            <select class="form-control select-icon" data-report-category>
               <option disabled selected value="">Select a category</option>
-              <option value="road-closure">Road Closure</option>
+              <option value="road_closure">Road Closure</option>
               <option value="delay">Delay</option>
               <option value="accident">Accident</option>
-              <option value="weather">Weather Hazard</option>
+              <option value="hazard">Weather Hazard</option>
               <option value="other">Other</option>
             </select>
           </div>
@@ -47,6 +47,7 @@
                 class="form-control pl-icon"
                 placeholder="Enter address..."
                 type="text"
+                data-report-location
               />
             </div>
           </div>
@@ -58,22 +59,23 @@
             <textarea
               class="form-control textarea-resize"
               placeholder="Describe what you observed in detail..."
+              data-report-description
             ></textarea>
-            <div class="char-count">0 / 500</div>
+            <div class="char-count" data-report-char-count>0 / 500</div>
           </div>
 
           <div class="form-group">
             <label class="form-label">Date & Time</label>
             <div class="date-time-group">
-              <input class="form-control" type="date" value="2026-03-12" />
-              <input class="form-control" type="time" value="10:30" />
+              <input class="form-control" type="date" value="2026-03-12" data-report-date />
+              <input class="form-control" type="time" value="10:30" data-report-time />
             </div>
             <p class="helper-text">Auto-filled with current date and time</p>
           </div>
 
-          <div class="warning-banner">
+          <div class="warning-banner" data-report-warning hidden>
             <span class="material-symbols-outlined warning-icon">warning</span>
-            <span class="warning-text"
+            <span class="warning-text" data-report-warning-text
               >A similar report already exists within 500m of this
               location.</span
             >
