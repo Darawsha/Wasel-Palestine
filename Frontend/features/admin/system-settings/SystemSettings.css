@@ -47,6 +47,43 @@
     gap: 1.5rem;
 }
 
+.settings-status-banner {
+    margin-bottom: 1.5rem;
+    padding: 1rem 1.25rem;
+    border: 1px solid var(--border-light, #e2e8f0);
+    border-radius: 1rem;
+    background: linear-gradient(135deg, #fff7ed 0%, #ffffff 100%);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+}
+
+.status-banner-title {
+    margin: 0;
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #9a3412;
+}
+
+.status-banner-copy {
+    margin: 0.25rem 0 0 0;
+    font-size: 0.875rem;
+    color: #64748b;
+}
+
+.status-banner-badge {
+    white-space: nowrap;
+    border-radius: 999px;
+    padding: 0.35rem 0.75rem;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: #9a3412;
+    background-color: #ffedd5;
+}
+
 /* Card */
 .settings-card {
     background-color: var(--surface-bg, #ffffff);
@@ -164,6 +201,11 @@
     transition: all 0.2s;
     outline: none;
     color: inherit;
+}
+
+.form-input[readonly] {
+    background-color: #f8fafc;
+    color: #64748b;
 }
 
 .form-select {
@@ -335,6 +377,12 @@
     font-size: 1.125rem;
 }
 
+.btn-save:disabled,
+.btn-discard:disabled {
+    cursor: not-allowed;
+    opacity: 0.7;
+}
+
 @media (max-width: 639px) {
     .form-actions {
         flex-direction: column;
@@ -342,5 +390,9 @@
     .btn-discard, .btn-save {
         width: 100%;
         justify-content: center;
+    }
+    .settings-status-banner {
+        flex-direction: column;
+        align-items: flex-start;
     }
 }

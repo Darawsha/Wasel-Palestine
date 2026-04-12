@@ -13,6 +13,8 @@
     <link rel="stylesheet" href="./SystemSettings.css" />
      <link rel="preload" href="./SystemSettings.css" as="style"/>
       <link rel="stylesheet" href="/assets/styles/variables.css"/>
+      <script src="/core/config/constants.js"></script>
+      <script src="./SystemSettings.js" defer></script>
 
     <!-- Auth Guard -->
     <script type="module">
@@ -30,6 +32,14 @@
                 <h2 class="title">System Settings</h2>
                 <p class="subtitle">Configure platform-wide settings, security policies and external integrations.</p>
             </header>
+
+            <div class="settings-status-banner" data-settings-status>
+                <div>
+                    <p class="status-banner-title">Runtime Configuration</p>
+                    <p class="status-banner-copy" data-settings-status-copy>Loading current app and API configuration.</p>
+                </div>
+                <span class="status-banner-badge" data-settings-status-badge>Loading</span>
+            </div>
 
             <div class="settings-accordion-group">
                 <!-- General Settings Accordion -->
@@ -130,6 +140,29 @@
                     </div>
 
                     <div class="accordion-body form-sections">
+
+                        <!-- Platform API Section -->
+                        <div class="api-section">
+                            <div class="api-header">
+                                <span class="material-symbols-outlined icon">hub</span>
+                                <span class="api-title">Platform API</span>
+                            </div>
+                            <div class="form-grid">
+                                <div class="form-group span-full">
+                                    <label class="form-label">Base URL</label>
+                                    <input class="form-input mono" type="text"
+                                        value="http://localhost:3000/api/v1" />
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Environment</label>
+                                    <input class="form-input" type="text" value="Local" readonly />
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Config Source</label>
+                                    <input class="form-input" type="text" value="App Defaults" readonly />
+                                </div>
+                            </div>
+                        </div>
 
                         <!-- Routing API Section -->
                         <div class="api-section">

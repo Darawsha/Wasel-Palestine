@@ -184,21 +184,22 @@
         await loadModerationQueue();
       },
       onClearFilters: async () => {
-        // Reset every filter state back to its default
         dependencies.state.setModerationSearch(pageState, '');
         dependencies.state.setModerationCategory(pageState, '');
         dependencies.state.setModerationSort(pageState, 'createdAt:DESC');
+
         if (pageState.duplicateOnly) {
           dependencies.state.toggleDuplicateOnly(pageState);
         }
 
-        // Eagerly reset the DOM controls so the UI feels instant
-        const root = getPageRoot();
-        const searchInput = root?.querySelector('[data-moderation-search]');
+        const currentRoot = getPageRoot();
+        const searchInput = currentRoot?.querySelector('[data-moderation-search]');
         if (searchInput) searchInput.value = '';
-        const categorySelect = root?.querySelector('[data-moderation-category]');
+
+        const categorySelect = currentRoot?.querySelector('[data-moderation-category]');
         if (categorySelect) categorySelect.value = '';
-        const sortSelect = root?.querySelector('[data-moderation-sort]');
+
+        const sortSelect = currentRoot?.querySelector('[data-moderation-sort]');
         if (sortSelect) sortSelect.value = 'createdAt:DESC';
 
         await loadModerationQueue();
@@ -210,6 +211,7 @@
       onOpenReview: async (reportId) => {
         const normalizedReportId = Number(reportId);
         let report = getReportById(normalizedReportId);
+
         if (!report) {
           return;
         }
@@ -223,7 +225,9 @@
             lockedReviewReportIds.add(normalizedReportId);
 
             const updatedReport =
-              await dependencies.controller.startModerationReview(normalizedReportId);
+              await dependencies.controller.startModerationReview(
+                normalizedReportId,
+              );
 
             if (updatedReport) {
               replaceLocalReport(updatedReport);
@@ -247,13 +251,21 @@
             status: 'under_review',
             statusLabel: 'Under Review',
           };
+
           replaceLocalReport(report);
-          dependencies.renderer.renderModerationQueue(root, pageState, localReports);
+          dependencies.renderer.renderModerationQueue(
+            root,
+            pageState,
+            localReports,
+          );
         } finally {
           lockedReviewReportIds.delete(normalizedReportId);
         }
 
-        dependencies.state.setSelectedModerationReport(pageState, normalizedReportId);
+        dependencies.state.setSelectedModerationReport(
+          pageState,
+          normalizedReportId,
+        );
         dependencies.renderer.openModerationModal(root, report);
       },
       onCloseReview: () => {
@@ -263,10 +275,16 @@
       onDecision: async (decision, reportId, notes) => {
         try {
           if (decision === 'approve') {
-            await dependencies.controller.approveModerationReport(reportId, notes);
+            await dependencies.controller.approveModerationReport(
+              reportId,
+              notes,
+            );
             notify('success', 'Report approved successfully.');
           } else if (decision === 'reject') {
-            await dependencies.controller.rejectModerationReport(reportId, notes);
+            await dependencies.controller.rejectModerationReport(
+              reportId,
+              notes,
+            );
             notify('success', 'Report rejected successfully.');
           }
 
