@@ -1,4 +1,7 @@
-import { getDynamicIcon, toCheckpointStatusKey } from '/utils/map-constants.js';
+import {
+  getDynamicIcon,
+  toCheckpointStatusKey,
+} from '/utils/map-constants.js';
 
 function normalizeCoordinate(value) {
   const normalized = Number(value);
@@ -14,12 +17,6 @@ function getPosition(entity) {
   }
 
   return [latitude, longitude];
-}
-
-function getLinkedCheckpointId(incident) {
-  const rawCheckpointId = incident?.checkpointId ?? incident?.checkpoint?.id;
-  const normalized = Number(rawCheckpointId);
-  return Number.isInteger(normalized) && normalized > 0 ? normalized : null;
 }
 
 function getCheckpointStatusLabel(status) {
@@ -80,6 +77,7 @@ export class MapMarkerController {
 
     const checkpoints = Array.isArray(data.checkpoints) ? data.checkpoints : [];
     const incidents = Array.isArray(data.incidents) ? data.incidents : [];
+    const reports = Array.isArray(data.reports) ? data.reports : [];
 
     checkpoints.forEach((checkpoint) => {
       const position = getPosition(checkpoint);
@@ -99,10 +97,6 @@ export class MapMarkerController {
     });
 
     incidents.forEach((incident) => {
-      if (getLinkedCheckpointId(incident)) {
-        return;
-      }
-
       const position = getPosition(incident);
       if (!position) return;
 
@@ -116,6 +110,24 @@ export class MapMarkerController {
           <p style="margin: 0; font-size: 13px;"><strong>النوع:</strong> ${incident.type || '-'}</p>
           <p style="margin: 0; font-size: 13px;"><strong>الخطورة:</strong> ${incident.severity || '-'}</p>
           ${incident.description ? `<p style="margin: 5px 0 0 0; font-size: 12px; color: #555;">${incident.description}</p>` : ''}
+        </div>
+      `);
+    });
+
+    reports.forEach((report) => {
+      const position = getPosition(report);
+      if (!position) return;
+
+      const icon = getDynamicIcon('REPORT', report.category);
+      if (!icon) return;
+
+      const marker = window.L.marker(position, { icon }).addTo(layerGroup);
+      marker.bindPopup(`
+        <div style="font-family: Arial; text-align: left;">
+          <h4 style="margin: 0 0 5px 0; color: #2563eb;">Report</h4>
+          <p style="margin: 0; font-size: 13px;"><strong>Location:</strong> ${report.location || '-'}</p>
+          <p style="margin: 0; font-size: 13px;"><strong>Category:</strong> ${report.category || '-'}</p>
+          ${report.description ? `<p style="margin: 5px 0 0 0; font-size: 12px; color: #555;">${report.description}</p>` : ''}
         </div>
       `);
     });

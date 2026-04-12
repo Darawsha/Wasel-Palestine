@@ -1,13 +1,8 @@
-export async function isLocationReal(location) {
+export async function isLocationReal(location, options = {}) {
   try {
-    const countryCode = 'ps';
-
-    const response = await fetch(
-      `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(location)}&countrycodes=${countryCode}&limit=1`,
-      {
-        headers: { 'Accept-Language': 'ar,en' },
-      },
-    );
+    const response = await fetch(buildLocationSearchUrl(location, options), {
+      headers: { 'Accept-Language': 'ar,en' },
+    });
 
     if (!response.ok) return { isValid: false };
 
@@ -29,4 +24,39 @@ export async function isLocationReal(location) {
     }
     return { isValid: false };
   }
+}
+
+function buildLocationSearchUrl(location, options = {}) {
+  const params = new URLSearchParams({
+    format: 'json',
+    q: String(location || ''),
+    limit: '1',
+  });
+  const countryCodes = normalizeCountryCodes(options.countryCodes);
+
+  if (countryCodes.length > 0) {
+    params.set('countrycodes', countryCodes.join(','));
+  }
+
+  return `https://nominatim.openstreetmap.org/search?${params.toString()}`;
+}
+
+function normalizeCountryCodes(countryCodes) {
+  if (countryCodes === undefined) {
+    return ['ps'];
+  }
+
+  if (countryCodes === null) {
+    return [];
+  }
+
+  const values = Array.isArray(countryCodes)
+    ? countryCodes
+    : String(countryCodes || '')
+        .split(',')
+        .map((value) => value.trim());
+
+  return values
+    .map((value) => String(value || '').trim().toLowerCase())
+    .filter(Boolean);
 }

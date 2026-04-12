@@ -1,4 +1,4 @@
-import { IsBoolean, IsArray, IsOptional } from 'class-validator';
+import { IsBoolean, IsOptional } from 'class-validator';
 
 export class RouteConstraintsDto {
   @IsOptional()
@@ -6,6 +6,6 @@ export class RouteConstraintsDto {
   avoidCheckpoints?: boolean;
 
   @IsOptional()
-  @IsArray()
-  avoidAreas?: string[];
+  @IsBoolean()
+  avoidIncidents?: boolean;
 }

@@ -28,7 +28,7 @@
         <header class="reports-header">
           <div class="header-text">
             <h2>My Reports</h2>
-            <p>Track your submitted reports and their status</p>
+            <p data-reports-view-copy>Track your submitted reports and their status</p>
           </div>
           <button class="btn-primary" onclick="openMyReportModal()">
             <span class="material-symbols-outlined">add</span>
@@ -36,164 +36,55 @@
           </button>
         </header>
 
-        <nav class="filter-tabs">
+        <div class="reports-view-toolbar">
+          <div class="reports-view-switch">
+            <button class="view-switch-btn active" type="button" data-reports-view="my">
+              My Reports
+            </button>
+            <button class="view-switch-btn" type="button" data-reports-view="community">
+              Community Feed
+            </button>
+          </div>
+          <button
+            class="btn-outline btn-inline-action"
+            type="button"
+            data-community-refresh-location
+            hidden
+          >
+            Refresh Nearby Feed
+          </button>
+        </div>
+
+        <nav class="filter-tabs" data-reports-status-nav>
           <div class="tabs-scroll">
-            <button class="tab-item active">
-              All <span class="badge-count">12</span>
+            <button class="tab-item active" type="button" data-report-status-tab="all">
+              All <span class="badge-count">0</span>
             </button>
-            <button class="tab-item">
-              Pending <span class="badge-count muted">4</span>
+            <button class="tab-item" type="button" data-report-status-tab="pending">
+              Pending <span class="badge-count muted">0</span>
             </button>
-            <button class="tab-item">
-              Verified <span class="badge-count muted">6</span>
+            <button class="tab-item" type="button" data-report-status-tab="verified">
+              Verified <span class="badge-count muted">0</span>
             </button>
-            <button class="tab-item">
-              Rejected <span class="badge-count muted">2</span>
+            <button class="tab-item" type="button" data-report-status-tab="rejected">
+              Rejected <span class="badge-count muted">0</span>
             </button>
           </div>
         </nav>
 
-        <div class="reports-list">
-          <article class="report-card">
-            <div class="card-inner">
-              <div class="card-image">
-                <img
-                  src="https://lh3.googleusercontent.com/aida-public/AB6AXuDNde9mbjEXPr9APBdNAAn-s2t_K2G8wejqD9KbuQJgIPjK6Rz3k2v-u54W44sxfbM0OceTLyxQRsc62m7yAh5S9-xNg0olZk42A9zS4L7yBE6MqM0CF6hQIbKmhQ6vLyyKiRUf1CUiVyIsM5v1ZGcUAyQOySUhd27HaV_S5tNtIC_JjsZ34g9vsKlEw80Rpl0-5Xgw154pg_e9UJcIa4T28WPuF7kpCbLdnefJz42bwB4GWyyvYRoVt2zesBv-zfJB2msRgm7xhRo"
-                  alt="Road closure"
-                />
-              </div>
-              <div class="card-content">
-                <div class="card-header">
-                  <div class="title-group">
-                    <span class="material-symbols-outlined icon-fill"
-                      >block</span
-                    >
-                    <h3>Road Closure</h3>
-                    <span class="status-pill pending">Pending</span>
-                  </div>
-                  <div class="credibility-score">
-                    <span class="material-symbols-outlined icon-fill"
-                      >verified_user</span
-                    >
-                    <span>Credibility: 3.8</span>
-                  </div>
-                </div>
-                <p class="card-description">
-                  Blocked road near Tulkarem checkpoint due to unexpected
-                  construction works and security measures...
-                </p>
-                <div class="card-meta">
-                  <span class="meta-item"
-                    ><span class="material-symbols-outlined">location_on</span>
-                    Tulkarem</span
-                  >
-                  <span class="meta-item"
-                    ><span class="material-symbols-outlined">schedule</span> 35m
-                    ago</span
-                  >
-                </div>
-              </div>
-            </div>
-          </article>
-
-          <article class="report-card">
-            <div class="card-inner">
-              <div class="card-image">
-                <img
-                  src="https://lh3.googleusercontent.com/aida-public/AB6AXuCcu-ccLr-T5WKtWDdp-XkQGTRZf-Yoi6kOCHJ4GwK17W3ayYlbi1q_NBcYSr80PRr7M1VzmagEQbp48XFHg1fyImVfomnYPhN4Y8X20mO2nDaqZ_z00PiBIVz_UxfHU9M55XNynhccgXSgB92bZolcko2LmIZ-ONeQuKmAL-y7b0U2_n_Ir8o4ncoUGghZdto4v5HJ8h_fNAQQZCpDKM00a1xlTppZlZ-i5A4yFxdTrgOjDl5yZ13Krzup1QhvCzLGpiGnK4ylTCM"
-                  alt="Traffic delay"
-                />
-              </div>
-              <div class="card-content">
-                <div class="card-header">
-                  <div class="title-group">
-                    <span class="material-symbols-outlined icon-fill"
-                      >timer</span
-                    >
-                    <h3>Delay</h3>
-                    <span class="status-pill verified">Verified</span>
-                  </div>
-                  <div class="credibility-score">
-                    <span class="material-symbols-outlined icon-fill"
-                      >verified_user</span
-                    >
-                    <span>Credibility: 4.5</span>
-                  </div>
-                </div>
-                <p class="card-description">
-                  Heavy delays on Route 443. Traffic is moving slowly for the
-                  past 2 kilometers...
-                </p>
-                <div class="card-meta">
-                  <span class="meta-item"
-                    ><span class="material-symbols-outlined">location_on</span>
-                    Route 443</span
-                  >
-                  <span class="meta-item"
-                    ><span class="material-symbols-outlined">schedule</span> 2h
-                    ago</span
-                  >
-                </div>
-              </div>
-            </div>
-          </article>
-
-          <article class="report-card">
-            <div class="card-inner">
-              <div class="card-image">
-                <img
-                  src="https://lh3.googleusercontent.com/aida-public/AB6AXuBoyPpaO_GcLB5EsFbGusQSPtK0TsfHxy4VGvTqWgse7hfvwbELRyjxgBE72rsyg24CNURCL_hGSDlLfHDMkijrj0tg6H_L3PAust5d27zcHbUodT8iyjESNrPzZXjMIkGQG5HPVZiW598KPRskuJnthpVwEs-EtJQDrD4HkmGEHwaG0CUgaC9wjrnkiQrAVl5aBLHbrTO-spY49VEx8Ls_f80LGchV8fj3uqhx5XcSYcYC_Q9MSwGZ-52hZaveLbbDsVA7__iLp48"
-                  alt="Accident"
-                />
-              </div>
-              <div class="card-content">
-                <div class="card-header">
-                  <div class="title-group">
-                    <span class="material-symbols-outlined icon-fill"
-                      >car_crash</span
-                    >
-                    <h3>Accident</h3>
-                    <span class="status-pill rejected">Rejected</span>
-                  </div>
-                  <div class="credibility-score low">
-                    <span class="material-symbols-outlined">verified_user</span>
-                    <span>Credibility: 2.1</span>
-                  </div>
-                </div>
-                <p class="card-description">
-                  Car accident near Nablus junction involving two private
-                  vehicles. Police on site...
-                </p>
-                <div class="card-meta">
-                  <span class="meta-item"
-                    ><span class="material-symbols-outlined">location_on</span>
-                    Nablus</span
-                  >
-                  <span class="meta-item"
-                    ><span class="material-symbols-outlined">schedule</span> 1
-                    day ago</span
-                  >
-                </div>
-              </div>
-            </div>
-          </article>
-        </div>
+        <div class="reports-list" data-reports-list></div>
 
         <footer class="pagination-container">
-          <p class="pagination-info">
-            Showing <strong>1-4</strong> of <strong>12</strong> reports
+          <p class="pagination-info" data-reports-pagination-info>
+            Showing 0 reports
           </p>
-          <div class="pagination-controls">
-            <button class="btn-outline">Previous</button>
-            <button class="page-num active">1</button>
-            <button class="page-num">2</button>
-            <button class="page-num">3</button>
-            <button class="btn-outline">Next</button>
-          </div>
+          <div class="pagination-controls" data-reports-pagination-controls></div>
         </footer>
       </main>
     </div>
 
+    <script src="/features/citizen/my-reports/SubmitReport.js"></script>
     <script src="/features/citizen/my-reports/SubmitReport_btn.js"></script>
+    <script src="/features/citizen/my-reports/MyReportPage.js"></script>
   </body>
 </html>

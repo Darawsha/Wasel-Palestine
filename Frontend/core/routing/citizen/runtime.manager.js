@@ -15,6 +15,7 @@
 
   function cleanupMapRuntime() {
     getMapWidgets().destroyAllMaps?.();
+    global.destroyWeatherWidget?.();
     global.RoutePlannerPage?.destroy?.();
   }
 

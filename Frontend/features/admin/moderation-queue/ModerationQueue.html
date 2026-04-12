@@ -8,63 +8,44 @@
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
     <link rel="stylesheet" href="/views/admin/shell/admin-shell.css" />
     <link rel="stylesheet" href="./ModerationQueue.css" />
-     <link rel="stylesheet" href="/assets/styles/variables.css"/>
-    <script src="/core/config/constants.js"></script>
-    <script src="./ModerationQueue.js" defer></script>
+    <link rel="stylesheet" href="/assets/styles/variables.css"/>
 
-    <!-- Auth Guard -->
     <script type="module">
       import { checkAuth } from '/core/auth/authGuard.js';
       checkAuth();
-    </script></head>
+    </script>
+</head>
 <body class="admin-body">
-<!-- Admin/Pages/ModerationQueue/ModerationQueue.html -->
-
-
 <div class="mq-page">
     <header class="mq-header">
         <div class="mq-header-title-group">
             <h2 class="title">Moderation Queue</h2>
-            <span class="badge badge-yellow">24 pending</span>
+            <span class="badge badge-yellow" data-moderation-pending-count>0 pending</span>
         </div>
-        <button class="btn-export">
-            <span class="material-symbols-outlined icon">download</span>
-            Export
-        </button>
     </header>
 
-    <!-- Filter Card -->
     <div class="mq-filter-card">
         <div class="mq-filter-grid">
-            <!-- Search -->
             <div class="filter-col">
                 <label class="filter-label">Search</label>
-                <input class="filter-input" placeholder="Search reports..." type="text"/>
+                <input class="filter-input" placeholder="Search reports..." type="text" data-moderation-search />
             </div>
-            
-            <!-- Category -->
+
             <div class="filter-col">
                 <label class="filter-label">Category</label>
-                <select class="filter-select">
-                    <option>All Categories</option>
-                    <option>Closure</option>
-                    <option>Delay</option>
-                    <option>Accident</option>
+                <select class="filter-select" data-moderation-category>
+                    <option value="">All Categories</option>
+                    <option value="road_closure">Road Closure</option>
+                    <option value="checkpoint_issue">Checkpoint Issue</option>
+                    <option value="delay">Delay</option>
+                    <option value="accident">Accident</option>
+                    <option value="hazard">Hazard</option>
+                    <option value="other">Other</option>
                 </select>
             </div>
-            
-            <!-- Date Range -->
-            <div class="filter-col">
-                <label class="filter-label">Date Range</label>
-                <div class="input-with-icon">
-                    <span class="material-symbols-outlined filter-icon">calendar_today</span>
-                    <input class="filter-date-input" placeholder="Select dates" type="text"/>
-                </div>
-            </div>
-            
-            <!-- Toggles and Sort -->
+
             <div class="filter-col toggle-col">
-                <button class="toggle-btn toggle-active">
+                <button class="toggle-btn" type="button" data-moderation-duplicates-toggle>
                     <span class="toggle-thumb"></span>
                 </button>
                 <span class="toggle-label">Duplicates only</span>
@@ -72,16 +53,29 @@
 
             <div class="filter-col">
                 <label class="filter-label">Sort By</label>
-                <select class="filter-select">
-                    <option>Newest First</option>
-                    <option>Oldest First</option>
-                    <option>Highest Score</option>
+                <select class="filter-select" data-moderation-sort>
+                    <option value="createdAt:DESC">Newest First</option>
+                    <option value="createdAt:ASC">Oldest First</option>
+                    <option value="confidenceScore:DESC">Highest Score</option>
                 </select>
+            </div>
+
+            <div class="filter-col filter-col-clear">
+                <!-- Revealed by the renderer whenever any filter is active -->
+                <button
+                    class="btn-clear-filters"
+                    type="button"
+                    data-moderation-clear-filters
+                    hidden
+                    aria-label="Clear all filters"
+                >
+                    <span class="material-symbols-outlined">filter_alt_off</span>
+                    Clear Filters
+                </button>
             </div>
         </div>
     </div>
 
-    <!-- Data Table -->
     <div class="mq-table-container">
         <div class="table-scroll">
             <table class="mq-table">
@@ -98,126 +92,76 @@
                         <th class="text-right">Action</th>
                     </tr>
                 </thead>
-                <tbody>
-                    <!-- Row 1 -->
-                    <tr>
-                        <td class="cell-id">1042</td>
-                        <td>
-                            <span class="category-badge cat-red">Closure</span>
-                        </td>
-                        <td class="cell-location">Hebron Road</td>
-                        <td class="cell-desc">Road completely blocked by military...</td>
-                        <td class="cell-user">ahmed_m</td>
-                        <td class="cell-time">25 min ago</td>
-                        <td class="cell-score text-center">4.2</td>
-                        <td class="text-center"></td>
-                        <td class="text-right">
-                            <button class="btn-review">Review</button>
-                        </td>
-                    </tr>
-                    <!-- Row 2 -->
-                    <tr class="row-warning">
-                        <td class="cell-id">1041</td>
-                        <td>
-                            <span class="category-badge cat-yellow">Delay</span>
-                        </td>
-                        <td class="cell-location">Route 60</td>
-                        <td class="cell-desc">Heavy traffic and delays near...</td>
-                        <td class="cell-user">sara_k</td>
-                        <td class="cell-time">1 hour ago</td>
-                        <td class="cell-score text-center">2.1</td>
-                        <td class="text-center text-orange">
-                            <span class="material-symbols-outlined icon-flag">warning</span>
-                        </td>
-                        <td class="text-right">
-                            <button class="btn-review">Review</button>
-                        </td>
-                    </tr>
-                    <!-- Row 3 -->
-                    <tr>
-                        <td class="cell-id">1040</td>
-                        <td>
-                            <span class="category-badge cat-orange">Accident</span>
-                        </td>
-                        <td class="cell-location">Nablus Bypass</td>
-                        <td class="cell-desc">Two cars collided causing partial...</td>
-                        <td class="cell-user">omar_h</td>
-                        <td class="cell-time">2 hours ago</td>
-                        <td class="cell-score text-center">3.5</td>
-                        <td class="text-center"></td>
-                        <td class="text-right">
-                            <button class="btn-review">Review</button>
-                        </td>
-                    </tr>
-                    <!-- Row 4 -->
-                    <tr class="row-warning">
-                        <td class="cell-id">1039</td>
-                        <td>
-                            <span class="category-badge cat-red">Closure</span>
-                        </td>
-                        <td class="cell-location">Bethlehem</td>
-                        <td class="cell-desc">Main entrance closed since morning...</td>
-                        <td class="cell-user">fatima_r</td>
-                        <td class="cell-time">3 hours ago</td>
-                        <td class="cell-score text-center">1.8</td>
-                        <td class="text-center text-orange">
-                            <span class="material-symbols-outlined icon-flag">warning</span>
-                        </td>
-                        <td class="text-right">
-                            <button class="btn-review">Review</button>
-                        </td>
-                    </tr>
-                    <!-- Row 5 -->
-                    <tr>
-                        <td class="cell-id">1038</td>
-                        <td>
-                            <span class="category-badge cat-blue">Weather</span>
-                        </td>
-                        <td class="cell-location">Jericho</td>
-                        <td class="cell-desc">Flooding reported on main highway...</td>
-                        <td class="cell-user">khaled_a</td>
-                        <td class="cell-time">4 hours ago</td>
-                        <td class="cell-score text-center">4.6</td>
-                        <td class="text-center"></td>
-                        <td class="text-right">
-                            <button class="btn-review">Review</button>
-                        </td>
-                    </tr>
-                    <!-- Row 6 -->
-                    <tr>
-                        <td class="cell-id">1037</td>
-                        <td>
-                            <span class="category-badge cat-yellow">Delay</span>
-                        </td>
-                        <td class="cell-location">Tulkarem</td>
-                        <td class="cell-desc">Long queues at checkpoint since...</td>
-                        <td class="cell-user">mona_s</td>
-                        <td class="cell-time">5 hours ago</td>
-                        <td class="cell-score text-center">3.9</td>
-                        <td class="text-center"></td>
-                        <td class="text-right">
-                            <button class="btn-review">Review</button>
-                        </td>
-                    </tr>
-                </tbody>
+                <tbody data-moderation-table-body></tbody>
             </table>
         </div>
-        <!-- Pagination -->
+
         <div class="pagination-footer">
-            <p class="pagination-info">Showing 1-10 of 24</p>
-            <div class="pagination-controls">
-                <button class="btn-page nav-btn">
-                    <span class="material-symbols-outlined">chevron_left</span>
+            <p class="pagination-info" data-moderation-pagination-info>Showing 0 reports</p>
+            <div class="pagination-controls" data-moderation-pagination-controls></div>
+        </div>
+    </div>
+
+    <div class="mq-modal-overlay" data-moderation-modal hidden>
+        <div class="mq-modal-card">
+            <div class="mq-modal-header">
+                <div>
+                    <h3 data-moderation-modal-title>Review Report</h3>
+                    <p class="mq-modal-subtitle">
+                        <span data-moderation-modal-status>Pending</span>
+                        &bull;
+                        <span data-moderation-modal-time>Unknown time</span>
+                    </p>
+                </div>
+                <button class="mq-modal-close" type="button" data-moderation-close>
+                    <span class="material-symbols-outlined">close</span>
                 </button>
-                <button class="btn-page active">1</button>
-                <button class="btn-page">2</button>
-                <button class="btn-page">3</button>
-                <button class="btn-page nav-btn">
-                    <span class="material-symbols-outlined">chevron_right</span>
-                </button>
+            </div>
+
+            <div class="mq-modal-body">
+                <div class="mq-modal-grid">
+                    <div class="mq-modal-field">
+                        <span class="mq-modal-label">Location</span>
+                        <span data-moderation-modal-location>-</span>
+                    </div>
+                    <div class="mq-modal-field">
+                        <span class="mq-modal-label">Reporter</span>
+                        <span data-moderation-modal-reporter>-</span>
+                    </div>
+                    <div class="mq-modal-field">
+                        <span class="mq-modal-label">Confidence</span>
+                        <span data-moderation-modal-confidence>-</span>
+                    </div>
+                    <div class="mq-modal-field">
+                        <span class="mq-modal-label">Duplicate Flag</span>
+                        <span data-moderation-modal-duplicate>-</span>
+                    </div>
+                </div>
+
+                <div class="mq-modal-field mq-modal-field-block">
+                    <span class="mq-modal-label">Description</span>
+                    <p class="mq-modal-description" data-moderation-modal-description></p>
+                </div>
+
+                <div class="mq-modal-field mq-modal-field-block">
+                    <label class="mq-modal-label" for="moderation-notes">Audit Notes</label>
+                    <textarea
+                        id="moderation-notes"
+                        class="mq-modal-textarea"
+                        data-moderation-notes
+                        placeholder="Add moderation notes for the audit trail..."
+                    ></textarea>
+                </div>
+            </div>
+
+            <div class="mq-modal-actions">
+                <button class="btn-outline" type="button" data-moderation-close>Cancel</button>
+                <button class="btn-review btn-review-danger" type="button" data-moderation-decision="reject">Reject</button>
+                <button class="btn-review" type="button" data-moderation-decision="approve">Approve</button>
             </div>
         </div>
     </div>
 </div>
+<script src="/features/admin/moderation-queue/ModerationQueue.js"></script>
 </body>
 </html>

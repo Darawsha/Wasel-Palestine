@@ -21,27 +21,45 @@ async function fetchMapCheckpoints(params) {
   return Array.isArray(response?.data) ? response.data : [];
 }
 
+async function fetchMapReports(params) {
+  const response = await apiGet('/map/reports', { params });
+  return Array.isArray(response?.data) ? response.data : [];
+}
+
+function getSettledArray(result) {
+  return result.status === 'fulfilled' && Array.isArray(result.value)
+    ? result.value
+    : [];
+}
+
 export async function fetchFilteredMapData(filters = {}, options = {}) {
   const includeCheckpoints = options.includeCheckpoints !== false;
 
   const params = buildMapQueryParams(filters);
 
   if (!includeCheckpoints) {
-    const incidents = await fetchMapIncidents(params);
+    const [incidentsResult, reportsResult] = await Promise.allSettled([
+      fetchMapIncidents(params),
+      fetchMapReports(params),
+    ]);
 
     return {
-      incidents,
+      incidents: getSettledArray(incidentsResult),
       checkpoints: [],
+      reports: getSettledArray(reportsResult),
     };
   }
 
-  const [incidents, checkpoints] = await Promise.all([
-    fetchMapIncidents(params),
-    fetchMapCheckpoints(params),
-  ]);
+  const [incidentsResult, checkpointsResult, reportsResult] =
+    await Promise.allSettled([
+      fetchMapIncidents(params),
+      fetchMapCheckpoints(params),
+      fetchMapReports(params),
+    ]);
 
   return {
-    incidents,
-    checkpoints,
+    incidents: getSettledArray(incidentsResult),
+    checkpoints: getSettledArray(checkpointsResult),
+    reports: getSettledArray(reportsResult),
   };
 }

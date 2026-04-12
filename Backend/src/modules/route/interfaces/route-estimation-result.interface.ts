@@ -2,7 +2,7 @@ import { RouteConstraintType } from '../enums/route-constraint-type.enum';
 import { RouteEstimationMethod } from '../enums/route-estimation-method.enum';
 import { RouteFactor } from './route-factor.interface';
 
-export interface RouteEstimationResult {
+export interface RouteEstimationCandidate {
   estimatedDistanceKm: number;
   estimatedDurationMinutes: number;
   geometry: {
@@ -13,4 +13,8 @@ export interface RouteEstimationResult {
   appliedConstraints: RouteConstraintType[];
   factors: RouteFactor[];
   warnings: string[];
+}
+
+export interface RouteEstimationResult extends RouteEstimationCandidate {
+  alternativeRoutes?: RouteEstimationCandidate[];
 }

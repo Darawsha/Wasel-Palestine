@@ -65,6 +65,9 @@ async function openMyReportModal() {
     }
 
     applySubmitReportTheme(modalContent);
+    if (window.CitizenSubmitReport?.init) {
+      await window.CitizenSubmitReport.init(modalContent);
+    }
     modal.classList.remove("hidden");
   } catch (error) {
     console.error("Error loading submit report modal:", error);

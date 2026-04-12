@@ -4,9 +4,15 @@ import { join } from 'path';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AuthModule } from './modules/auth/auth.module';
-import { UsersModule } from './modules/users/users.module';
+import { ServeStaticModule } from '@nestjs/serve-static';
+import { join } from 'path';
+import { existsSync } from 'fs';
 
 import { ConfigModule } from '@nestjs/config';
+import { CheckpointsModule } from './modules/checkpoints/checkpoints.module';
+import { IncidentsModule } from './modules/incidents/incidents.module';
+import { AuthMiddleware } from './core/middleware/authMiddleware';
+import { typeOrmConfig } from './core/database/typeorm.config';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { typeOrmConfig } from './core/database/typeorm.config';
@@ -18,23 +24,31 @@ import { MapModule } from './modules/map/map.module';
 
 import { ReportsModule } from './modules/reports/reports.module';
 import { RouteModule } from './modules/route/route.module';
+import { WeatherModule } from './modules/weather/weather.module';
 const projectRoot = process.cwd();
+const workspaceRoot = existsSync(join(projectRoot, 'Frontend'))
+  ? projectRoot
+  : join(projectRoot, '..');
+const envFilePath = Array.from(
+  new Set([join(projectRoot, '.env'), join(workspaceRoot, '.env')]),
+);
 @Module({
   imports: [
     UsersModule,
     AuthModule,
     ConfigModule.forRoot({
       isGlobal: true,
+      envFilePath,
     }),
     TypeOrmModule.forRoot(typeOrmConfig),
     CheckpointsModule,
     IncidentsModule,
-    ReportsModule,
     MapModule,
     RouteModule,
-
+    ReportsModule,
+    WeatherModule,
     ServeStaticModule.forRoot({
-      rootPath: join(projectRoot, 'Frontend'),
+      rootPath: join(workspaceRoot, 'Frontend'),
       exclude: ['/api*wildcard'],
     }),
     EventEmitterModule.forRoot(),
@@ -46,6 +60,8 @@ const projectRoot = process.cwd();
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
-    consumer.apply(AuthMiddleware).forRoutes('*'); // Match all routes in the Nest app under the 'api' prefix
+    consumer
+      .apply(AuthMiddleware)
+      .forRoutes('*');
   }
 }

@@ -8,7 +8,14 @@ describe('RouteController', () => {
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [RouteController],
-      providers: [RouteService],
+      providers: [
+        {
+          provide: RouteService,
+          useValue: {
+            estimateRoute: jest.fn(),
+          },
+        },
+      ],
     }).compile();
 
     controller = module.get<RouteController>(RouteController);

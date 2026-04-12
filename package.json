@@ -11,7 +11,7 @@
         "start": "nest start",
         "start:dev": "nest start --watch",
         "start:debug": "nest start --debug --watch",
-        "start:prod": "node dist/main",
+        "start:prod": "node dist/main.js",
         "lint": "eslint \"{Backend/src,apps,libs,Backend/test}/**/*.ts\" --fix",
         "test": "jest",
         "test:watch": "jest --watch",
@@ -29,6 +29,8 @@
         "@nestjs/passport": "^11.0.5",
         "@nestjs/platform-express": "^11.0.1",
         "@nestjs/serve-static": "^5.0.4",
+
+        "@nestjs/swagger": "^11.2.7",
         "@nestjs/swagger": "^11.2.6",
         "@nestjs/typeorm": "^11.0.0",
         "axios": "^1.14.0",

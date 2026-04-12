@@ -1,21 +1,19 @@
 (function (global) {
-  async function initRoutePlannerPage() {
-    const map = global.RoutePlannerLogic?.getMap?.();
-    if (!map) return;
+  if (!global.RoutePlannerPage) {
+    global.RoutePlannerPage = {
+      init: async function initRoutePlannerPage() {
+        const map = global.RoutePlannerLogic?.getMap?.();
+        if (!map) return;
 
-    await global.RoutePlannerLogic?.drawRouteOnMap?.(map);
+        await global.RoutePlannerLogic?.drawRouteOnMap?.(map);
+      },
+      destroy: function destroyRoutePlannerPage() {
+        global.RoutePlannerLogic?.clearRouteLayers?.();
+      },
+    };
   }
-
-  function destroyRoutePlannerPage() {
-    global.RoutePlannerLogic?.clearRouteLayers?.();
-  }
-
-  global.RoutePlannerPage = {
-    init: initRoutePlannerPage,
-    destroy: destroyRoutePlannerPage,
-  };
 
   if (global.location.hash === "#route-planner") {
-    initRoutePlannerPage();
+    void global.RoutePlannerPage?.init?.();
   }
 })(window);
