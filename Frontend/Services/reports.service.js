@@ -98,10 +98,27 @@ export function getCommunityReportsPage(params = {}) {
   return loadReportsPage('/reports/community', params);
 }
 
+export function getReportDetails(reportId) {
+  return apiGet(`/reports/${reportId}`);
+}
+
 export function createReport(payload) {
   return apiRequest('/reports/create', {
     method: 'POST',
     data: payload,
+  });
+}
+
+export function updateMyReport(reportId, payload) {
+  return apiRequest(`/reports/my/${reportId}`, {
+    method: 'PATCH',
+    data: payload,
+  });
+}
+
+export function deleteMyReport(reportId) {
+  return apiRequest(`/reports/my/${reportId}`, {
+    method: 'DELETE',
   });
 }
 

@@ -19,6 +19,7 @@ export class IncidentAlertObserver {
       severity: incident.severity,
       geographicArea: incident.location || 'Unknown area',
       description: incident.description,
+      actorUserId: incident.verifiedByUserId ?? null,
       checkpointName: incident.checkpoint?.name ?? null,
       impactStatus: incident.impactStatus ?? null,
     };
@@ -34,6 +35,7 @@ export class IncidentAlertObserver {
       severity: incident.severity,
       geographicArea: incident.location || 'Unknown area',
       description: incident.description,
+      actorUserId: incident.closedByUserId ?? null,
       checkpointName: incident.checkpoint?.name ?? null,
       impactStatus: incident.impactStatus ?? null,
     };

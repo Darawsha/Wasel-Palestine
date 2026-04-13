@@ -1,5 +1,19 @@
 export class SocialAuthService {
   static googleTokenClient = null;
+  static fallbackOrigin = "http://localhost:3000";
+
+  static getAppOrigin() {
+    if (
+      typeof window !== "undefined" &&
+      window.location &&
+      window.location.origin &&
+      window.location.origin !== "null"
+    ) {
+      return window.location.origin;
+    }
+
+    return this.fallbackOrigin;
+  }
 
   static initGoogle() {
     if (!window.google || !google.accounts || !google.accounts.oauth2) {
@@ -12,7 +26,7 @@ export class SocialAuthService {
       scope: "openid email profile",
       callback: async (response) => {
         try {
-          const res = await axios.post("http://localhost:3000/api/v1/auth/google", {
+          const res = await axios.post(`${this.getAppOrigin()}/api/v1/auth/google`, {
             accessToken: response.access_token,
           });
 
@@ -20,7 +34,7 @@ export class SocialAuthService {
           localStorage.setItem("user", JSON.stringify(res.data.user));
 
           window.location.href =
-            "http://localhost:3000/views/citizen/header/header.html#home";
+            `${this.getAppOrigin()}/views/citizen/header/header.html#home`;
         } catch (error) {
           console.error("Google login failed:", error);
         }
@@ -37,6 +51,6 @@ export class SocialAuthService {
   }
 
   static startLinkedinLogin() {
-    window.location.href = "http://localhost:3000/api/v1/auth/linkedin";
+    window.location.href = `${this.getAppOrigin()}/api/v1/auth/linkedin`;
   }
 }

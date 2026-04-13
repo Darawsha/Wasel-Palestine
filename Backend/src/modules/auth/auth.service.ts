@@ -12,14 +12,16 @@ import { PasswordService } from '../../core/services/password/password.service';
 import { UsersService } from '../users/users.service';
 import { User } from '../users/entities/user.entity';
 import { RegisterDto } from './dto/signup.dto';
+import { UpdateProfileDto } from './dto/update-profile.dto';
+import { SafeUserResponse, toSafeUserResponse } from '../users/users.constants';
 
 type SocialLoginUser = {
   email: string;
   firstname?: string;
   lastname?: string;
+  name?: string;
   provider: string;
   providerId?: string;
-  picture?: string | null;
 };
 
 @Injectable()
@@ -83,13 +85,7 @@ export class AuthService {
 
     return {
       access_token: this.jwtService.sign(payload),
-      user: {
-        id: user.id,
-        email: user.email,
-        role: user.role,
-        firstname: user.firstname,
-        lastname: user.lastname,
-      },
+      user: this.toAuthUserResponse(user),
     };
   }
 
@@ -110,9 +106,9 @@ export class AuthService {
         email: googleUser?.email,
         firstname: googleUser?.given_name || '',
         lastname: googleUser?.family_name || '',
+        name: googleUser?.name || '',
         provider: 'google',
         providerId: googleUser?.sub,
-        picture: googleUser?.picture || null,
       });
     } catch (error: any) {
       console.error(
@@ -216,9 +212,9 @@ export class AuthService {
         email: linkedinUser?.email,
         firstname: linkedinUser?.given_name || '',
         lastname: linkedinUser?.family_name || '',
+        name: linkedinUser?.name || '',
         provider: 'linkedin',
         providerId: linkedinUser?.sub,
-        picture: linkedinUser?.picture || null,
       });
     } catch (error: any) {
       console.error(
@@ -247,38 +243,34 @@ export class AuthService {
       );
     }
 
-    let user = await this.usersService.findByEmail(socialUser.email);
-
-    if (!user) {
-      if (socialUser.provider === 'google') {
-        user = await this.usersService.createGoogleUser({
-          firstname: socialUser.firstname || '',
-          lastname: socialUser.lastname || '',
-          email: socialUser.email,
-          googleId: socialUser.providerId || '',
-          profileImage: socialUser.picture || null,
-        });
-      } else if (socialUser.provider === 'linkedin') {
-        user = await this.usersService.createLinkedinUser({
-          firstname: socialUser.firstname || '',
-          lastname: socialUser.lastname || '',
-          email: socialUser.email,
-          linkedinId: socialUser.providerId || '',
-          profileImage: socialUser.picture || null,
-        });
-      } else {
-        user = await this.usersService.createSocialUser({
-          firstname: socialUser.firstname || '',
-          lastname: socialUser.lastname || '',
-          email: socialUser.email,
-          provider: socialUser.provider,
-          providerId: socialUser.providerId,
-          profileImage: socialUser.picture || null,
-        });
-      }
-    }
+    const { firstname, lastname } = this.resolveSocialNames(socialUser);
+    const user = await this.usersService.resolveSocialLoginUser({
+      firstname,
+      lastname,
+      email: socialUser.email,
+      provider: socialUser.provider,
+      providerId: socialUser.providerId,
+    });
 
     return this.generateToken(user);
+  }
+
+  async getProfile(userId: number): Promise<SafeUserResponse> {
+    const user = await this.usersService.findOneOrFail(userId);
+    return this.toAuthUserResponse(user);
+  }
+
+  async updateProfile(
+    userId: number,
+    updateProfileDto: UpdateProfileDto,
+  ): Promise<SafeUserResponse> {
+    console.log('🔵 Auth Service - updateProfile called with userId:', userId, 'DTO:', JSON.stringify(updateProfileDto));
+    const user = await this.usersService.updateCurrentUser(
+      userId,
+      updateProfileDto,
+    );
+    console.log('🟢 Auth Service - User updated successfully:', user.id, 'firstname:', user.firstname, 'lastname:', user.lastname);
+    return this.toAuthUserResponse(user);
   }
 
   private getLinkedinConfig(): { clientId: string; clientSecret: string } {
@@ -345,5 +337,36 @@ export class AuthService {
     }
 
     return provider.charAt(0).toUpperCase() + provider.slice(1);
+  }
+
+  private resolveSocialNames(socialUser: SocialLoginUser): {
+    firstname: string;
+    lastname: string;
+  } {
+    const firstname = socialUser.firstname?.trim() || '';
+    const lastname = socialUser.lastname?.trim() || '';
+
+    if (firstname || lastname) {
+      return { firstname, lastname };
+    }
+
+    const fullName = socialUser.name?.trim() || '';
+    if (fullName) {
+      const segments = fullName.split(/\s+/).filter(Boolean);
+      return {
+        firstname: segments.shift() || '',
+        lastname: segments.join(' '),
+      };
+    }
+
+    const emailName = socialUser.email.split('@')[0]?.trim() || 'User';
+    return {
+      firstname: emailName,
+      lastname: '',
+    };
+  }
+
+  private toAuthUserResponse(user: User): SafeUserResponse {
+    return toSafeUserResponse(user);
   }
 }

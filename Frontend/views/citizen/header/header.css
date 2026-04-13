@@ -100,33 +100,11 @@
   gap: 0.75rem;
 }
 
-.header-component__notification,
 .header-component__avatar {
   width: 2.25rem;
   height: 2.25rem;
   border: 0;
   border-radius: 999px;
-}
-
-.header-component__notification {
-  position: relative;
-  background: var(--header-letters-background);
-  color: var(--header-muted);
-}
-
-.header-component__badge {
-  position: absolute;
-  top: -0.2rem;
-  right: -0.2rem;
-  min-width: 1rem;
-  min-height: 1rem;
-  border-radius: 999px;
-  font-size: 0.6rem;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  background: #ef4444;
-  color: var(--header-bg);
 }
 
 .header-component__avatar {

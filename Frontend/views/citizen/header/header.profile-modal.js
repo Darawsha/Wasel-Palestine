@@ -105,9 +105,9 @@
       content.innerHTML = profileRoot
         ? '<div class="profile-page-scope">' + profileRoot.outerHTML + "</div>"
         : html;
-        
-      if (typeof window.initProfileAvatarUpload === "function") {
-        window.initProfileAvatarUpload(content);
+
+      if (typeof window.initProfilePage === 'function') {
+        window.initProfilePage(content);
       }
       
       overlay.classList.remove("hidden");

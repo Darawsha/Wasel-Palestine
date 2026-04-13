@@ -13,6 +13,7 @@ import {
 } from '@nestjs/common';
 import { AlertsService } from './alerts.service';
 import { CreateAlertPreferenceDto } from './dto/create-alert-preference.dto';
+import { CreateAlertPreferencesBatchDto } from './dto/create-alert-preferences-batch.dto';
 
 import { JwtAuthGuard } from '../../core/guards/jwt-auth.guard';
 
@@ -43,10 +44,25 @@ export class AlertsController {
     return this.alertsService.subscribeToArea(userId, createAlertPreferenceDto);
   }
 
+  @Post('preferences/batch')
+  subscribeBatch(
+    @Request() req,
+    @Body() createAlertPreferencesBatchDto: CreateAlertPreferencesBatchDto,
+  ) {
+    const userId = this.extractAuthenticatedUserId(req);
+    return this.alertsService.subscribeToAreas(userId, createAlertPreferencesBatchDto);
+  }
+
   @Get('preferences')
   getUserPreferences(@Request() req) {
     const userId = this.extractAuthenticatedUserId(req);
     return this.alertsService.getUserPreferences(userId);
+  }
+
+  @Get('preferences/overview')
+  getUserAlertOverview(@Request() req) {
+    const userId = this.extractAuthenticatedUserId(req);
+    return this.alertsService.getUserAlertOverview(userId);
   }
 
   @Delete('preferences/:id')

@@ -67,63 +67,25 @@
           <div class="notifications-dropdown-wrapper">
             <button class="nav-icon-btn hover-text" id="headerNotificationsBtn" aria-label="Notifications">
               <span class="material-symbols-outlined">notifications</span>
-              <span class="notification-badge">5</span>
+              <span class="notification-badge" id="adminNotificationsBadge" hidden>0</span>
             </button>
 
             <div class="notifications-dropdown-menu" id="notificationsDropdown">
               <div class="notifications-header">
                 <h4 class="m-0 font-bold text-dark">Notifications</h4>
-                <button class="mark-read-btn">Mark all read</button>
+                <button class="mark-read-btn" id="adminNotificationsMarkReadBtn" hidden>Mark all read</button>
               </div>
-              <div class="notifications-list">
-                <!-- Unread Notification -->
-                <a href="#" class="notification-item unread">
-                  <div class="notification-icon bg-alert-light text-danger">
-                    <span class="material-symbols-outlined">warning</span>
-                  </div>
-                  <div class="notification-content">
-                    <p class="notification-title">High Severity Incident</p>
-                    <p class="notification-text">
-                      Checkpoint Alpha reported an anomaly.
-                    </p>
-                    <span class="notification-time">2 mins ago</span>
-                  </div>
-                </a>
-                <!-- Read Notification -->
-                <a href="#" class="notification-item">
-                  <div class="notification-icon bg-primary-light text-primary">
-                    <span class="material-symbols-outlined">person_add</span>
-                  </div>
-                  <div class="notification-content">
-                    <p class="notification-title">New User Registered</p>
-                    <p class="notification-text">
-                      Sarah Mansour joined the platform.
-                    </p>
-                    <span class="notification-time">1 hour ago</span>
-                  </div>
-                </a>
-                <!-- General Notification -->
-                <a href="#" class="notification-item">
-                  <div class="notification-icon bg-success-light" style="color: #6d28d9">
-                    <span class="material-symbols-outlined">check_circle</span>
-                  </div>
-                  <div class="notification-content">
-                    <p class="notification-title">System Update Passed</p>
-                    <p class="notification-text">
-                      Analytics module synchronized successfully.
-                    </p>
-                    <span class="notification-time">3 hours ago</span>
-                  </div>
-                </a>
+              <div class="notifications-list" id="adminNotificationsList">
+                <div class="notification-empty-state">No notifications yet.</div>
               </div>
               <div class="notifications-footer">
-                <a href="#">View all notifications</a>
+                <a href="#admin-dashboard" onclick="adminRoute(event)">View all notifications</a>
               </div>
             </div>
           </div>
           <div class="profile-dropdown-wrapper">
             <button class="profile-btn hover-text" id="headerProfileBtn" aria-label="Profile">
-              AM
+              U
             </button>
 
             <div class="profile-dropdown-menu" id="profileDropdown">

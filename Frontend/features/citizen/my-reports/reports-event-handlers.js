@@ -48,13 +48,18 @@ export function bindReportsPageEvents(root, handlers = {}) {
     }
 
     const reportId = Number(actionButton.dataset.reportId);
-    if (!Number.isFinite(reportId) || typeof handlers.onCommunityAction !== 'function') {
+    if (!Number.isFinite(reportId)) {
+      return;
+    }
+
+    const action = actionButton.dataset.reportAction;
+    if (typeof handlers.onReportAction !== 'function') {
       return;
     }
 
     actionButton.disabled = true;
     try {
-      await handlers.onCommunityAction(actionButton.dataset.reportAction, reportId);
+      await handlers.onReportAction(action, reportId);
     } finally {
       actionButton.disabled = false;
     }

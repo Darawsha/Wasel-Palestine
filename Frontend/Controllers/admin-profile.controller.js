@@ -1,4 +1,5 @@
 import {
+  getCachedAdminProfile,
   loadAdminProfile,
   saveAdminProfile,
 } from '/Services/admin-profile.service.js';
@@ -11,6 +12,10 @@ export function persistAdminProfile(profileDraft) {
   return saveAdminProfile(profileDraft);
 }
 
+export function getCachedAdminProfileData() {
+  return getCachedAdminProfile();
+}
+
 export class AdminProfileController {
   static getAdminProfile() {
     return getAdminProfile();
@@ -18,6 +23,10 @@ export class AdminProfileController {
 
   static persistAdminProfile(profileDraft) {
     return persistAdminProfile(profileDraft);
+  }
+
+  static getCachedAdminProfileData() {
+    return getCachedAdminProfileData();
   }
 }
 

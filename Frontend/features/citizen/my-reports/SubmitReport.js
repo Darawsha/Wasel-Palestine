@@ -20,6 +20,7 @@
         import('/shared/location_validator.js'),
       ]).then(([controllerModule, locationModule]) => ({
         submitCitizenReport: controllerModule.submitCitizenReport,
+        updateCitizenReport: controllerModule.updateCitizenReport,
         isLocationReal: locationModule.isLocationReal,
       }));
     }
@@ -63,6 +64,17 @@
     return root?.querySelector(selector) || null;
   }
 
+  function applySubmitMode(root, context = {}) {
+    const submitButton = root?.querySelector('.btn-primary[type="submit"]');
+    const isEditMode = context?.mode === 'edit' && Number(context?.report?.id) > 0;
+
+    if (!submitButton) {
+      return;
+    }
+
+    submitButton.textContent = isEditMode ? 'Save Changes' : 'Submit Report';
+  }
+
   function setDefaultDateTime(root) {
     const dateInput = getField(root, SELECTORS.date);
     const timeInput = getField(root, SELECTORS.time);
@@ -88,6 +100,34 @@
     }
 
     counter.textContent = `${descriptionField.value.length} / 500`;
+  }
+
+  function populateForm(root, context = {}) {
+    const report = context?.mode === 'edit' ? context?.report : null;
+
+    if (!report) {
+      setDefaultDateTime(root);
+      updateCharCount(root);
+      return;
+    }
+
+    const categoryField = getField(root, SELECTORS.category);
+    const locationField = getField(root, SELECTORS.location);
+    const descriptionField = getField(root, SELECTORS.description);
+
+    if (categoryField) {
+      categoryField.value = String(report.category || '').trim().toLowerCase();
+    }
+
+    if (locationField) {
+      locationField.value = report.location || '';
+    }
+
+    if (descriptionField) {
+      descriptionField.value = report.description || '';
+    }
+
+    updateCharCount(root);
   }
 
   function setWarning(root, message) {
@@ -129,7 +169,7 @@
     return '';
   }
 
-  async function handleSubmit(event, root) {
+  async function handleSubmit(event, root, context = {}) {
     event.preventDefault();
 
     const validationMessage = validateForm(root);
@@ -150,7 +190,8 @@
     }
 
     try {
-      const { submitCitizenReport, isLocationReal } = await getDependencies();
+      const { submitCitizenReport, updateCitizenReport, isLocationReal } =
+        await getDependencies();
       const geocodedLocation = await isLocationReal(location, {
         countryCodes: ['ps'],
       });
@@ -163,18 +204,30 @@
         return;
       }
 
-      await submitCitizenReport({
+      const payload = {
         category,
         location,
         description,
         latitude: Number(geocodedLocation.lat),
         longitude: Number(geocodedLocation.lon),
-      });
+      };
+      const isEditMode =
+        context?.mode === 'edit' && Number(context?.report?.id) > 0;
 
-      notify('success', 'Report submitted successfully.');
-      global.document.dispatchEvent(
-        new global.CustomEvent('citizen:report-created'),
-      );
+      if (isEditMode) {
+        await updateCitizenReport(Number(context.report.id), payload);
+        notify('success', 'Report updated successfully.');
+        global.document.dispatchEvent(
+          new global.CustomEvent('citizen:report-updated'),
+        );
+      } else {
+        await submitCitizenReport(payload);
+        notify('success', 'Report submitted successfully.');
+        global.document.dispatchEvent(
+          new global.CustomEvent('citizen:report-created'),
+        );
+      }
+
       global.closeMyReportModal?.();
     } catch (error) {
       const message = readErrorMessage(error);
@@ -191,7 +244,7 @@
     }
   }
 
-  async function init(container) {
+  async function init(container, context = {}) {
     const root = container?.querySelector('.submit-report-container') || container;
     const form = getField(root, SELECTORS.form);
 
@@ -200,9 +253,8 @@
     }
 
     form.dataset.reportFormInitialized = 'true';
-
-    setDefaultDateTime(root);
-    updateCharCount(root);
+    applySubmitMode(root, context);
+    populateForm(root, context);
     setWarning(root, '');
 
     const descriptionField = getField(root, SELECTORS.description);
@@ -213,7 +265,7 @@
     }
 
     form.addEventListener('submit', (event) => {
-      void handleSubmit(event, root);
+      void handleSubmit(event, root, context);
     });
   }
 

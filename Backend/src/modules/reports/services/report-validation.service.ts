@@ -47,9 +47,9 @@ export class ReportValidationService {
     }
   }
 
-  async findDuplicate(reportDto: CreateReportDto) {
+  async findDuplicate(reportDto: CreateReportDto, excludeReportId?: number) {
     const timeWindow = new Date(Date.now() - 30 * 60 * 1000);
-    return this.reportRepo
+    const queryBuilder = this.reportRepo
       .createQueryBuilder('report')
       .where('report.category = :category', { category: reportDto.category })
       .andWhere('report.createdAt >= :timeWindow', { timeWindow })
@@ -67,7 +67,14 @@ export class ReportValidationService {
           lat: reportDto.latitude,
           lng: reportDto.longitude,
         },
-      )
-      .getOne();
+      );
+
+    if (Number.isInteger(excludeReportId) && Number(excludeReportId) > 0) {
+      queryBuilder.andWhere('report.reportId <> :excludeReportId', {
+        excludeReportId,
+      });
+    }
+
+    return queryBuilder.getOne();
   }
 }

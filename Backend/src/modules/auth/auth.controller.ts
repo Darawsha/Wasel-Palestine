@@ -4,6 +4,7 @@ import {
   Get,
   HttpCode,
   HttpStatus,
+  Patch,
   Post,
   Req,
   Request,
@@ -20,6 +21,7 @@ import { RegisterDto } from './dto/signup.dto';
 import { SignInDto } from './dto/signin.dto';
 import { GoogleLoginDto } from './dto/google-login.dto';
 import { LinkedinLoginDto } from './dto/linkedin-login.dto';
+import { UpdateProfileDto } from './dto/update-profile.dto';
 
 @Controller({ path: 'auth', version: '1' })
 export class AuthController {
@@ -42,11 +44,16 @@ export class AuthController {
   getProfile(
     @Request() req: { user: { userId: number; email: string; role: string } },
   ) {
-    return {
-      id: req.user.userId,
-      email: req.user.email,
-      role: req.user.role,
-    };
+    return this.authService.getProfile(req.user.userId);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Patch('profile')
+  updateProfile(
+    @Request() req: { user: { userId: number } },
+    @Body() updateProfileDto: UpdateProfileDto,
+  ) {
+    return this.authService.updateProfile(req.user.userId, updateProfileDto);
   }
 
   @Post('google')

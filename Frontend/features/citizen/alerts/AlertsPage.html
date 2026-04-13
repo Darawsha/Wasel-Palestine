@@ -36,86 +36,26 @@
           </button>
         </header>
 
-        <div class="subscription-list">
-          <article class="subscription-card">
-            <div class="card-top">
-              <div class="card-info">
-                <div class="icon-box">
-                  <span class="material-symbols-outlined">map</span>
-                </div>
-                <div>
-                  <h3 class="region-name">Ramallah & Al-Bireh Region</h3>
-                  <p class="region-subtext">Central West Bank</p>
-                </div>
-              </div>
-              <button class="btn-more">
-                <span class="material-symbols-outlined">more_vert</span>
-              </button>
-            </div>
-
+        <div class="subscription-list" data-alert-subscription-list>
+          <article class="subscription-card subscription-card--status">
             <div class="card-body">
-              <p class="category-label">Subscribed Categories</p>
-              <div class="badge-group">
-                <span class="badge badge-red">Closure</span>
-                <span class="badge badge-yellow">Delay</span>
-                <span class="badge badge-orange">Accident</span>
+              <p class="category-label">Loading</p>
+              <div>
+                <h3 class="region-name">Loading subscriptions...</h3>
+                <p class="region-subtext">
+                  Your saved locations and categories will appear here.
+                </p>
               </div>
             </div>
-
-            <footer class="card-footer">
-              <div class="subscription-date">
-                <span class="material-symbols-outlined">calendar_today</span>
-                <span>Subscribed since: Feb 15, 2026</span>
-              </div>
-              <div class="card-actions">
-                <button class="action-edit">Edit</button>
-                <button class="action-delete">Delete</button>
-              </div>
-            </footer>
-          </article>
-
-          <article class="subscription-card">
-            <div class="card-top">
-              <div class="card-info">
-                <div class="icon-box">
-                  <span class="material-symbols-outlined">map</span>
-                </div>
-                <div>
-                  <h3 class="region-name">Hebron Governorate</h3>
-                  <p class="region-subtext">Southern West Bank</p>
-                </div>
-              </div>
-              <button class="btn-more">
-                <span class="material-symbols-outlined">more_vert</span>
-              </button>
-            </div>
-
-            <div class="card-body">
-              <p class="category-label">Subscribed Categories</p>
-              <div class="badge-group">
-                <span class="badge badge-red">Closure</span>
-                <span class="badge badge-blue">Weather Hazard</span>
-              </div>
-            </div>
-
-            <footer class="card-footer">
-              <div class="subscription-date">
-                <span class="material-symbols-outlined">calendar_today</span>
-                <span>Subscribed since: Jan 10, 2026</span>
-              </div>
-              <div class="card-actions">
-                <button class="action-edit">Edit</button>
-                <button class="action-delete">Delete</button>
-              </div>
-            </footer>
           </article>
         </div>
 
         <div class="subscription-summary">
-          <p>3 active subscriptions</p>
+          <p data-alert-summary-count>Loading subscriptions...</p>
         </div>
       </main>
     </div>
+    <script src="/features/citizen/alerts/Alerts.js"></script>
     <script src="/features/citizen/alerts/AddSubscription_btn.js"></script>
   </body>
 </html>

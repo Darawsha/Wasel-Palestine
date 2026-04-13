@@ -10,7 +10,7 @@ import { ReportConfirmation } from '../entities/report-confirmation.entity';
 import { Report } from '../entities/report.entity';
 import { ReportVote } from '../entities/vote.entity';
 import { VoteType } from '../enums/VoteType.enum';
-import { ReportStatus } from '../enums/report-status.enum';
+import { COMMUNITY_INTERACTIVE_REPORT_STATUSES } from '../enums/report-status.enum';
 
 @Injectable()
 export class ReportCredibilityService {
@@ -23,11 +23,11 @@ export class ReportCredibilityService {
     private readonly reportRepo: Repository<Report>,
   ) {}
 
-  calculateScore(up: number, down: number, confirmations: number) {
-    const total = up + down + confirmations;
+  calculateScore(up: number, down: number) {
+    const total = up + down;
     if (total === 0) return 0;
 
-    return Math.round(((up + confirmations) / total) * 100);
+    return Math.round((up / total) * 100);
   }
 
   async updateReportConfidence(reportId: number) {
@@ -37,9 +37,8 @@ export class ReportCredibilityService {
     const down = await this.voteRepo.count({
       where: { reportId, type: VoteType.DOWN },
     });
-    const confirmations = await this.confirmRepo.count({ where: { reportId } });
 
-    const score = this.calculateScore(up, down, confirmations);
+    const score = this.calculateScore(up, down);
 
     await this.reportRepo.update(reportId, {
       confidenceScore: score,
@@ -49,21 +48,31 @@ export class ReportCredibilityService {
   }
 
   private ensureInteractiveStatus(report: Report) {
-    if (
-      report.status !== ReportStatus.PENDING &&
-      report.status !== ReportStatus.UNDER_REVIEW
-    ) {
+    if (!COMMUNITY_INTERACTIVE_REPORT_STATUSES.includes(report.status)) {
       throw new BadRequestException(
-        'Community interactions are only allowed on pending reports',
+        'Community interactions are only allowed on public reports that are still active',
       );
     }
   }
 
+  private canUserInteract(report: Report, userId: number): boolean {
+    if (!userId) {
+      return false;
+    }
+
+    if (!COMMUNITY_INTERACTIVE_REPORT_STATUSES.includes(report.status)) {
+      return false;
+    }
+
+    return report.submittedByUserId !== userId;
+  }
+
   private async buildInteractionResponse(
-    reportId: number,
+    report: Report,
     userId: number,
     confidenceScore?: number,
   ) {
+    const reportId = report.reportId;
     const upVotes = await this.voteRepo.count({
       where: { reportId, type: VoteType.UP },
     });
@@ -83,14 +92,16 @@ export class ReportCredibilityService {
       confidenceScore:
         typeof confidenceScore === 'number'
           ? confidenceScore
-          : this.calculateScore(upVotes, downVotes, confirmations),
+          : this.calculateScore(upVotes, downVotes),
       interactionSummary: {
         upVotes,
         downVotes,
+        totalVotes: upVotes + downVotes,
         confirmations,
         userVoteType: userVote?.type ?? null,
         isConfirmedByCurrentUser: Boolean(userConfirmation),
       },
+      canVote: this.canUserInteract(report, userId),
     };
   }
 
@@ -130,7 +141,12 @@ export class ReportCredibilityService {
     }
 
     const confidenceScore = await this.updateReportConfidence(reportId);
-    return this.buildInteractionResponse(reportId, userId, confidenceScore);
+    const refreshedReport = await this.reportRepo.findOne({ where: { reportId } });
+    return this.buildInteractionResponse(
+      refreshedReport ?? report,
+      userId,
+      confidenceScore,
+    );
   }
 
   async confirm(reportId: number, userId: number) {
@@ -160,6 +176,11 @@ export class ReportCredibilityService {
     await this.confirmRepo.save({ reportId, userId });
 
     const confidenceScore = await this.updateReportConfidence(reportId);
-    return this.buildInteractionResponse(reportId, userId, confidenceScore);
+    const refreshedReport = await this.reportRepo.findOne({ where: { reportId } });
+    return this.buildInteractionResponse(
+      refreshedReport ?? report,
+      userId,
+      confidenceScore,
+    );
   }
 }

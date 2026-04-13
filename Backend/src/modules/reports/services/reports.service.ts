@@ -17,11 +17,16 @@ import { CreateReportDto } from '../dto/create-report.dto';
 import { ReportQueryDto } from '../dto/report-query.dto';
 import { UpdateReportDto } from '../dto/update-report.dto';
 import { ReportConfirmation } from '../entities/report-confirmation.entity';
+import { ReportModerationAudit } from '../entities/report-moderation-audit.entity';
 import { Report } from '../entities/report.entity';
 import { ReportVote } from '../entities/vote.entity';
 import { VoteType } from '../enums/VoteType.enum';
 import { ReportCategory } from '../enums/report-category.enum';
-import { ReportStatus } from '../enums/report-status.enum';
+import {
+  COMMUNITY_INTERACTIVE_REPORT_STATUSES,
+  PUBLIC_COMMUNITY_REPORT_STATUSES,
+  ReportStatus,
+} from '../enums/report-status.enum';
 import { ReportValidationService } from './report-validation.service';
 
 const MAP_VISIBLE_REPORT_STATUSES = [
@@ -53,9 +58,16 @@ const REPORT_CATEGORIES_BY_INCIDENT_TYPE: Partial<
 type ReportInteractionSummary = {
   upVotes: number;
   downVotes: number;
+  totalVotes: number;
   confirmations: number;
   userVoteType: VoteType | null;
   isConfirmedByCurrentUser: boolean;
+};
+
+type ReportModerationSummary = {
+  latestAction: string | null;
+  latestNotes: string | null;
+  latestActionAt: Date | null;
 };
 
 @Injectable()
@@ -67,6 +79,8 @@ export class ReportsService {
     private readonly voteRepo: Repository<ReportVote>,
     @InjectRepository(ReportConfirmation)
     private readonly confirmRepo: Repository<ReportConfirmation>,
+    @InjectRepository(ReportModerationAudit)
+    private readonly auditRepo: Repository<ReportModerationAudit>,
     private readonly reportValidationService: ReportValidationService,
   ) {}
 
@@ -93,7 +107,7 @@ export class ReportsService {
     }
 
     const saved = await this.reportRepo.save(report);
-    return this.findOne(saved.reportId);
+    return this.findOne(saved.reportId, userId);
   }
 
   async findAll(query: ReportQueryDto) {
@@ -122,17 +136,35 @@ export class ReportsService {
   }
 
   async findCommunityReports(query: ReportQueryDto, userId: number) {
+    const requestedStatuses =
+      Array.isArray(query.statuses) && query.statuses.length > 0
+        ? query.statuses
+        : query.status
+          ? [query.status]
+          : [];
+
+    const visibleStatuses =
+      requestedStatuses.length > 0
+        ? requestedStatuses.filter((status) =>
+            PUBLIC_COMMUNITY_REPORT_STATUSES.includes(status),
+          )
+        : [...PUBLIC_COMMUNITY_REPORT_STATUSES];
+
     return this.findReportsPage(
       {
         ...query,
-        status: query.status ?? ReportStatus.PENDING,
+        status: undefined,
+        statuses:
+          visibleStatuses.length > 0
+            ? visibleStatuses
+            : [...PUBLIC_COMMUNITY_REPORT_STATUSES],
         excludeSubmittedByUserId: userId,
       },
       userId,
     );
   }
 
-  async findOne(id: number) {
+  async findOne(id: number, currentUserId?: number) {
     const report = await this.reportRepo.findOne({
       where: { reportId: id },
       relations: {
@@ -143,8 +175,56 @@ export class ReportsService {
       throw new NotFoundException('Report not found');
     }
 
-    const [serializedReport] = await this.attachInteractionSummary([report]);
+    const [serializedReport] = await this.attachInteractionSummary(
+      [report],
+      currentUserId,
+    );
     return serializedReport;
+  }
+
+  async updateOwnReport(id: number, dto: UpdateReportDto, userId: number) {
+    const report = await this.findOwnedReportOrFail(id, userId);
+
+    this.ensureOwnerCanManage(report, 'Approved reports can no longer be edited.');
+
+    const nextPayload: UpdateReportDto = {
+      category: dto.category ?? report.category,
+      location: dto.location ?? report.location,
+      description: dto.description ?? report.description,
+      latitude:
+        typeof dto.latitude === 'number' ? dto.latitude : Number(report.latitude),
+      longitude:
+        typeof dto.longitude === 'number'
+          ? dto.longitude
+          : Number(report.longitude),
+    };
+
+    const duplicate = await this.reportValidationService.findDuplicate(
+      nextPayload as CreateReportDto,
+      report.reportId,
+    );
+
+    Object.assign(report, nextPayload, {
+      duplicateOf: duplicate?.reportId ?? null,
+    });
+
+    const saved = await this.reportRepo.save(report);
+    return this.findOne(saved.reportId, userId);
+  }
+
+  async removeOwnReport(id: number, userId: number) {
+    const report = await this.findOwnedReportOrFail(id, userId);
+
+    this.ensureOwnerCanManage(
+      report,
+      'Approved reports can no longer be deleted.',
+    );
+
+    await this.reportRepo.remove(report);
+    return {
+      deleted: true,
+      reportId: id,
+    };
   }
 
   async update(id: number, dto: UpdateReportDto) {
@@ -236,6 +316,7 @@ export class ReportsService {
   private applyQueryFilters(
     queryBuilder: SelectQueryBuilder<Report>,
     query: ReportQueryDto,
+    options: { includeDistanceSelect?: boolean } = {},
   ) {
     const {
       submittedByUserId,
@@ -338,13 +419,15 @@ export class ReportsService {
     const normalizedRadiusKm = radiusKm ?? 25;
     const distanceSql = this.buildDistanceSql();
 
-    queryBuilder
-      .addSelect(distanceSql, 'distanceKm')
-      .andWhere(`${distanceSql} <= :radiusKm`, {
-        latitude,
-        longitude,
-        radiusKm: normalizedRadiusKm,
-      });
+    if (options.includeDistanceSelect !== false) {
+      queryBuilder.addSelect(distanceSql, 'distanceKm');
+    }
+
+    queryBuilder.andWhere(`${distanceSql} <= :radiusKm`, {
+      latitude,
+      longitude,
+      radiusKm: normalizedRadiusKm,
+    });
   }
 
   private async getStatusCounts(query: ReportQueryDto) {
@@ -363,7 +446,7 @@ export class ReportsService {
       limit: undefined,
       sort: undefined,
       sortOrder: undefined,
-    });
+    }, { includeDistanceSelect: false });
 
     const countRows = await countQueryBuilder.getRawMany<{
       status: ReportStatus;
@@ -402,10 +485,62 @@ export class ReportsService {
     };
   }
 
+  private isPubliclyVisibleStatus(status: ReportStatus): boolean {
+    return PUBLIC_COMMUNITY_REPORT_STATUSES.includes(status);
+  }
+
+  private isOwnerEditableStatus(status: ReportStatus): boolean {
+    return ![ReportStatus.APPROVED, ReportStatus.RESOLVED].includes(status);
+  }
+
+  private async findOwnedReportOrFail(id: number, userId: number) {
+    const report = await this.reportRepo.findOne({
+      where: {
+        reportId: id,
+        submittedByUserId: userId,
+      },
+      relations: {
+        submittedByUser: true,
+      },
+    });
+
+    if (!report) {
+      throw new NotFoundException('Report not found');
+    }
+
+    return report;
+  }
+
+  private ensureOwnerCanManage(report: Report, message: string) {
+    if (!this.isOwnerEditableStatus(report.status)) {
+      throw new BadRequestException(message);
+    }
+  }
+
+  private canCurrentUserVote(report: Report, currentUserId?: number): boolean {
+    if (!Number.isInteger(currentUserId) || Number(currentUserId) <= 0) {
+      return false;
+    }
+
+    if (!COMMUNITY_INTERACTIVE_REPORT_STATUSES.includes(report.status)) {
+      return false;
+    }
+
+    return report.submittedByUserId !== currentUserId;
+  }
+
   private serializeReport(
     report: Report,
     interactionSummary?: ReportInteractionSummary,
+    moderationSummary?: ReportModerationSummary,
+    currentUserId?: number,
   ) {
+    const isOwnReport =
+      Number.isInteger(currentUserId) &&
+      Number(currentUserId) > 0 &&
+      report.submittedByUserId === currentUserId;
+    const canManage = isOwnReport && this.isOwnerEditableStatus(report.status);
+
     return {
       reportId: report.reportId,
       latitude: report.latitude,
@@ -420,12 +555,22 @@ export class ReportsService {
       updatedAt: report.updatedAt,
       duplicateOf: report.duplicateOf ?? null,
       confidenceScore: report.confidenceScore,
+      isPubliclyVisible: this.isPubliclyVisibleStatus(report.status),
+      isOwnReport,
+      canManage,
+      canVote: this.canCurrentUserVote(report, currentUserId),
       interactionSummary: interactionSummary ?? {
         upVotes: 0,
         downVotes: 0,
+        totalVotes: 0,
         confirmations: 0,
         userVoteType: null,
         isConfirmedByCurrentUser: false,
+      },
+      moderationSummary: moderationSummary ?? {
+        latestAction: null,
+        latestNotes: null,
+        latestActionAt: null,
       },
     };
   }
@@ -479,14 +624,38 @@ export class ReportsService {
         : [];
 
     const summaries = new Map<number, ReportInteractionSummary>();
+    const moderationSummaries = new Map<number, ReportModerationSummary>();
+
+    const auditRows = await this.auditRepo
+      .createQueryBuilder('audit')
+      .select('audit.reportId', 'reportId')
+      .addSelect('audit.action', 'action')
+      .addSelect('audit.notes', 'notes')
+      .addSelect('audit.createdAt', 'createdAt')
+      .where('audit.reportId IN (:...reportIds)', { reportIds })
+      .orderBy('audit.reportId', 'ASC')
+      .addOrderBy('audit.createdAt', 'DESC')
+      .addOrderBy('audit.id', 'DESC')
+      .getRawMany<{
+        reportId: string;
+        action: string | null;
+        notes: string | null;
+        createdAt: Date | string | null;
+      }>();
 
     reports.forEach((report) => {
       summaries.set(report.reportId, {
         upVotes: 0,
         downVotes: 0,
+        totalVotes: 0,
         confirmations: 0,
         userVoteType: null,
         isConfirmedByCurrentUser: false,
+      });
+      moderationSummaries.set(report.reportId, {
+        latestAction: null,
+        latestNotes: null,
+        latestActionAt: null,
       });
     });
 
@@ -536,8 +705,36 @@ export class ReportsService {
       summary.isConfirmedByCurrentUser = true;
     });
 
+    summaries.forEach((summary) => {
+      summary.totalVotes = summary.upVotes + summary.downVotes;
+    });
+
+    auditRows.forEach((row) => {
+      const reportId = Number(row.reportId);
+      const moderationSummary = moderationSummaries.get(reportId);
+
+      if (!moderationSummary || moderationSummary.latestActionAt) {
+        return;
+      }
+
+      const createdAt = row.createdAt ? new Date(row.createdAt) : null;
+
+      moderationSummary.latestAction = row.action ?? null;
+      moderationSummary.latestNotes =
+        typeof row.notes === 'string' && row.notes.trim()
+          ? row.notes.trim()
+          : null;
+      moderationSummary.latestActionAt =
+        createdAt && !Number.isNaN(createdAt.getTime()) ? createdAt : null;
+    });
+
     return reports.map((report) =>
-      this.serializeReport(report, summaries.get(report.reportId)),
+      this.serializeReport(
+        report,
+        summaries.get(report.reportId),
+        moderationSummaries.get(report.reportId),
+        currentUserId,
+      ),
     );
   }
 

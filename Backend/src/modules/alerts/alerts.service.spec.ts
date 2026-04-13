@@ -1,5 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { AlertsService } from './alerts.service';
+import { AlertMatchesService } from './services/alert-matches.service';
 import { AlertPreferencesService } from './services/alert-preferences.service';
 import { AlertRecordsService } from './services/alert-records.service';
 
@@ -12,6 +13,10 @@ describe('AlertsService', () => {
         AlertsService,
         {
           provide: AlertPreferencesService,
+          useValue: {},
+        },
+        {
+          provide: AlertMatchesService,
           useValue: {},
         },
         {

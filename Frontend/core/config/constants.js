@@ -1,6 +1,15 @@
 (function () {
+  const fallbackOrigin = 'http://localhost:3000';
+  const currentOrigin =
+    typeof window !== 'undefined' &&
+    window.location &&
+    window.location.origin &&
+    window.location.origin !== 'null'
+      ? window.location.origin
+      : fallbackOrigin;
+
   const defaultConfig = {
-    API_BASE_URL: 'http://localhost:3000/api/v1',
+    API_BASE_URL: `${currentOrigin}/api/v1`,
   };
 
   let savedRuntimeConfig = null;

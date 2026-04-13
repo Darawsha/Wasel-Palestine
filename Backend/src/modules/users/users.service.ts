@@ -1,7 +1,9 @@
 import {
+  BadRequestException,
   Injectable,
   ConflictException,
   NotFoundException,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
@@ -12,6 +14,7 @@ import { PasswordService } from '../../core/services/password/password.service';
 import { UserRole } from '../../common/enums/user-role.enum';
 import { UserQueryDto } from './dto/user-query.dto';
 import { AlertsService } from '../alerts/alerts.service';
+import { UpdateProfileDto } from '../auth/dto/update-profile.dto';
 
 @Injectable()
 export class UsersService {
@@ -46,7 +49,6 @@ export class UsersService {
     lastname: string;
     email: string;
     googleId: string;
-    profileImage?: string | null;
   }): Promise<User> {
     return this.createSocialUser({
       firstname: data.firstname,
@@ -54,7 +56,6 @@ export class UsersService {
       email: data.email,
       provider: 'google',
       providerId: data.googleId,
-      profileImage: data.profileImage,
     });
   }
 
@@ -63,7 +64,6 @@ export class UsersService {
     lastname: string;
     email: string;
     linkedinId: string;
-    profileImage?: string | null;
   }): Promise<User> {
     return this.createSocialUser({
       firstname: data.firstname,
@@ -71,7 +71,6 @@ export class UsersService {
       email: data.email,
       provider: 'linkedin',
       providerId: data.linkedinId,
-      profileImage: data.profileImage,
     });
   }
 
@@ -81,7 +80,6 @@ export class UsersService {
     email: string;
     provider: string;
     providerId?: string;
-    profileImage?: string | null;
   }): Promise<User> {
     const normalizedEmail = this.normalizeEmail(data.email);
     const user = await this.usersRepository.findOne({
@@ -101,11 +99,84 @@ export class UsersService {
       googleId: data.provider === 'google' ? data.providerId : undefined,
       linkedinId: data.provider === 'linkedin' ? data.providerId : undefined,
       provider: data.provider,
-      profileImage: data.profileImage || null,
+      // Do NOT store provider images automatically
+      // Only user-uploaded images (via Profile page) are stored
+      profileImage: null,
       isVerified: true,
     });
 
     return this.usersRepository.save(newUser);
+  }
+
+  async resolveSocialLoginUser(data: {
+    firstname: string;
+    lastname: string;
+    email: string;
+    provider: string;
+    providerId?: string;
+  }): Promise<User> {
+    const normalizedEmail = this.normalizeEmail(data.email);
+    const providerName = data.provider.trim().toLowerCase();
+    const providerId = data.providerId?.trim() || undefined;
+    let user = await this.usersRepository.findOne({
+      where: { email: normalizedEmail },
+    });
+
+    if (!user) {
+      return this.createSocialUser({
+        firstname: data.firstname,
+        lastname: data.lastname,
+        email: normalizedEmail,
+        provider: providerName,
+        providerId,
+      });
+    }
+
+    let shouldPersist = false;
+
+    if (!user.firstname?.trim() && data.firstname.trim()) {
+      user.firstname = data.firstname.trim();
+      shouldPersist = true;
+    }
+
+    if (!user.lastname?.trim() && data.lastname.trim()) {
+      user.lastname = data.lastname.trim();
+      shouldPersist = true;
+    }
+
+    // DO NOT update profile image from provider
+    // Profile images are ONLY managed through manual user updates (Profile page)
+    // Provider images (Google/LinkedIn) are never saved to database
+
+    if (!user.provider?.trim()) {
+      user.provider = providerName;
+      shouldPersist = true;
+    }
+
+    if (providerName === 'google' && providerId && user.googleId !== providerId) {
+      user.googleId = providerId;
+      shouldPersist = true;
+    }
+
+    if (
+      providerName === 'linkedin' &&
+      providerId &&
+      user.linkedinId !== providerId
+    ) {
+      user.linkedinId = providerId;
+      shouldPersist = true;
+    }
+
+    if (!user.isVerified) {
+      user.isVerified = true;
+      shouldPersist = true;
+    }
+
+    if (shouldPersist) {
+      user = await this.usersRepository.save(user);
+    }
+
+    return user;
   }
 
   /**
@@ -145,6 +216,15 @@ export class UsersService {
     return this.usersRepository.findOne({ where: { id } });
   }
 
+  async findOneOrFail(id: number): Promise<User> {
+    const user = await this.findOne(id);
+    if (!user) {
+      throw new NotFoundException(`User with ID ${id} not found`);
+    }
+
+    return user;
+  }
+
   /**
    * Find user by email (normalized)
    */
@@ -157,10 +237,7 @@ export class UsersService {
    * Update user information
    */
   async update(id: number, updateUserDto: UpdateUserDto): Promise<User> {
-    const user = await this.findOne(id);
-    if (!user) {
-      throw new NotFoundException(`User with ID ${id} not found`);
-    }
+    const user = await this.findOneOrFail(id);
 
     const { password, ...rest } = updateUserDto;
 
@@ -180,6 +257,86 @@ export class UsersService {
     return this.usersRepository.save(user);
   }
 
+  async updateCurrentUser(
+    id: number,
+    updateProfileDto: UpdateProfileDto,
+  ): Promise<User> {
+    console.log('📥 updateCurrentUser - ID:', id, 'DTO:', JSON.stringify(updateProfileDto));
+    const user = await this.findOneOrFail(id);
+    const firstname =
+      updateProfileDto.firstname !== undefined
+        ? updateProfileDto.firstname.trim()
+        : user.firstname;
+    const lastname =
+      updateProfileDto.lastname !== undefined
+        ? updateProfileDto.lastname.trim()
+        : user.lastname;
+    console.log('📝 Setting user data - firstname:', firstname, 'lastname:', lastname);
+
+    if (!firstname && !lastname) {
+      throw new BadRequestException('A profile name is required');
+    }
+
+    const requestedPasswordChange =
+      updateProfileDto.currentPassword !== undefined ||
+      updateProfileDto.newPassword !== undefined;
+
+    if (requestedPasswordChange) {
+      if (!updateProfileDto.currentPassword || !updateProfileDto.newPassword) {
+        throw new BadRequestException(
+          'Current password and new password are both required to change password',
+        );
+      }
+
+      if (!user.passwordHash) {
+        throw new BadRequestException(
+          'Password changes are unavailable for accounts without a local password',
+        );
+      }
+
+      const isCurrentPasswordValid = await this.passwordService.compare(
+        updateProfileDto.currentPassword,
+        user.passwordHash,
+      );
+
+      if (!isCurrentPasswordValid) {
+        throw new UnauthorizedException('Current password is incorrect');
+      }
+
+      user.passwordHash = await this.passwordService.hash(
+        updateProfileDto.newPassword,
+      );
+    }
+
+    user.firstname = firstname;
+    user.lastname = lastname;
+
+    if (updateProfileDto.phone !== undefined) {
+      user.phone = this.normalizeNullableString(updateProfileDto.phone);
+    }
+
+    if (updateProfileDto.address !== undefined) {
+      user.address = this.normalizeNullableString(updateProfileDto.address);
+    }
+
+    if (updateProfileDto.profileImage !== undefined) {
+      user.profileImage = this.normalizeNullableString(
+        updateProfileDto.profileImage,
+      ) || updateProfileDto.profileImage || null;
+      // Record when the profile image was last updated
+      if (user.profileImage) {
+        user.profileImageUpdatedAt = new Date();
+      }
+      // profileImage is maintained as-is (Base64 or provider URL)
+      // Only modified through explicit Profile page updates
+    }
+
+    console.log('💾 Saving user - firstname:', user.firstname, 'lastname:', user.lastname, 'profileImage exists:', !!user.profileImage);
+    const savedUser = await this.usersRepository.save(user);
+    console.log('✅ User saved successfully - ID:', savedUser.id, 'firstname:', savedUser.firstname, 'lastname:', savedUser.lastname);
+    return savedUser;
+  }
+
   /**
    * Delete a user
    */
@@ -195,6 +352,21 @@ export class UsersService {
    */
   private normalizeEmail(email: string): string {
     return email.trim().toLowerCase();
+  }
+
+  private normalizeNullableString(
+    value?: string | null,
+  ): string | null | undefined {
+    if (value === undefined) {
+      return undefined;
+    }
+
+    if (value === null) {
+      return null;
+    }
+
+    const normalizedValue = value.trim();
+    return normalizedValue ? normalizedValue : null;
   }
 
   /**

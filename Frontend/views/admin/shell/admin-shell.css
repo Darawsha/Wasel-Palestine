@@ -408,6 +408,10 @@ body.admin-body {
   border: 2px solid var(--surface-bg, #ffffff);
 }
 
+.notification-badge[hidden] {
+  display: none;
+}
+
 /* Notifications Dropdown */
 .notifications-dropdown-wrapper {
   position: relative;
@@ -462,6 +466,10 @@ body.admin-body {
   padding: 0;
 }
 
+.mark-read-btn[hidden] {
+  display: none;
+}
+
 .mark-read-btn:hover {
   text-decoration: underline;
 }
@@ -472,6 +480,9 @@ body.admin-body {
 }
 
 .notification-item {
+  width: 100%;
+  border: none;
+  background: transparent;
   display: flex;
   padding: 1rem 1.25rem;
   border-bottom: 1px solid var(--um-border, #e2e8f0);
@@ -479,6 +490,8 @@ body.admin-body {
   transition: background-color 0.2s;
   gap: 1rem;
   align-items: flex-start;
+  text-align: left;
+  cursor: pointer;
 }
 
 .notification-item:hover {
@@ -511,6 +524,21 @@ body.admin-body {
   background-color: var(--um-success-bg, #ecfdf5);
 }
 
+.notification-icon--alert {
+  background-color: var(--um-alert-bg, #fef2f2);
+  color: var(--um-alert-text, #dc2626);
+}
+
+.notification-icon--resolved {
+  background-color: var(--um-success-bg, #ecfdf5);
+  color: #059669;
+}
+
+.notification-icon--subscription {
+  background-color: var(--um-primary-light, #eff6ff);
+  color: var(--um-primary, #2563eb);
+}
+
 .notification-content {
   flex: 1;
   min-width: 0;
@@ -534,6 +562,13 @@ body.admin-body {
   color: var(--text-light, #94a3b8);
   font-size: 0.75rem;
   font-weight: 600;
+}
+
+.notification-empty-state {
+  padding: 1.25rem;
+  color: var(--text-muted, #64748b);
+  font-size: 0.875rem;
+  text-align: center;
 }
 
 .notifications-footer {

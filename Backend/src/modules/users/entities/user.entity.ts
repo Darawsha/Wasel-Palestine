@@ -61,9 +61,13 @@ linkedinId?: string;
 @Column({ nullable: true })
 provider?: string;
 
-@Column({ nullable: true })
+@Column({ type: 'longtext', nullable: true })
 profileImage?: string;
+
+@Column({ nullable: true })
+profileImageUpdatedAt?: Date;
 
 @Column({ default: false })
 isVerified: boolean;
 }
+

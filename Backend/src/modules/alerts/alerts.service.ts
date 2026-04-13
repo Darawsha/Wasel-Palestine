@@ -1,14 +1,17 @@
 import { Injectable } from '@nestjs/common';
 import { CreateAlertPreferenceDto } from './dto/create-alert-preference.dto';
+import { CreateAlertPreferencesBatchDto } from './dto/create-alert-preferences-batch.dto';
 import { CreateAlertDto } from './dto/create-alert.dto';
 import { UpdateAlertDto } from './dto/update-alert.dto';
 import { AlertPreferencesService } from './services/alert-preferences.service';
+import { AlertMatchesService } from './services/alert-matches.service';
 import { AlertRecordsService } from './services/alert-records.service';
 
 @Injectable()
 export class AlertsService {
   constructor(
     private readonly alertPreferencesService: AlertPreferencesService,
+    private readonly alertMatchesService: AlertMatchesService,
     private readonly alertRecordsService: AlertRecordsService,
   ) {}
 
@@ -36,8 +39,16 @@ export class AlertsService {
     return this.alertPreferencesService.subscribeToArea(userId, dto);
   }
 
+  async subscribeToAreas(userId: number, dto: CreateAlertPreferencesBatchDto) {
+    return this.alertPreferencesService.subscribeToAreas(userId, dto);
+  }
+
   async getUserPreferences(userId: number) {
     return this.alertPreferencesService.getUserPreferences(userId);
+  }
+
+  async getUserAlertOverview(userId: number) {
+    return this.alertMatchesService.getUserAlertOverview(userId);
   }
 
   async unsubscribe(userId: number, preferenceId: string) {

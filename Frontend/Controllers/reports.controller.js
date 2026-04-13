@@ -1,12 +1,14 @@
 import {
   approveReport,
-  confirmReport,
   createReport,
+  deleteMyReport,
   getCommunityReportsPage,
+  getReportDetails,
   getMyReportsPage,
   getReportsPage,
   markReportUnderReview,
   rejectReport,
+  updateMyReport,
   voteOnReport,
 } from '/Services/reports.service.js';
 
@@ -167,12 +169,29 @@ function getInitials(name) {
 }
 
 function normalizeInteractionSummary(summary = {}) {
+  const upVotes = Math.max(Number(summary.upVotes) || 0, 0);
+  const downVotes = Math.max(Number(summary.downVotes) || 0, 0);
+
   return {
-    upVotes: Math.max(Number(summary.upVotes) || 0, 0),
-    downVotes: Math.max(Number(summary.downVotes) || 0, 0),
+    upVotes,
+    downVotes,
+    totalVotes: Math.max(Number(summary.totalVotes) || 0, upVotes + downVotes),
     confirmations: Math.max(Number(summary.confirmations) || 0, 0),
     userVoteType: summary.userVoteType || null,
     isConfirmedByCurrentUser: Boolean(summary.isConfirmedByCurrentUser),
+  };
+}
+
+function normalizeModerationSummary(summary = {}) {
+  const latestAction = escapeFallback(summary.latestAction).toLowerCase();
+  const latestNotes = escapeFallback(summary.latestNotes);
+  const latestActionAt = summary?.latestActionAt || null;
+
+  return {
+    latestAction: latestAction || null,
+    latestNotes: latestNotes || null,
+    latestActionAt,
+    latestActionAtLabel: latestActionAt ? formatAbsoluteDate(latestActionAt) : null,
   };
 }
 
@@ -184,6 +203,13 @@ function normalizeReport(report = {}) {
     report.submittedByUser,
     report.submittedByUserId,
   );
+  const interactionSummary = normalizeInteractionSummary(report.interactionSummary);
+  const normalizedStatus = escapeFallback(report.status, 'pending').toLowerCase();
+  const isOwnReport = Boolean(report.isOwnReport);
+  const canManage =
+    typeof report.canManage === 'boolean'
+      ? report.canManage
+      : isOwnReport && !['approved', 'resolved'].includes(normalizedStatus);
 
   return {
     id: Number(report.reportId),
@@ -197,22 +223,29 @@ function normalizeReport(report = {}) {
     location: escapeFallback(report.location, 'Unknown location'),
     latitude: Number(report.latitude),
     longitude: Number(report.longitude),
-    status: escapeFallback(report.status, 'pending').toLowerCase(),
+    status: normalizedStatus,
     statusLabel: status.label,
     statusClass: status.className,
     statusGroup: status.group,
     confidenceScore,
     confidenceLabel: `${confidenceScore}% confidence`,
     confidenceToneClass: confidenceScore < 40 ? 'low' : '',
+    isPubliclyVisible: Boolean(report.isPubliclyVisible),
+    isOwnReport,
+    canManage,
+    canVote: Boolean(report.canVote),
     duplicateOf: report.duplicateOf ? Number(report.duplicateOf) : null,
     isDuplicate: Boolean(report.duplicateOf),
-    relativeTime: formatRelativeTime(report.updatedAt || report.createdAt),
+    relativeTime: formatRelativeTime(report.createdAt),
     createdAtLabel: formatAbsoluteDate(report.createdAt),
     updatedAtLabel: formatAbsoluteDate(report.updatedAt),
     reporterName,
     reporterInitials: getInitials(reporterName),
     reporterEmail: escapeFallback(report?.submittedByUser?.email),
-    interactionSummary: normalizeInteractionSummary(report.interactionSummary),
+    interactionSummary,
+    totalVotes: interactionSummary.totalVotes,
+    communitySignalTotal: interactionSummary.totalVotes,
+    moderationSummary: normalizeModerationSummary(report.moderationSummary),
   };
 }
 
@@ -251,6 +284,7 @@ function normalizeInteractionResponse(response = {}) {
     reportId: Number(response.reportId),
     confidenceScore: Math.max(Number(response.confidenceScore) || 0, 0),
     interactionSummary: normalizeInteractionSummary(response.interactionSummary),
+    canVote: Boolean(response.canVote),
   };
 }
 
@@ -327,6 +361,20 @@ export async function submitCitizenReport(payload) {
   return normalizeReport(response);
 }
 
+export async function loadReportDetails(reportId) {
+  const response = await getReportDetails(reportId);
+  return normalizeReport(response);
+}
+
+export async function updateCitizenReport(reportId, payload) {
+  const response = await updateMyReport(reportId, payload);
+  return normalizeReport(response);
+}
+
+export function deleteCitizenReport(reportId) {
+  return deleteMyReport(reportId);
+}
+
 export async function approveModerationReport(reportId, notes) {
   const response = await approveReport(reportId, { notes });
   return normalizeReport(response);
@@ -342,12 +390,11 @@ export async function startModerationReview(reportId, notes) {
   return normalizeReport(response);
 }
 
-export async function confirmCommunityReport(reportId) {
-  const response = await confirmReport(reportId);
-  return normalizeInteractionResponse(response);
-}
-
-export async function supportCommunityReport(reportId) {
-  const response = await voteOnReport(reportId, 'UP');
+export async function voteCommunityReport(reportId, type) {
+  const normalizedType = String(type || '').trim().toUpperCase();
+  const response = await voteOnReport(
+    reportId,
+    normalizedType === 'DOWN' ? 'DOWN' : 'UP',
+  );
   return normalizeInteractionResponse(response);
 }

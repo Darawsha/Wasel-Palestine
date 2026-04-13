@@ -38,6 +38,56 @@ function buildMessageRow(message) {
   `;
 }
 
+function formatModerationAction(action) {
+  const normalized = String(action || '').trim().toLowerCase();
+
+  if (!normalized) {
+    return '';
+  }
+
+  return normalized
+    .split('_')
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
+}
+
+function buildVoteSummary(report) {
+  const upVotes = Math.max(Number(report?.interactionSummary?.upVotes) || 0, 0);
+  const downVotes = Math.max(
+    Number(report?.interactionSummary?.downVotes) || 0,
+    0,
+  );
+  const totalVotes = Math.max(
+    Number(report?.totalVotes) || 0,
+    upVotes + downVotes,
+  );
+
+  return `Up votes ${upVotes} | Down votes ${downVotes} | Total votes ${totalVotes}`;
+}
+
+function buildLatestModerationNote(report) {
+  const latestNotes = String(report?.moderationSummary?.latestNotes || '').trim();
+  if (!latestNotes) {
+    return 'No moderation notes recorded yet.';
+  }
+
+  const actionLabel = formatModerationAction(
+    report?.moderationSummary?.latestAction,
+  );
+  const actionAtLabel = report?.moderationSummary?.latestActionAtLabel;
+
+  if (actionLabel && actionAtLabel) {
+    return `${actionLabel} (${actionAtLabel}): ${latestNotes}`;
+  }
+
+  if (actionLabel) {
+    return `${actionLabel}: ${latestNotes}`;
+  }
+
+  return latestNotes;
+}
+
 function buildQueueRow(report) {
   const reviewLabel =
     report.status === 'under_review' ? 'Continue Review' : 'Review';
@@ -272,12 +322,16 @@ export function openModerationModal(root, report) {
     report.createdAtLabel;
   modal.querySelector('[data-moderation-modal-confidence]').textContent =
     `${report.confidenceScore}%`;
+  modal.querySelector('[data-moderation-modal-votes]').textContent =
+    buildVoteSummary(report);
   modal.querySelector('[data-moderation-modal-description]').textContent =
     report.description;
   modal.querySelector('[data-moderation-modal-duplicate]').textContent =
     report.isDuplicate
       ? `Duplicate of report #${report.duplicateOf}`
       : 'No duplicate flag detected';
+  modal.querySelector('[data-moderation-modal-latest-note]').textContent =
+    buildLatestModerationNote(report);
   modal.querySelector('[data-moderation-notes]').value = '';
   root.dataset.moderationModalOpen = 'true';
 }

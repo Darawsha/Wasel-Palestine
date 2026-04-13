@@ -14,6 +14,7 @@ export class IncidentAlertEvent {
   severity: IncidentSeverity;
   geographicArea: string;
   description: string;
+  actorUserId?: number | null;
   checkpointName?: string | null;
   impactStatus?: CheckpointStatus | null;
 }

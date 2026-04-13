@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   ParseIntPipe,
@@ -83,6 +84,27 @@ export class ReportsController {
   @Get(':id')
   findOne(@Param('id', ParseIntPipe) id: number) {
     return this.reportsService.findOne(id);
+  }
+
+  @Patch('my/:id')
+  @UseGuards(JwtAuthGuard)
+  updateOwn(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdateReportDto,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    const userId = this.getAuthenticatedUserId(req);
+    return this.reportsService.updateOwnReport(id, dto, userId);
+  }
+
+  @Delete('my/:id')
+  @UseGuards(JwtAuthGuard)
+  removeOwn(
+    @Param('id', ParseIntPipe) id: number,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    const userId = this.getAuthenticatedUserId(req);
+    return this.reportsService.removeOwnReport(id, userId);
   }
 
   @Patch(':id')
