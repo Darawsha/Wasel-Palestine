@@ -52,6 +52,188 @@
     return error?.message || 'Unable to complete this request.';
   }
 
+  function escapeHtml(value) {
+    return String(value ?? '')
+      .replaceAll('&', '&amp;')
+      .replaceAll('<', '&lt;')
+      .replaceAll('>', '&gt;')
+      .replaceAll('"', '&quot;')
+      .replaceAll("'", '&#39;');
+  }
+
+  function getModalElements() {
+    const modal = global.document.getElementById('modalOverlay');
+    const modalContent = modal?.querySelector('.modalContent');
+
+    if (!modal || !modalContent) {
+      return null;
+    }
+
+    return {
+      modal,
+      modalContent,
+    };
+  }
+
+  function applyModalTheme(scopeRoot) {
+    if (!scopeRoot) {
+      return;
+    }
+
+    scopeRoot.classList.toggle(
+      'dark',
+      global.localStorage?.getItem('darkmode') === 'enabled',
+    );
+  }
+
+  function showModalMarkup(markup, onMounted) {
+    const modalElements = getModalElements();
+    if (!modalElements) {
+      return;
+    }
+
+    modalElements.modalContent.innerHTML = markup;
+    applyModalTheme(
+      modalElements.modalContent.querySelector('.report-modal-scope'),
+    );
+    modalElements.modal.classList.remove('hidden');
+
+    if (typeof onMounted === 'function') {
+      onMounted(modalElements.modalContent);
+    }
+  }
+
+  function openReportDetailsModal(report) {
+    showModalMarkup(
+      `
+        <div class="report-modal-scope report-details-modal">
+          <div class="report-details-card">
+            <div class="report-details-header">
+              <div>
+                <p class="report-details-kicker">Report Details</p>
+                <h3 class="report-details-title">${escapeHtml(report.title)}</h3>
+              </div>
+              <button type="button" class="report-details-close" data-report-modal-close>
+                <span class="material-symbols-outlined">close</span>
+              </button>
+            </div>
+            <div class="report-details-chip-row">
+              <span class="status-pill ${escapeHtml(report.statusClass)}">${escapeHtml(report.statusLabel)}</span>
+              <span class="report-details-chip">${escapeHtml(report.categoryLabel)}</span>
+              <span class="report-details-chip">${escapeHtml(report.confidenceLabel)}</span>
+            </div>
+            <div class="report-details-grid">
+              <article class="report-details-item">
+                <h4>Location</h4>
+                <p>${escapeHtml(report.location)}</p>
+              </article>
+              <article class="report-details-item">
+                <h4>Created</h4>
+                <p>${escapeHtml(report.createdAtLabel)}</p>
+              </article>
+              <article class="report-details-item">
+                <h4>Updated</h4>
+                <p>${escapeHtml(report.updatedAtLabel)}</p>
+              </article>
+              <article class="report-details-item">
+                <h4>Reporter</h4>
+                <p>${escapeHtml(report.reporterName)}</p>
+              </article>
+            </div>
+            <article class="report-details-description">
+              <h4>Description</h4>
+              <p>${escapeHtml(report.description)}</p>
+            </article>
+          </div>
+        </div>
+      `,
+      (modalContent) => {
+        modalContent
+          .querySelector('[data-report-modal-close]')
+          ?.addEventListener('click', () => {
+            global.closeMyReportModal?.();
+          });
+      },
+    );
+  }
+
+  function openDeleteConfirmModal(report) {
+    return new Promise((resolve) => {
+      let settled = false;
+      const modalElements = getModalElements();
+
+      const cleanupDismissHandlers = () => {
+        modalElements?.modal?.removeEventListener('click', handleBackdropDismiss);
+        global.document.removeEventListener('keydown', handleEscapeDismiss);
+      };
+
+      const resolveOnce = (value) => {
+        if (settled) {
+          return;
+        }
+
+        settled = true;
+        cleanupDismissHandlers();
+        resolve(value);
+      };
+
+      const handleBackdropDismiss = (event) => {
+        if (event.target === modalElements?.modal) {
+          resolveOnce(false);
+        }
+      };
+
+      const handleEscapeDismiss = (event) => {
+        if (event.key === 'Escape') {
+          global.closeMyReportModal?.();
+          resolveOnce(false);
+        }
+      };
+
+      modalElements?.modal?.addEventListener('click', handleBackdropDismiss);
+      global.document.addEventListener('keydown', handleEscapeDismiss);
+
+      showModalMarkup(
+        `
+          <div class="report-modal-scope report-delete-modal">
+            <div class="report-delete-card">
+              <div class="report-delete-icon">
+                <span class="material-symbols-outlined">delete</span>
+              </div>
+              <h3 class="report-delete-title">Delete Report</h3>
+              <p class="report-delete-copy">
+                Are you sure you want to delete your ${escapeHtml(report.categoryLabel)} report?
+              </p>
+              <div class="report-delete-actions">
+                <button type="button" class="btn-outline report-action-btn" data-report-delete-cancel>
+                  Cancel
+                </button>
+                <button type="button" class="btn-outline report-action-btn report-action-btn-danger" data-report-delete-confirm>
+                  Delete
+                </button>
+              </div>
+            </div>
+          </div>
+        `,
+        (modalContent) => {
+          modalContent
+            .querySelector('[data-report-delete-cancel]')
+            ?.addEventListener('click', () => {
+              global.closeMyReportModal?.();
+              resolveOnce(false);
+            });
+
+          modalContent
+            .querySelector('[data-report-delete-confirm]')
+            ?.addEventListener('click', () => {
+              global.closeMyReportModal?.();
+              resolveOnce(true);
+            });
+        },
+      );
+    });
+  }
+
   function getDependencies() {
     if (!dependenciesPromise) {
       dependenciesPromise = Promise.all([
@@ -289,25 +471,93 @@
         dependencies.state.resetCommunityPage(pageState);
         await renderCurrentView({ forceRefreshLocation: true });
       },
-      onCommunityAction: async (action, reportId) => {
+      onReportAction: async (action, reportId) => {
         try {
-          if (action === 'support') {
-            await dependencies.controller.supportCommunityReport(reportId);
-            notify('success', 'Community support added.');
-          } else if (action === 'confirm') {
-            await dependencies.controller.confirmCommunityReport(reportId);
-            notify('success', 'Report confirmed successfully.');
+          if (action === 'upvote') {
+            await dependencies.controller.voteCommunityReport(reportId, 'UP');
+            notify('success', 'Upvote recorded.');
+            await loadCommunityReports();
+            return;
           }
 
-          await loadCommunityReports();
+          if (action === 'downvote') {
+            await dependencies.controller.voteCommunityReport(reportId, 'DOWN');
+            notify('success', 'Downvote recorded.');
+            await loadCommunityReports();
+            return;
+          }
+
+          if (action === 'view-details') {
+            const report = await dependencies.controller.loadReportDetails(reportId);
+            openReportDetailsModal(report);
+            return;
+          }
+
+          if (action === 'edit-report') {
+            const report = await dependencies.controller.loadReportDetails(reportId);
+            if (!report.canManage) {
+              notify('error', 'Approved reports can no longer be edited.');
+              await loadMyReports();
+              return;
+            }
+
+            await global.openMyReportModal?.({
+              mode: 'edit',
+              report,
+            });
+            return;
+          }
+
+          if (action === 'delete-report') {
+            const report = await dependencies.controller.loadReportDetails(reportId);
+            if (!report.canManage) {
+              notify('error', 'Approved reports can no longer be deleted.');
+              await loadMyReports();
+              return;
+            }
+
+            const confirmed = await openDeleteConfirmModal(report);
+            if (!confirmed) {
+              return;
+            }
+
+            await dependencies.controller.deleteCitizenReport(reportId);
+            notify('success', 'Report deleted successfully.');
+            global.document.dispatchEvent(
+              new global.CustomEvent('citizen:report-deleted'),
+            );
+            return;
+          }
         } catch (error) {
           notify('error', readErrorMessage(error));
-          await loadCommunityReports();
+
+          if (pageState?.view === 'community') {
+            await loadCommunityReports();
+          } else {
+            await loadMyReports();
+          }
         }
       },
     });
 
     global.document.addEventListener('citizen:report-created', () => {
+      if (!pageState) {
+        return;
+      }
+
+      dependencies.state.setMyReportsPage(pageState, 1);
+      void renderCurrentView();
+    });
+
+    global.document.addEventListener('citizen:report-updated', () => {
+      if (!pageState) {
+        return;
+      }
+
+      void renderCurrentView();
+    });
+
+    global.document.addEventListener('citizen:report-deleted', () => {
       if (!pageState) {
         return;
       }

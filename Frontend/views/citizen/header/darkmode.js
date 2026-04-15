@@ -11,6 +11,7 @@ const syncRootTheme = (isDark) => {
 const applyDarkToModals = () => {
   const modalSelectors = [
     ".alerts-add-subscription",
+    ".alert-delete-page-scope",
     "#modalOverlay .submit-report-container",
     ".profile-page-scope",
     ".logout-page-scope",
@@ -28,6 +29,7 @@ const applyDarkToModals = () => {
 const removeDarkFromModals = () => {
   const modalSelectors = [
     ".alerts-add-subscription",
+    ".alert-delete-page-scope",
     "#modalOverlay .submit-report-container",
     ".profile-page-scope",
     ".logout-page-scope",

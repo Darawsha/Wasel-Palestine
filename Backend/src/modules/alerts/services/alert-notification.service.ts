@@ -1,4 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
 
 import {
   IncidentAlertEvent,
@@ -7,6 +9,7 @@ import {
 import { AlertPreferencesService } from './alert-preferences.service';
 import { AlertRecordsService } from './alert-records.service';
 import { CheckpointStatus } from '../../checkpoints/enums/checkpoint-status.enum';
+import { User } from '../../users/entities/user.entity';
 
 @Injectable()
 export class AlertNotificationService {
@@ -15,6 +18,8 @@ export class AlertNotificationService {
   constructor(
     private readonly alertPreferencesService: AlertPreferencesService,
     private readonly alertRecordsService: AlertRecordsService,
+    @InjectRepository(User)
+    private readonly usersRepository: Repository<User>,
   ) {}
 
   async processIncidentVerified(event: IncidentAlertEvent) {
@@ -48,11 +53,19 @@ export class AlertNotificationService {
       return;
     }
 
+    const senderName = await this.resolveSenderName(event.actorUserId);
     const messageBody = this.buildMessageBody(event);
+    const title = this.buildNotificationTitle(event);
+    const summary = this.buildNotificationSummary(event);
     const createdCount = await this.alertRecordsService.createPendingRecordsForSubscribers(
       subscribers.map((subscriber) => subscriber.userId),
       incidentId,
       messageBody,
+      {
+        title,
+        summary,
+        senderName,
+      },
     );
 
     this.logger.log(
@@ -83,6 +96,43 @@ export class AlertNotificationService {
     }
 
     return `Alert: A ${severityLabel} ${typeLabel} incident has been verified in ${geographicArea}. Description: ${description}`;
+  }
+
+  private buildNotificationTitle(event: IncidentAlertEvent): string {
+    if (event.trigger === IncidentAlertTrigger.RESOLVED) {
+      return 'Incident Resolved';
+    }
+
+    return `${this.formatLabel(event.severity)} Severity Incident`;
+  }
+
+  private buildNotificationSummary(event: IncidentAlertEvent): string {
+    const typeLabel = this.formatLabel(event.incidentType).toLowerCase();
+    const subject = String(event.checkpointName || event.geographicArea || 'This area').trim();
+
+    if (event.trigger === IncidentAlertTrigger.RESOLVED) {
+      return `${subject} ${typeLabel} incident has been resolved.`;
+    }
+
+    return `${subject} has a verified ${typeLabel} incident.`;
+  }
+
+  private async resolveSenderName(actorUserId?: number | null): Promise<string> {
+    if (!Number.isInteger(actorUserId) || Number(actorUserId) <= 0) {
+      return 'Admin Team';
+    }
+
+    const user = await this.usersRepository.findOne({
+      where: { id: Number(actorUserId) },
+      select: {
+        id: true,
+        firstname: true,
+        lastname: true,
+      },
+    });
+
+    const fullName = `${String(user?.firstname || '').trim()} ${String(user?.lastname || '').trim()}`.trim();
+    return fullName || 'Admin Team';
   }
 
   private formatLabel(value: string): string {

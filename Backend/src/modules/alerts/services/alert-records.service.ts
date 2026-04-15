@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { EntityManager, Repository } from 'typeorm';
 
 import { CreateAlertDto } from '../dto/create-alert.dto';
 import { UpdateAlertDto } from '../dto/update-alert.dto';
@@ -20,7 +20,17 @@ export class AlertRecordsService {
     private readonly alertsValidationService: AlertsValidationService,
   ) {}
 
-  async create(createAlertDto: CreateAlertDto) {
+  private getMessageRepository(manager?: EntityManager) {
+    return manager
+      ? manager.getRepository(AlertMessage)
+      : this.messageRepository;
+  }
+
+  private getRecordRepository(manager?: EntityManager) {
+    return manager ? manager.getRepository(AlertRecord) : this.recordRepository;
+  }
+
+  async create(createAlertDto: CreateAlertDto, manager?: EntityManager) {
     const userId = this.alertsValidationService.ensureValidUserId(
       Number(createAlertDto.userId),
     );
@@ -29,19 +39,25 @@ export class AlertRecordsService {
       createAlertDto.messageBody,
     );
 
-    const alertMessage = this.messageRepository.create({
+    const messageRepository = this.getMessageRepository(manager);
+    const recordRepository = this.getRecordRepository(manager);
+
+    const alertMessage = messageRepository.create({
       incidentId: String(createAlertDto.incidentId || 'manual'),
       messageBody,
+      title: String(createAlertDto.title || '').trim() || null,
+      summary: String(createAlertDto.summary || '').trim() || null,
+      senderName: String(createAlertDto.senderName || '').trim() || null,
     });
-    const savedMessage = await this.messageRepository.save(alertMessage);
+    const savedMessage = await messageRepository.save(alertMessage);
 
-    const alertRecord = this.recordRepository.create({
+    const alertRecord = recordRepository.create({
       userId,
       status: this.alertsValidationService.normalizeStatus(createAlertDto.status),
       message: savedMessage,
     });
 
-    return this.recordRepository.save(alertRecord);
+    return recordRepository.save(alertRecord);
   }
 
   async findAll() {
@@ -136,26 +152,38 @@ export class AlertRecordsService {
     userIds: number[],
     incidentId: string,
     messageBody: string,
+    options?: {
+      title?: string | null;
+      summary?: string | null;
+      senderName?: string | null;
+    },
+    manager?: EntityManager,
   ) {
     if (userIds.length === 0) {
       return 0;
     }
 
-    const alertMessage = this.messageRepository.create({
+    const messageRepository = this.getMessageRepository(manager);
+    const recordRepository = this.getRecordRepository(manager);
+
+    const alertMessage = messageRepository.create({
       incidentId,
       messageBody,
+      title: String(options?.title || '').trim() || null,
+      summary: String(options?.summary || '').trim() || null,
+      senderName: String(options?.senderName || '').trim() || null,
     });
-    const savedMessage = await this.messageRepository.save(alertMessage);
+    const savedMessage = await messageRepository.save(alertMessage);
 
     const alertRecords = userIds.map((userId) => {
-      return this.recordRepository.create({
+      return recordRepository.create({
         userId,
         status: 'PENDING',
         message: savedMessage,
       });
     });
 
-    await this.recordRepository.save(alertRecords);
+    await recordRepository.save(alertRecords);
     return alertRecords.length;
   }
 }

@@ -10,6 +10,7 @@ import { ReportModerationAudit } from '../entities/report-moderation-audit.entit
 import { Report } from '../entities/report.entity';
 import { ReportModerationAction } from '../enums/report-moderation-action.enum';
 import { ReportStatus } from '../enums/report-status.enum';
+import { ReportsService } from './reports.service';
 
 @Injectable()
 export class ReportModerationService {
@@ -21,6 +22,7 @@ export class ReportModerationService {
     @InjectRepository(User)
     private readonly userRepo: Repository<User>,
     private readonly dataSource: DataSource,
+    private readonly reportsService: ReportsService,
   ) {}
 
   private async findOne(id: number) {
@@ -97,7 +99,7 @@ export class ReportModerationService {
     invalidTransitionMessage = 'Report is not in a valid status for this action',
     notes?: string,
   ) {
-    return this.dataSource.transaction(async (manager) => {
+    const saved = await this.dataSource.transaction(async (manager) => {
       const reportRepo = manager.getRepository(Report);
       const auditRepo = manager.getRepository(ReportModerationAudit);
       const userRepo = manager.getRepository(User);
@@ -129,6 +131,8 @@ export class ReportModerationService {
       await this.logAction(auditRepo, id, action, performedByUserId, notes);
       return saved;
     });
+
+    return this.reportsService.findOne(saved.reportId);
   }
 
   async markUnderReview(id: number, performedByUserId: number, notes?: string) {

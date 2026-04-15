@@ -1,5 +1,5 @@
 import { 
-  BadRequestException,
+  BadRequestException, 
   Controller, 
   Get, 
   Post, 
@@ -11,8 +11,6 @@ import {
   Request, 
   ParseUUIDPipe 
 } from '@nestjs/common';
-import { AlertsService } from './alerts.service';
-import { CreateAlertPreferenceDto } from './dto/create-alert-preference.dto';
 import {
   ApiBadRequestResponse,
   ApiBearerAuth,
@@ -26,6 +24,10 @@ import {
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
+
+import { AlertsService } from './alerts.service';
+import { CreateAlertPreferenceDto } from './dto/create-alert-preference.dto';
+import { CreateAlertPreferencesBatchDto } from './dto/create-alert-preferences-batch.dto';
 import {
   AlertPreferenceResponseDto,
   AlertRecordResponseDto,
@@ -37,7 +39,6 @@ import {
   ErrorResponseDto,
   ValidationErrorResponseDto,
 } from '../../common/dto/error-response.dto';
-
 import { JwtAuthGuard } from '../../core/guards/jwt-auth.guard';
 
 @ApiTags('Alerts')
@@ -91,6 +92,15 @@ export class AlertsController {
     return this.alertsService.subscribeToArea(userId, createAlertPreferenceDto);
   }
 
+  @Post('preferences/batch')
+  subscribeBatch(
+    @Request() req,
+    @Body() createAlertPreferencesBatchDto: CreateAlertPreferencesBatchDto,
+  ) {
+    const userId = this.extractAuthenticatedUserId(req);
+    return this.alertsService.subscribeToAreas(userId, createAlertPreferencesBatchDto);
+  }
+
   @Get('preferences')
   @ApiOperation({
     summary: 'Get alert preferences for the authenticated user',
@@ -117,6 +127,12 @@ export class AlertsController {
   getUserPreferences(@Request() req) {
     const userId = this.extractAuthenticatedUserId(req);
     return this.alertsService.getUserPreferences(userId);
+  }
+
+  @Get('preferences/overview')
+  getUserAlertOverview(@Request() req) {
+    const userId = this.extractAuthenticatedUserId(req);
+    return this.alertsService.getUserAlertOverview(userId);
   }
 
   @Delete('preferences/:id')

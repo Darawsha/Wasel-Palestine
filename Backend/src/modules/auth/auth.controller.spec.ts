@@ -4,9 +4,28 @@ import { AuthService } from './auth.service';
 
 describe('AuthController', () => {
   let controller: AuthController;
-  const authServiceMock = {};
+  const authServiceMock = {
+    getProfile: jest.fn(),
+    updateProfile: jest.fn(),
+  };
 
   beforeEach(async () => {
+    jest.clearAllMocks();
+    authServiceMock.getProfile.mockReturnValue({
+      id: 12,
+      firstname: 'Admin',
+      lastname: 'User',
+      email: 'admin@example.com',
+      role: 'admin',
+      phone: null,
+      address: null,
+      profileImage: null,
+      provider: null,
+      isVerified: true,
+      createdAt: new Date('2026-01-01T00:00:00.000Z'),
+      updatedAt: new Date('2026-01-01T00:00:00.000Z'),
+    });
+
     const module: TestingModule = await Test.createTestingModule({
       controllers: [AuthController],
       providers: [
@@ -33,10 +52,14 @@ describe('AuthController', () => {
       },
     });
 
-    expect(result).toEqual({
+    expect(authServiceMock.getProfile).toHaveBeenCalledWith(12);
+    expect(result).toMatchObject({
       id: 12,
+      firstname: 'Admin',
+      lastname: 'User',
       email: 'admin@example.com',
       role: 'admin',
+      profileImage: null,
     });
   });
 });

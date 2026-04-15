@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Delete Alert Subscription</title>
+    <link rel="stylesheet" href="DeleteSubscription.css">
+
+    <!-- Auth Guard -->
+    <script type="module">
+      import { checkAuth } from '/core/auth/authGuard.js';
+      checkAuth();
+    </script></head>
+<body class="alert-delete-page-scope">
+    <div class="modal-overlay">
+        <div class="modal">
+            <div class="icon-wrapper" aria-hidden="true">
+                <svg width="56" height="56" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M9 3H15" stroke="#df5242" stroke-width="2" stroke-linecap="round"/>
+                    <path d="M4 7H20" stroke="#df5242" stroke-width="2" stroke-linecap="round"/>
+                    <path d="M7 7L8 19C8.08284 19.9319 8.86408 20.6464 9.8 20.6464H14.2C15.1359 20.6464 15.9172 19.9319 16 19L17 7" stroke="#df5242" stroke-width="2" stroke-linecap="round"/>
+                    <path d="M10 11V16" stroke="#df5242" stroke-width="2" stroke-linecap="round"/>
+                    <path d="M14 11V16" stroke="#df5242" stroke-width="2" stroke-linecap="round"/>
+                </svg>
+            </div>
+
+            <h2 class="modal-title">Delete Subscription</h2>
+            <p class="modal-text" data-delete-subscription-message>
+                Are you sure you want to delete this alert subscription?
+            </p>
+
+            <div class="modal-actions">
+                <button class="btn btn-cancel" type="button" data-delete-subscription-cancel>Cancel</button>
+                <button class="btn btn-delete" type="button" data-delete-subscription-confirm>Delete</button>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

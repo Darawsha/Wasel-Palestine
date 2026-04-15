@@ -1,5 +1,6 @@
 const submitReportHtmlPath = "/features/citizen/my-reports/SubmitReport.html";
 const submitReportCssPath = "/features/citizen/my-reports/SubmitReport.css";
+let currentReportModalContext = null;
 
 function applySubmitReportTheme(root) {
   const isDark = localStorage.getItem("darkmode") === "enabled";
@@ -30,9 +31,14 @@ function closeMyReportModal() {
 
   modal.classList.add("hidden");
   modalContent.innerHTML = "";
+  currentReportModalContext = null;
 }
 
-async function openMyReportModal() {
+function getCurrentReportModalContext() {
+  return currentReportModalContext;
+}
+
+async function openMyReportModal(options = {}) {
   const modal = document.getElementById("modalOverlay");
   const modalContent = modal?.querySelector(".modalContent");
 
@@ -41,6 +47,7 @@ async function openMyReportModal() {
   }
 
   ensureSubmitReportCss();
+  currentReportModalContext = options;
 
   try {
     const response = await fetch(submitReportHtmlPath);
@@ -66,10 +73,12 @@ async function openMyReportModal() {
 
     applySubmitReportTheme(modalContent);
     if (window.CitizenSubmitReport?.init) {
-      await window.CitizenSubmitReport.init(modalContent);
+      await window.CitizenSubmitReport.init(modalContent, options);
     }
     modal.classList.remove("hidden");
   } catch (error) {
     console.error("Error loading submit report modal:", error);
   }
 }
+
+window.getCurrentReportModalContext = getCurrentReportModalContext;

@@ -53,6 +53,41 @@ function buildDuplicateBadge(report) {
 }
 
 function buildMyReportCard(report) {
+  const actionsMarkup = `
+    <div class="report-actions">
+      <button
+        class="btn-outline report-action-btn report-action-btn-primary"
+        type="button"
+        data-report-action="view-details"
+        data-report-id="${escapeHtml(report.id)}"
+      >
+        View Details
+      </button>
+      ${
+        report.canManage
+          ? `
+            <button
+              class="btn-outline report-action-btn"
+              type="button"
+              data-report-action="edit-report"
+              data-report-id="${escapeHtml(report.id)}"
+            >
+              Edit
+            </button>
+            <button
+              class="btn-outline report-action-btn report-action-btn-danger"
+              type="button"
+              data-report-action="delete-report"
+              data-report-id="${escapeHtml(report.id)}"
+            >
+              Delete
+            </button>
+          `
+          : ''
+      }
+    </div>
+  `;
+
   return `
     <article class="report-card">
       <div class="card-inner">
@@ -85,6 +120,7 @@ function buildMyReportCard(report) {
               ${escapeHtml(report.createdAtLabel)}
             </span>
           </div>
+          ${actionsMarkup}
         </div>
       </div>
     </article>
@@ -92,10 +128,11 @@ function buildMyReportCard(report) {
 }
 
 function buildCommunityReportCard(report) {
-  const supportCount = report.interactionSummary.upVotes;
-  const confirmationCount = report.interactionSummary.confirmations;
-  const hasSupported = report.interactionSummary.userVoteType === 'UP';
-  const hasConfirmed = report.interactionSummary.isConfirmedByCurrentUser;
+  const upVoteCount = report.interactionSummary.upVotes;
+  const downVoteCount = report.interactionSummary.downVotes;
+  const hasUpVoted = report.interactionSummary.userVoteType === 'UP';
+  const hasDownVoted = report.interactionSummary.userVoteType === 'DOWN';
+  const votingDisabled = !report.canVote;
 
   return `
     <article class="report-card">
@@ -130,23 +167,33 @@ function buildCommunityReportCard(report) {
           </div>
           <div class="community-actions">
             <button
-              class="btn-outline community-action-btn${hasSupported ? ' is-active' : ''}"
+              class="btn-outline community-action-btn community-action-btn-neutral"
               type="button"
-              data-report-action="support"
+              data-report-action="view-details"
               data-report-id="${escapeHtml(report.id)}"
             >
-              <span class="material-symbols-outlined">thumb_up</span>
-              Support (${escapeHtml(supportCount)})
+              <span class="material-symbols-outlined">visibility</span>
+              View Details
             </button>
             <button
-              class="btn-primary community-action-btn${hasConfirmed ? ' is-active' : ''}"
+              class="btn-outline community-action-btn vote-up${hasUpVoted ? ' is-active' : ''}"
               type="button"
-              data-report-action="confirm"
+              data-report-action="upvote"
               data-report-id="${escapeHtml(report.id)}"
-              ${hasConfirmed ? 'disabled' : ''}
+              ${votingDisabled || hasUpVoted ? 'disabled' : ''}
             >
-              <span class="material-symbols-outlined">task_alt</span>
-              ${hasConfirmed ? 'Confirmed' : `Confirm (${escapeHtml(confirmationCount)})`}
+              <span class="material-symbols-outlined">thumb_up</span>
+              Upvote (${escapeHtml(upVoteCount)})
+            </button>
+            <button
+              class="btn-outline community-action-btn vote-down${hasDownVoted ? ' is-active' : ''}"
+              type="button"
+              data-report-action="downvote"
+              data-report-id="${escapeHtml(report.id)}"
+              ${votingDisabled || hasDownVoted ? 'disabled' : ''}
+            >
+              <span class="material-symbols-outlined">thumb_down</span>
+              Downvote (${escapeHtml(downVoteCount)})
             </button>
           </div>
         </div>
@@ -229,24 +276,24 @@ export function renderReportsChrome(root, state) {
   const locationStatus = state.community.location.status;
   if (locationStatus === 'ready') {
     copyElement.textContent =
-      'Nearby pending reports are shown using your current location.';
+      'Nearby public community reports are shown using your current location.';
     return;
   }
 
   if (locationStatus === 'denied') {
     copyElement.textContent =
-      'Location access is off, so you are seeing recent pending reports across the network.';
+      'Location access is off, so you are seeing recent public community reports across the network.';
     return;
   }
 
   if (locationStatus === 'error') {
     copyElement.textContent =
-      'Location lookup failed, so the feed fell back to recent pending reports.';
+      'Location lookup failed, so the feed fell back to recent public community reports.';
     return;
   }
 
   copyElement.textContent =
-    'See nearby pending reports and help strengthen community credibility.';
+    'See public community reports and help strengthen community credibility before moderation is finalized.';
 }
 
 export function renderReportsLoading(root, state, message) {
@@ -401,7 +448,7 @@ export function renderCommunityReports(root, state, reports) {
     renderList(
       root,
       buildEmptyCard(
-        'No community reports found right now.',
+        'No public community reports found right now.',
         'Try refreshing the nearby feed or check back shortly.',
       ),
     );

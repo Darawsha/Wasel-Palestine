@@ -116,3 +116,7 @@ export function apiGet(path, options = {}) {
 export function apiPost(path, data, options = {}) {
   return apiRequest(path, { ...options, method: 'POST', data });
 }
+
+export function apiPatch(path, data, options = {}) {
+  return apiRequest(path, { ...options, method: 'PATCH', data });
+}

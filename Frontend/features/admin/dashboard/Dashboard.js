@@ -3,5 +3,8 @@ import '/features/admin/dashboard/userRegistrationTrend.js';
 import '/features/admin/dashboard/incidentsCount.js';
 import '/features/admin/dashboard/incidentsToday.js';
 import '/features/admin/dashboard/checkpointsCount.js';
+import '/features/admin/dashboard/pendingReportsCount.js';
+import '/features/admin/dashboard/subscriptionsCount.js';
+import '/features/admin/dashboard/responseTimeCount.js';
 import '/features/admin/dashboard/incidentsTimelineChart.js';
 import '/features/admin/dashboard/userRegistrationsChart.js';

@@ -13,7 +13,9 @@ describe('AlertsController', () => {
           provide: AlertsService,
           useValue: {
             subscribeToArea: jest.fn(),
+            subscribeToAreas: jest.fn(),
             getUserPreferences: jest.fn(),
+            getUserAlertOverview: jest.fn(),
             unsubscribe: jest.fn(),
             getUserInbox: jest.fn(),
             markAsRead: jest.fn(),

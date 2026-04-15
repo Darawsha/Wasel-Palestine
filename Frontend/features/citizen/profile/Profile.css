@@ -133,6 +133,20 @@
   text-decoration: underline;
 }
 
+.profile-page-scope .profile-name {
+  margin: 0 0 0.25rem 0;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.profile-page-scope .profile-meta {
+  margin: 0 0 0.75rem 0;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  text-align: center;
+}
+
 /* Forms */
 
 .profile-page-scope .form-group {
@@ -315,6 +329,16 @@
   color: var(--success-color);
   text-align: right;
   margin-top: 0.25rem;
+}
+
+.profile-page-scope .profile-status-note {
+  border: 1px solid var(--border-color);
+  background-color: rgba(255, 255, 255, 0.65);
+  color: var(--text-muted);
+  border-radius: 8px;
+  padding: 0.85rem 1rem;
+  font-size: 0.78rem;
+  line-height: 1.45;
 }
 
 /* Buttons */

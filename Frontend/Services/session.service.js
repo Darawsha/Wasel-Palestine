@@ -3,11 +3,20 @@ import { apiGet } from '/Services/api-client.js';
 const USER_KEY = 'user';
 const TOKEN_KEY = 'token';
 const LEGACY_TOKEN_KEY = 'jwtToken';
+const PROFILE_IMAGE_KEY = 'profileImage';
+const LEGACY_PROFILE_OVERRIDES_KEY = 'wasel.admin.profile.overrides';
 const SIGN_IN_PATH = '/features/public/auth/signin_signup.html';
 
 export function setCurrentUser(user, token) {
   if (user) {
     window.localStorage?.setItem(USER_KEY, JSON.stringify(user));
+
+    const profileImage = String(user.profileImage || '').trim();
+    if (profileImage) {
+      window.localStorage?.setItem(PROFILE_IMAGE_KEY, profileImage);
+    } else {
+      window.localStorage?.removeItem(PROFILE_IMAGE_KEY);
+    }
   }
 
   if (token) {
@@ -33,6 +42,8 @@ export function clearCurrentUser() {
   window.localStorage?.removeItem(USER_KEY);
   window.localStorage?.removeItem(TOKEN_KEY);
   window.localStorage?.removeItem(LEGACY_TOKEN_KEY);
+  window.localStorage?.removeItem(PROFILE_IMAGE_KEY);
+  window.localStorage?.removeItem(LEGACY_PROFILE_OVERRIDES_KEY);
 }
 
 export function redirectToSignIn() {
@@ -48,7 +59,8 @@ export async function validateSession() {
   }
 
   try {
-    await apiGet('/auth/profile');
+    const profile = await apiGet('/auth/profile');
+    setCurrentUser(profile);
     return true;
   } catch (error) {
     console.error('Failed to validate session', error);

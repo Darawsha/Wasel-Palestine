@@ -45,7 +45,7 @@ function wireAlertModalCloseEvents(modal, modalContent) {
   }
 }
 
-async function openAlertModal() {
+async function openAlertModal(context = null) {
   const modal = document.getElementById("modalOverlay");
   const modalContent = modal?.querySelector(".modalContent");
 
@@ -77,6 +77,11 @@ async function openAlertModal() {
       : html;
 
     wireAlertModalCloseEvents(modal, modalContent);
+    window.CitizenAlertsPage?.mountModal?.({
+      modalContent,
+      context,
+      closeAlertModal,
+    });
     modal.classList.remove("hidden");
   } catch (error) {
     console.error("Error loading alert modal:", error);

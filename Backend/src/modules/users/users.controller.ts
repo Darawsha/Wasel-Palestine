@@ -500,7 +500,7 @@ export class UsersController {
       return null;
     }
 
-    const { password, ...safeUser } = user;
+    const { passwordHash, ...safeUser } = user;
     return safeUser;
   }
 }

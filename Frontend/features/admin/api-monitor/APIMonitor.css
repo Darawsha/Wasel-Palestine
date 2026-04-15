@@ -151,6 +151,14 @@
     background-color: #ecfdf5;
     color: #059669;
 }
+.status-pill.status-warning {
+    background-color: #fef3c7;
+    color: #b45309;
+}
+.status-pill.status-danger {
+    background-color: #fee2e2;
+    color: #b91c1c;
+}
 
 .pulse-dot {
     width: 0.5rem;
@@ -249,6 +257,11 @@
 .badge-normal {
     background-color: #ecfdf5;
     color: #059669;
+}
+.badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .divider {

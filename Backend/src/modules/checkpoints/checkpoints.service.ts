@@ -36,7 +36,7 @@ export class CheckpointsService {
 
 
   async create(createCheckpointDto: CreateCheckpointDto): Promise<Checkpoint> {
-    
+
     const existingCheckpoint = await this.checkpointsRepository.findOne({
       where: { name: createCheckpointDto.name },
     });
@@ -51,7 +51,7 @@ export class CheckpointsService {
       createCheckpointDto.latitude !== null &&
       createCheckpointDto.longitude !== null
     ) {
-      const distanceThreshold = 50; 
+      const distanceThreshold = 50;
 
       const existingByLocation = await this.checkpointsRepository
         .createQueryBuilder('checkpoint')
@@ -409,5 +409,12 @@ export class CheckpointsService {
     }
   }
 
+  async findActiveForRouteEstimation(): Promise<Checkpoint[]> {
+    return this.checkpointsRepository.find({
+      where: {
+        currentStatus: CheckpointStatus.ACTIVE,
+      },
+    });
+  }
 }
 

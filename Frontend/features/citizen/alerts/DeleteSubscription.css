@@ -1,0 +1,156 @@
+.alert-delete-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 1rem;
+  background: rgba(15, 23, 42, 0.28);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+
+.alert-delete-overlay.hidden {
+  display: none;
+}
+
+.alert-delete-modal-content {
+  width: min(100%, 360px);
+}
+
+.alert-delete-page-scope {
+  --primary: #2563eb;
+  --danger: #df5242;
+  --danger-hover: #c24135;
+  --text-main: #2f3341;
+  --text-muted: #798394;
+  --border-color: #e2e8f0;
+  --bg-body: #f1f5f9;
+  --bg-card: #ffffff;
+}
+
+.alert-delete-page-scope.dark {
+  --bg-body: #0f172a;
+  --bg-card: #1e293b;
+  --text-main: #f8fafc;
+  --text-muted: #94a3b8;
+  --border-color: #334155;
+}
+
+.alert-delete-page-scope,
+.alert-delete-page-scope * {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  font-family:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial,
+    sans-serif;
+}
+
+.alert-delete-page-scope {
+  background-color: var(--bg-body);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+}
+
+.alert-delete-page-scope .modal-overlay {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 1rem;
+  width: 100%;
+}
+
+.alert-delete-page-scope .modal {
+  background-color: var(--bg-card);
+  width: 100%;
+  max-width: 360px;
+  border-radius: 12px;
+  padding: 2rem;
+  box-shadow:
+    0 10px 25px -5px rgba(0, 0, 0, 0.05),
+    0 8px 10px -6px rgba(0, 0, 0, 0.02);
+  text-align: center;
+}
+
+.alert-delete-page-scope .icon-wrapper {
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.alert-delete-page-scope .modal-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--text-main);
+  margin-bottom: 0.5rem;
+}
+
+.alert-delete-page-scope .modal-text {
+  font-size: 0.95rem;
+  color: var(--text-muted);
+  margin-bottom: 1.75rem;
+  line-height: 1.5;
+}
+
+.alert-delete-page-scope .modal-actions {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.alert-delete-page-scope .btn {
+  flex: 1;
+  padding: 0.625rem 1rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  height: 42px;
+}
+
+.alert-delete-page-scope .btn-cancel {
+  background-color: transparent;
+  border: 1px solid var(--border-color);
+  color: var(--text-muted);
+}
+
+.alert-delete-page-scope .btn-cancel:hover {
+  background-color: #f8fafc;
+  color: var(--text-main);
+}
+
+.alert-delete-page-scope .btn-delete {
+  background-color: var(--danger);
+  border: 1px solid var(--danger);
+  color: #ffffff;
+}
+
+.alert-delete-page-scope .btn-delete:hover {
+  background-color: var(--danger-hover);
+  border-color: var(--danger-hover);
+  box-shadow: 0 4px 6px -1px rgba(223, 82, 66, 0.2);
+}
+
+.alert-delete-page-scope .btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
+  box-shadow: none;
+}
+
+.alert-delete-modal-content .alert-delete-page-scope {
+  background: transparent;
+  display: block;
+  min-height: auto;
+}
+
+.alert-delete-modal-content .alert-delete-page-scope .modal-overlay {
+  padding: 0;
+}
