@@ -68,17 +68,19 @@ export class RouteRecommendationService {
     }
 
     if (defaultRouteIsCompliant) {
+      const comparison = this.buildComparisonSummary(
+        params.defaultRoute,
+        params.avoidedRoute,
+      );
+
       return {
         primaryRouteKind: RouteOptionKind.DEFAULT,
-        suggestedRouteKind: null,
-        requiresUserApproval: false,
+        suggestedRouteKind: RouteOptionKind.AVOIDED,
+        requiresUserApproval: true,
         autoApplied: false,
-        reason: RouteRecommendationReason.NO_VALID_AVOIDED_ROUTE,
-        message:
-          'The default route already avoids ' +
-          this.formatConstraintList(requestedConstraints) +
-          ', so no alternative route was needed.',
-        comparison: null,
+        reason: RouteRecommendationReason.AVOIDED_ROUTE_REQUIRES_CONFIRMATION,
+        message: this.buildConfirmationMessage(comparison, requestedConstraints),
+        comparison,
         warnings,
       };
     }
@@ -116,6 +118,21 @@ export class RouteRecommendationService {
       comparison,
       warnings,
     };
+  }
+
+  private buildConfirmationMessage(
+    comparison: RouteComparisonSummary,
+    requestedConstraints: RouteConstraintType[],
+  ): string {
+    return (
+      'An avoided route is available for ' +
+      this.formatConstraintList(requestedConstraints) +
+      '. It adds ' +
+      comparison.distanceIncreaseKm.toFixed(2) +
+      ' km and ' +
+      comparison.durationIncreaseMinutes +
+      ' min compared with the default route. Review it on the map and confirm if you want to switch.'
+    );
   }
 
   private buildComparisonSummary(

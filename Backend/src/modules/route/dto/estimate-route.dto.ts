@@ -5,7 +5,7 @@ import {
   Max,
   Min,
 } from 'class-validator';
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { ApiProperty } from '@nestjs/swagger';
 
 export class EstimateRouteDto {
   @ApiProperty({ example: 32.2211, description: 'Start latitude' })
@@ -32,7 +32,8 @@ export class EstimateRouteDto {
   @Max(180)
   endLongitude: number;
 
-  @ApiPropertyOptional({
+  @ApiProperty({
+    required: false,
     example: true,
     description: 'Whether the route should avoid checkpoints',
   })
@@ -40,7 +41,8 @@ export class EstimateRouteDto {
   @IsBoolean()
   avoidCheckpoints?: boolean;
 
-  @ApiPropertyOptional({
+  @ApiProperty({
+    required: false,
     example: true,
     description: 'Whether the route should avoid incidents',
   })

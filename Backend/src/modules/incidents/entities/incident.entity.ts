@@ -17,6 +17,12 @@ import { Checkpoint } from '../../checkpoints/entities/checkpoint.entity';
 import { IncidentStatusHistory } from './status-history.entity';
 import { CheckpointStatus } from '../../checkpoints/enums/checkpoint-status.enum';
 
+const decimalColumnTransformer = {
+  to: (value: number | null | undefined): number | null | undefined => value,
+  from: (value: string | number | null): number | null =>
+    value === null ? null : Number(value),
+};
+
 @Entity('incidents')
 export class Incident {
   @Unique(['title', 'latitude', 'longitude'])
@@ -32,10 +38,20 @@ export class Incident {
   @Column({ type: 'text' })
   description: string;
 
-  @Column('decimal', { precision: 10, scale: 7, nullable: true })
+  @Column('decimal', {
+    precision: 10,
+    scale: 7,
+    nullable: true,
+    transformer: decimalColumnTransformer,
+  })
   latitude: number;
 
-  @Column('decimal', { precision: 10, scale: 7, nullable: true })
+  @Column('decimal', {
+    precision: 10,
+    scale: 7,
+    nullable: true,
+    transformer: decimalColumnTransformer,
+  })
   longitude: number;
 
   @Column({ type: 'text', nullable: true })

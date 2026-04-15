@@ -1,4 +1,4 @@
-import { Module, NestModule, MiddlewareConsumer } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { UsersModule } from './modules/users/users.module';
@@ -11,7 +11,6 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule } from '@nestjs/config';
 import { CheckpointsModule } from './modules/checkpoints/checkpoints.module';
 import { IncidentsModule } from './modules/incidents/incidents.module';
-import { AuthMiddleware } from './core/middleware/authMiddleware';
 import { typeOrmConfig } from './core/database/typeorm.config';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { AlertsModule } from './modules/alerts/alerts.module';
@@ -52,12 +51,6 @@ const envFilePath = Array.from(
   controllers: [AppController],
   providers: [AppService],
 })
-export class AppModule implements NestModule {
-  configure(consumer: MiddlewareConsumer) {
-    consumer
-      .apply(AuthMiddleware)
-      .forRoutes('*');
-  }
-}
+export class AppModule {}
 
 

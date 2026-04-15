@@ -15,6 +15,23 @@ import { JwtAuthGuard } from '../../../core/guards/jwt-auth.guard';
 import { RolesGuard } from '../../../core/guards/roles.guard';
 import { ReportModerationService } from '../services/report-moderation.service';
 import { ModerateReportDto } from '../dto/moderate-report.dto';
+import {
+  ApiBadRequestResponse,
+  ApiBearerAuth,
+  ApiForbiddenResponse,
+  ApiInternalServerErrorResponse,
+  ApiNotFoundResponse,
+  ApiOkResponse,
+  ApiOperation,
+  ApiParam,
+  ApiTags,
+  ApiUnauthorizedResponse,
+} from '@nestjs/swagger';
+import { ReportModerationResultResponseDto } from '../dto/report-response.dto';
+import {
+  ErrorResponseDto,
+  ValidationErrorResponseDto,
+} from '../../../common/dto/error-response.dto';
 
 type AuthenticatedRequest = Request & {
   user?: {
@@ -24,6 +41,8 @@ type AuthenticatedRequest = Request & {
   };
 };
 
+@ApiTags('Report Moderation')
+@ApiBearerAuth('token')
 @Controller({ path: 'reports', version: '1' })
 export class ReportModerationController {
   constructor(private readonly moderationService: ReportModerationService) {}
@@ -43,6 +62,41 @@ export class ReportModerationController {
   @Patch(':id/review')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
+  @ApiOperation({
+    summary: 'Mark a report as under review',
+    description:
+      'Moves a pending report into the under-review state and records moderation audit details.',
+  })
+  @ApiParam({
+    name: 'id',
+    type: Number,
+    description: 'Report identifier',
+    example: 1,
+  })
+  @ApiOkResponse({
+    description: 'Report moved to under review',
+    type: ReportModerationResultResponseDto,
+  })
+  @ApiBadRequestResponse({
+    description: 'Invalid transition or moderation payload',
+    type: ValidationErrorResponseDto,
+  })
+  @ApiUnauthorizedResponse({
+    description: 'Authentication required',
+    type: ErrorResponseDto,
+  })
+  @ApiForbiddenResponse({
+    description: 'Admin role required',
+    type: ErrorResponseDto,
+  })
+  @ApiNotFoundResponse({
+    description: 'Report or moderator user not found',
+    type: ErrorResponseDto,
+  })
+  @ApiInternalServerErrorResponse({
+    description: 'Unexpected server error',
+    type: ErrorResponseDto,
+  })
   markUnderReview(
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: ModerateReportDto,
@@ -55,6 +109,41 @@ export class ReportModerationController {
   @Patch(':id/approve')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
+  @ApiOperation({
+    summary: 'Approve a report',
+    description:
+      'Approves a report that is currently under review and stores moderation audit context.',
+  })
+  @ApiParam({
+    name: 'id',
+    type: Number,
+    description: 'Report identifier',
+    example: 1,
+  })
+  @ApiOkResponse({
+    description: 'Report approved successfully',
+    type: ReportModerationResultResponseDto,
+  })
+  @ApiBadRequestResponse({
+    description: 'Invalid transition or moderation payload',
+    type: ValidationErrorResponseDto,
+  })
+  @ApiUnauthorizedResponse({
+    description: 'Authentication required',
+    type: ErrorResponseDto,
+  })
+  @ApiForbiddenResponse({
+    description: 'Admin role required',
+    type: ErrorResponseDto,
+  })
+  @ApiNotFoundResponse({
+    description: 'Report or moderator user not found',
+    type: ErrorResponseDto,
+  })
+  @ApiInternalServerErrorResponse({
+    description: 'Unexpected server error',
+    type: ErrorResponseDto,
+  })
   approve(
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: ModerateReportDto,
@@ -67,6 +156,41 @@ export class ReportModerationController {
   @Patch(':id/reject')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
+  @ApiOperation({
+    summary: 'Reject a report',
+    description:
+      'Rejects a report that is currently under review and stores moderation audit context.',
+  })
+  @ApiParam({
+    name: 'id',
+    type: Number,
+    description: 'Report identifier',
+    example: 1,
+  })
+  @ApiOkResponse({
+    description: 'Report rejected successfully',
+    type: ReportModerationResultResponseDto,
+  })
+  @ApiBadRequestResponse({
+    description: 'Invalid transition or moderation payload',
+    type: ValidationErrorResponseDto,
+  })
+  @ApiUnauthorizedResponse({
+    description: 'Authentication required',
+    type: ErrorResponseDto,
+  })
+  @ApiForbiddenResponse({
+    description: 'Admin role required',
+    type: ErrorResponseDto,
+  })
+  @ApiNotFoundResponse({
+    description: 'Report or moderator user not found',
+    type: ErrorResponseDto,
+  })
+  @ApiInternalServerErrorResponse({
+    description: 'Unexpected server error',
+    type: ErrorResponseDto,
+  })
   reject(
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: ModerateReportDto,
@@ -79,6 +203,41 @@ export class ReportModerationController {
   @Patch(':id/resolve')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
+  @ApiOperation({
+    summary: 'Resolve a moderated report',
+    description:
+      'Marks a report as resolved after moderation or follow-up is complete and stores audit details.',
+  })
+  @ApiParam({
+    name: 'id',
+    type: Number,
+    description: 'Report identifier',
+    example: 1,
+  })
+  @ApiOkResponse({
+    description: 'Report resolved successfully',
+    type: ReportModerationResultResponseDto,
+  })
+  @ApiBadRequestResponse({
+    description: 'Invalid transition or moderation payload',
+    type: ValidationErrorResponseDto,
+  })
+  @ApiUnauthorizedResponse({
+    description: 'Authentication required',
+    type: ErrorResponseDto,
+  })
+  @ApiForbiddenResponse({
+    description: 'Admin role required',
+    type: ErrorResponseDto,
+  })
+  @ApiNotFoundResponse({
+    description: 'Report or moderator user not found',
+    type: ErrorResponseDto,
+  })
+  @ApiInternalServerErrorResponse({
+    description: 'Unexpected server error',
+    type: ErrorResponseDto,
+  })
   resolve(
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: ModerateReportDto,

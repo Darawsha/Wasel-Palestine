@@ -108,16 +108,23 @@ export class RouteService {
       ),
     });
 
+    const resolvedAvoidedRoute = avoidedRoute ?? null;
+
     const primaryRoute =
       recommendation.primaryRouteKind === RouteOptionKind.AVOIDED &&
-      avoidedRoute
-        ? avoidedRoute
+      resolvedAvoidedRoute
+        ? resolvedAvoidedRoute
         : defaultRoute;
+
+    const responseAvoidedRoute =
+      recommendation.primaryRouteKind === RouteOptionKind.AVOIDED
+        ? resolvedAvoidedRoute
+        : null;
 
     const suggestedRoute =
       recommendation.suggestedRouteKind === RouteOptionKind.AVOIDED &&
-      avoidedRoute
-        ? avoidedRoute
+      resolvedAvoidedRoute
+        ? resolvedAvoidedRoute
         : null;
 
     return {
@@ -126,7 +133,7 @@ export class RouteService {
       geometry: primaryRoute.geometry,
       metadata: primaryRoute.metadata,
       defaultRoute,
-      avoidedRoute,
+      avoidedRoute: responseAvoidedRoute,
       primaryRoute,
       suggestedRoute,
       recommendation,

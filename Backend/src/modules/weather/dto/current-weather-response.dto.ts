@@ -1,27 +1,51 @@
 import { ApiProperty } from '@nestjs/swagger';
 
 export class CurrentWeatherResponseDto {
-  @ApiProperty({ example: 'Awarta' })
+  @ApiProperty({
+    description: 'Describes the location name field.',
+    example: 'Awarta'
+  })
   locationName: string;
 
-  @ApiProperty({ example: 32.1744 })
+  @ApiProperty({
+    description: 'Describes the latitude field.',
+    example: 32.1744
+  })
   latitude: number;
 
-  @ApiProperty({ example: 35.2856 })
+  @ApiProperty({
+    description: 'Describes the longitude field.',
+    example: 35.2856
+  })
   longitude: number;
 
-  @ApiProperty({ example: 19.3 })
+  @ApiProperty({
+    description: 'Describes the temperature celsius field.',
+    example: 19.3
+  })
   temperatureCelsius: number;
 
-  @ApiProperty({ example: 'Partly cloudy' })
+  @ApiProperty({
+    description: 'Describes the condition text field.',
+    example: 'Partly cloudy'
+  })
   conditionText: string;
 
-  @ApiProperty({ example: 12.6 })
+  @ApiProperty({
+    description: 'Describes the wind kph field.',
+    example: 12.6
+  })
   windKph: number;
 
-  @ApiProperty({ example: true })
+  @ApiProperty({
+    description: 'Describes the is day field.',
+    example: true
+  })
   isDay: boolean;
 
-  @ApiProperty({ example: '2026-04-09 14:25' })
+  @ApiProperty({
+    description: 'Describes the observed at field.',
+    example: '2026-04-09 14:25'
+  })
   observedAt: string;
 }

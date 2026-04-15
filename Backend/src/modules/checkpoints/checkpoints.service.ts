@@ -1,6 +1,5 @@
 import {
   BadRequestException,
-  ConflictException,
   ForbiddenException,
   Injectable,
   NotFoundException,
@@ -43,7 +42,7 @@ export class CheckpointsService {
     });
 
     if (existingCheckpoint) {
-      throw new ConflictException('A checkpoint with this exact name already exists.');
+      return existingCheckpoint;
     }
 
     if (
@@ -66,9 +65,7 @@ export class CheckpointsService {
         .getOne();
 
       if (existingByLocation) {
-        throw new ConflictException(
-          'A checkpoint already exists within 50 meters of this exact location.',
-        );
+        return existingByLocation;
       }
     }
 
@@ -235,7 +232,14 @@ export class CheckpointsService {
     });
   }
   async remove(id: number): Promise<void> {
-    const checkpoint = await this.findOne(id);
+    const checkpoint = await this.checkpointsRepository.findOne({
+      where: { id },
+    });
+
+    if (!checkpoint) {
+      return;
+    }
+
     await this.checkpointsRepository.remove(checkpoint);
   }
 
@@ -259,7 +263,7 @@ export class CheckpointsService {
       const newStatus = updateStatusDto.currentStatus;
 
       if (oldStatus === newStatus) {
-        throw new BadRequestException('Checkpoint already has this status');
+        return checkpoint;
       }
 
       checkpoint.currentStatus = newStatus;

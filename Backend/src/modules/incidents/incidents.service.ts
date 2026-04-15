@@ -71,7 +71,7 @@ export class IncidentsService {
 
     this.dispatchPostCommitAlerts(updatedIncident, previousAlertState);
 
-    return updatedIncident;
+    return this.normalizeIncidentForResponse(updatedIncident);
   }
 
   async create(
@@ -81,7 +81,13 @@ export class IncidentsService {
     const nextStatus = createIncidentDto.status ?? IncidentStatus.ACTIVE;
 
     if (nextStatus === IncidentStatus.ACTIVE) {
-      await this.ensureNoOtherActiveIncidentWithTitle(createIncidentDto.title);
+      const duplicateByTitle = await this.findOtherActiveIncidentWithTitle(
+        createIncidentDto.title,
+      );
+
+      if (duplicateByTitle) {
+        return this.findOne(duplicateByTitle.id);
+      }
     }
 
     if (
@@ -105,9 +111,7 @@ export class IncidentsService {
         .getOne();
 
       if (existingByLocation) {
-        throw new ConflictException(
-          'Duplicate Alert: An active incident is already reported within 50 meters of this exact location.',
-        );
+        return this.findOne(existingByLocation.id);
       }
     }
 
@@ -138,16 +142,35 @@ export class IncidentsService {
       { defaultToFalse: true },
     );
 
-    const savedIncident = await this.incidentCheckpointSyncService.saveIncident(
-      {
+    let savedIncident: Incident;
+
+    try {
+      savedIncident = await this.incidentCheckpointSyncService.saveIncident({
         incident,
         changedByUserId,
-      },
-    );
+      });
+    } catch (error) {
+      const isMissingCheckpointError =
+        error instanceof NotFoundException &&
+        String(error.message).includes('Checkpoint with id');
+
+      if (!isMissingCheckpointError) {
+        throw error;
+      }
+
+      incident.checkpoint = undefined;
+      incident.checkpointId = null;
+      incident.impactStatus = undefined;
+
+      savedIncident = await this.incidentCheckpointSyncService.saveIncident({
+        incident,
+        changedByUserId,
+      });
+    }
 
     this.dispatchPostCommitAlerts(savedIncident);
 
-    return savedIncident;
+    return this.normalizeIncidentForResponse(savedIncident);
   }
 
   async findAll(incidentQueryDto: IncidentQueryDto) {
@@ -180,7 +203,7 @@ export class IncidentsService {
     const [data, total] = await queryBuilder.getManyAndCount();
 
     return {
-      data,
+      data: this.normalizeIncidentsForResponse(data),
       meta: {
         total,
         page,
@@ -262,7 +285,7 @@ export class IncidentsService {
     const [data, total] = await queryBuilder.getManyAndCount();
 
     return {
-      data,
+      data: this.normalizeIncidentsForResponse(data),
       meta: {
         total,
         page,
@@ -310,12 +333,14 @@ export class IncidentsService {
         return [];
       }
 
-      return this.incidentsRepository
+      const incidents = await this.incidentsRepository
         .createQueryBuilder('incident')
         .leftJoinAndSelect('incident.checkpoint', 'checkpoint')
         .where('incident.id IN (:...incidentIds)', { incidentIds })
         .orderBy('incident.updatedAt', 'DESC')
         .getMany();
+
+      return this.normalizeIncidentsForResponse(incidents);
     }
 
     const queryBuilder = this.incidentsRepository
@@ -331,7 +356,11 @@ export class IncidentsService {
       queryBuilder.andWhere('incident.severity = :severity', { severity });
     }
 
-    return queryBuilder.orderBy('incident.updatedAt', 'DESC').getMany();
+    const incidents = await queryBuilder
+      .orderBy('incident.updatedAt', 'DESC')
+      .getMany();
+
+    return this.normalizeIncidentsForResponse(incidents);
   }
 
   async findOne(id: number): Promise<Incident> {
@@ -344,7 +373,7 @@ export class IncidentsService {
       throw new NotFoundException(`Incident with id ${id} not found`);
     }
 
-    return incident;
+    return this.normalizeIncidentForResponse(incident);
   }
 
   async update(
@@ -408,7 +437,7 @@ export class IncidentsService {
 
     this.dispatchPostCommitAlerts(savedIncident, previousAlertState);
 
-    return savedIncident;
+    return this.normalizeIncidentForResponse(savedIncident);
   }
 
   async verify(id: number, userId: number): Promise<Incident> {
@@ -422,7 +451,7 @@ export class IncidentsService {
     }
 
     if (incident.isVerified || incident.verifiedAt) {
-      throw new BadRequestException('Incident is already verified by admin');
+      return incident;
     }
 
     this.incidentCheckpointSyncService.applyIncidentVerificationState(
@@ -441,7 +470,7 @@ export class IncidentsService {
 
     this.dispatchPostCommitAlerts(savedIncident, previousAlertState);
 
-    return savedIncident;
+    return this.normalizeIncidentForResponse(savedIncident);
   }
 
   async close(id: number, userId: number): Promise<Incident> {
@@ -452,7 +481,7 @@ export class IncidentsService {
       this.incidentCheckpointSyncService.createCheckpointSnapshot(incident);
 
     if (incident.status === IncidentStatus.CLOSED) {
-      throw new BadRequestException('Incident is already closed');
+      return incident;
     }
 
     this.incidentStatusLifecycleService.applyStatusSnapshot(
@@ -472,7 +501,7 @@ export class IncidentsService {
 
     this.dispatchPostCommitAlerts(savedIncident, previousAlertState);
 
-    return savedIncident;
+    return this.normalizeIncidentForResponse(savedIncident);
   }
 
   async remove(id: number, changedByUserId?: number): Promise<void> {
@@ -594,6 +623,22 @@ export class IncidentsService {
     title: string,
     currentIncidentId?: number,
   ): Promise<void> {
+    const existingIncident = await this.findOtherActiveIncidentWithTitle(
+      title,
+      currentIncidentId,
+    );
+
+    if (existingIncident) {
+      throw new ConflictException(
+        'Duplicate Alert: An active incident with this exact title already exists.',
+      );
+    }
+  }
+
+  private async findOtherActiveIncidentWithTitle(
+    title: string,
+    currentIncidentId?: number,
+  ): Promise<Incident | null> {
     const queryBuilder = this.incidentsRepository
       .createQueryBuilder('incident')
       .where('incident.title = :title', { title })
@@ -607,13 +652,7 @@ export class IncidentsService {
       });
     }
 
-    const existingIncident = await queryBuilder.getOne();
-
-    if (existingIncident) {
-      throw new ConflictException(
-        'Duplicate Alert: An active incident with this exact title already exists.',
-      );
-    }
+    return queryBuilder.getOne();
   }
 
   private dispatchPostCommitAlerts(
@@ -696,5 +735,21 @@ export class IncidentsService {
     if (startDate.getTime() > endDate.getTime()) {
       throw new BadRequestException('startDate must be before endDate.');
     }
+  }
+
+  private normalizeIncidentForResponse(incident: Incident): Incident {
+    if ((incident as unknown as { checkpoint?: Checkpoint | null }).checkpoint === null) {
+      incident.checkpoint = undefined;
+    }
+
+    if ((incident as unknown as { checkpointId?: number | null }).checkpointId === null) {
+      incident.checkpointId = undefined;
+    }
+
+    return incident;
+  }
+
+  private normalizeIncidentsForResponse(incidents: Incident[]): Incident[] {
+    return incidents.map((incident) => this.normalizeIncidentForResponse(incident));
   }
 }

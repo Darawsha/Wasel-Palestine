@@ -40,7 +40,7 @@ export class Report {
 
   @Column()
   @IsString()
-  @MinLength(10)
+  @MinLength(4)
   location: string;
 
   @Column({

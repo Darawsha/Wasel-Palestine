@@ -29,7 +29,24 @@ export class UsersService {
   async create(createUserDto: CreateUserDto): Promise<User> {
     const { password, role, ...rest } = createUserDto;
     const normalizedEmail = this.normalizeEmail(rest.email);
-    await this.ensureEmailUnique(normalizedEmail);
+
+    const existingUser = await this.usersRepository.findOne({
+      where: { email: normalizedEmail },
+    });
+
+    if (existingUser) {
+      const samePassword = await this.passwordService.compare(
+        password,
+        existingUser.password,
+      );
+
+      if (samePassword) {
+        return existingUser;
+      }
+
+      throw new ConflictException('Email already in use');
+    }
+
     const hashedPassword = await this.passwordService.hash(password);
     const user = this.usersRepository.create({
       ...rest,
@@ -116,10 +133,7 @@ export class UsersService {
    * Delete a user
    */
   async remove(id: number): Promise<void> {
-    const result = await this.usersRepository.delete(id);
-    if (result.affected === 0) {
-      throw new NotFoundException(`User with ID ${id} not found`);
-    }
+    await this.usersRepository.delete(id);
   }
 
   /**

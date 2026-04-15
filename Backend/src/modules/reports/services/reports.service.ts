@@ -339,7 +339,6 @@ export class ReportsService {
     const distanceSql = this.buildDistanceSql();
 
     queryBuilder
-      .addSelect(distanceSql, 'distanceKm')
       .andWhere(`${distanceSql} <= :radiusKm`, {
         latitude,
         longitude,
@@ -370,10 +369,35 @@ export class ReportsService {
       count: string;
     }>();
 
-    return countRows.reduce<Record<string, number>>((accumulator, row) => {
-      accumulator[row.status] = Number(row.count) || 0;
-      return accumulator;
-    }, {});
+    const countsByStatus = countRows.reduce<Record<ReportStatus, number>>(
+      (accumulator, row) => {
+        accumulator[row.status] = Number(row.count) || 0;
+        return accumulator;
+      },
+      {
+        [ReportStatus.PENDING]: 0,
+        [ReportStatus.UNDER_REVIEW]: 0,
+        [ReportStatus.APPROVED]: 0,
+        [ReportStatus.REJECTED]: 0,
+        [ReportStatus.RESOLVED]: 0,
+      },
+    );
+
+    return {
+      all: Object.values(countsByStatus).reduce(
+        (total, count) => total + count,
+        0,
+      ),
+      // Pending bucket includes items still in moderation queue.
+      pending:
+        countsByStatus[ReportStatus.PENDING] +
+        countsByStatus[ReportStatus.UNDER_REVIEW],
+      // Verified bucket maps to accepted/resolved reports.
+      verified:
+        countsByStatus[ReportStatus.APPROVED] +
+        countsByStatus[ReportStatus.RESOLVED],
+      rejected: countsByStatus[ReportStatus.REJECTED],
+    };
   }
 
   private buildDistanceSql() {

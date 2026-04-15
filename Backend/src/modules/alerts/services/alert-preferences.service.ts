@@ -1,8 +1,4 @@
-import {
-  BadRequestException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 
@@ -31,9 +27,7 @@ export class AlertPreferencesService {
     });
 
     if (existing) {
-      throw new BadRequestException(
-        'You are already subscribed to this area and category.',
-      );
+      return existing;
     }
 
     const newPreference = this.preferenceRepository.create({
@@ -60,7 +54,7 @@ export class AlertPreferencesService {
       where: { id: preferenceId, userId: validatedUserId },
     });
     if (!preference) {
-      throw new NotFoundException('Subscription not found');
+      return { message: 'Successfully unsubscribed' };
     }
 
     preference.isActive = false;

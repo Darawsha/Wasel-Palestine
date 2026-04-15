@@ -1,4 +1,4 @@
-import { Transform, Type } from 'class-transformer';
+import { Transform } from 'class-transformer';
 import {
   IsArray,
   IsDate,
@@ -8,6 +8,7 @@ import {
 
 import { IncidentSeverity } from '../../incidents/enums/incident-severity.enum';
 import { IncidentType } from '../../incidents/enums/incident-type.enum';
+import { ApiProperty } from '@nestjs/swagger';
 
 const INCIDENT_TYPE_ALIASES: Record<string, IncidentType> = {
   CLOSURE: IncidentType.CLOSURE,
@@ -67,29 +68,60 @@ function normalizeDateInput(value: unknown): unknown {
     return undefined;
   }
 
-  return value;
+  const parsed = new Date(String(value));
+  if (Number.isNaN(parsed.getTime())) {
+    return undefined;
+  }
+
+  return parsed;
 }
 
 export class MapFilterQueryDto {
+  @ApiProperty({
+    required: false,
+    description:
+      'Incident types to include (comma-separated is supported, e.g. CLOSURE,DELAY).',
+    enum: IncidentType,
+    isArray: true,
+    example: [IncidentType.CLOSURE],
+  })
   @Transform(({ value }) => parseTypes(value))
   @IsArray()
   @IsEnum(IncidentType, { each: true })
   @IsOptional()
   types?: IncidentType[];
 
+  @ApiProperty({
+    required: false,
+    description: 'Severity filter',
+    enum: IncidentSeverity,
+    example: IncidentSeverity.MEDIUM,
+  })
   @Transform(({ value }) => parseSeverity(value))
   @IsEnum(IncidentSeverity)
   @IsOptional()
   severity?: IncidentSeverity;
 
+  @ApiProperty({
+    required: false,
+    description: 'Start datetime for filtering',
+    type: String,
+    format: 'date-time',
+    example: '2026-04-10T00:00:00.000Z',
+  })
   @Transform(({ value }) => normalizeDateInput(value))
-  @Type(() => Date)
   @IsDate()
   @IsOptional()
   startDate?: Date;
 
+  @ApiProperty({
+    required: false,
+    description: 'End datetime for filtering',
+    type: String,
+    format: 'date-time',
+    example: '2026-04-13T23:59:59.999Z',
+  })
   @Transform(({ value }) => normalizeDateInput(value))
-  @Type(() => Date)
   @IsDate()
   @IsOptional()
   endDate?: Date;

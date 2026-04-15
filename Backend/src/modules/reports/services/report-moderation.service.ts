@@ -68,11 +68,9 @@ export class ReportModerationService {
   private ensureNotAlreadyInStatus(
     report: Report,
     targetStatus: ReportStatus,
-    alreadyMessage: string,
-  ) {
-    if (report.status === targetStatus) {
-      throw new BadRequestException(alreadyMessage);
-    }
+    _alreadyMessage: string,
+  ): boolean {
+    return report.status === targetStatus;
   }
 
   private ensureAllowedSourceStatuses(
@@ -116,7 +114,9 @@ export class ReportModerationService {
         throw new NotFoundException('Moderator user not found');
       }
 
-      this.ensureNotAlreadyInStatus(report, targetStatus, alreadyMessage);
+      if (this.ensureNotAlreadyInStatus(report, targetStatus, alreadyMessage)) {
+        return report;
+      }
       this.ensureAllowedSourceStatuses(
         report,
         allowedSourceStatuses,
@@ -151,8 +151,8 @@ export class ReportModerationService {
       ReportStatus.APPROVED,
       ReportModerationAction.APPROVED,
       'Report is already approved',
-      [ReportStatus.UNDER_REVIEW],
-      'Only reports under review can be approved',
+      [ReportStatus.PENDING, ReportStatus.UNDER_REVIEW],
+      'Only pending or under-review reports can be approved',
       notes,
     );
   }
@@ -164,8 +164,8 @@ export class ReportModerationService {
       ReportStatus.REJECTED,
       ReportModerationAction.REJECTED,
       'Report is already rejected',
-      [ReportStatus.UNDER_REVIEW],
-      'Only reports under review can be rejected',
+      [ReportStatus.PENDING, ReportStatus.UNDER_REVIEW],
+      'Only pending or under-review reports can be rejected',
       notes,
     );
   }
@@ -177,8 +177,8 @@ export class ReportModerationService {
       ReportStatus.RESOLVED,
       ReportModerationAction.RESOLVED,
       'Report is already resolved',
-      [],
-      'Report is not in a valid status for this action',
+      [ReportStatus.PENDING, ReportStatus.UNDER_REVIEW, ReportStatus.APPROVED, ReportStatus.REJECTED],
+      'Only pending, under-review, approved, or rejected reports can be resolved',
       notes,
     );
   }

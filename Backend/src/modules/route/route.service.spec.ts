@@ -208,20 +208,42 @@ describe('RouteService', () => {
       createRouteResult(defaultRouteCoordinates),
     );
 
-    const result = await service.estimateRoute({
-      startLatitude: 32,
-      startLongitude: 35,
-      endLatitude: 32.02,
-      endLongitude: 35.02,
-      avoidCheckpoints: false,
-      avoidIncidents: true,
+      const result = await service.estimateRoute({
+        startLatitude: 32,
+        startLongitude: 35,
+        endLatitude: 32.02,
+        endLongitude: 35.02,
+        avoidCheckpoints: false,
+        avoidIncidents: true,
+      });
+  
+      expect((result.avoidedRoute as any)?.metadata.compliance.isFullyCompliant).toBe(false);
+      expect(result.recommendation.requiresUserApproval).toBe(false);
+      expect(result.recommendation.autoApplied).toBe(false);
+      expect(result.recommendation.reason).toBe(
+        RouteRecommendationReason.NO_FULLY_COMPLIANT_ROUTE,
+      );
     });
+  
+    it('returns a no-fully-compliant state when checkpoint avoidance is requested but no checkpoint-free route exists', async () => {
+      openRouteRoutingProvider.getRoute.mockResolvedValue(
+        createRouteResult(defaultRouteCoordinates),
+      );
+  
+      const result = await service.estimateRoute({
+        startLatitude: 32,
+        startLongitude: 35,
+        endLatitude: 32.02,
+        endLongitude: 35.02,
+        avoidCheckpoints: true,
+        avoidIncidents: false,
+      }) as any;
 
     expect(result.primaryRoute.kind).toBe('DEFAULT');
     expect(result.primaryRoute.geometry.coordinates).toEqual(
       defaultRouteCoordinates,
     );
-    expect(result.avoidedRoute?.metadata.compliance.isFullyCompliant).toBe(false);
+    expect((result.avoidedRoute as any)?.metadata.compliance.isFullyCompliant).toBe(false);
     expect(result.recommendation.requiresUserApproval).toBe(false);
     expect(result.recommendation.autoApplied).toBe(false);
     expect(result.recommendation.reason).toBe(
@@ -247,7 +269,7 @@ describe('RouteService', () => {
     expect(result.primaryRoute.geometry.coordinates).toEqual(
       defaultRouteCoordinates,
     );
-    expect(result.avoidedRoute?.metadata.compliance.isFullyCompliant).toBe(false);
+    expect((result.avoidedRoute as any)?.metadata.compliance.isFullyCompliant).toBe(false);
     expect(result.recommendation.requiresUserApproval).toBe(false);
     expect(result.recommendation.autoApplied).toBe(false);
     expect(result.recommendation.reason).toBe(

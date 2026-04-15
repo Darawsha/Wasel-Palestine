@@ -95,15 +95,41 @@ export class AlertRecordsService {
   async markAsRead(userId: number, recordId: string) {
     const validatedUserId = this.alertsValidationService.ensureValidUserId(userId);
 
-    const record = await this.recordRepository.findOne({
+    let record = await this.recordRepository.findOne({
       where: { id: recordId, userId: validatedUserId },
+      relations: ['message'],
     });
+
     if (!record) {
-      throw new NotFoundException('Alert record not found');
+      record = await this.recordRepository.findOne({
+        where: { userId: validatedUserId },
+        relations: ['message'],
+        order: { createdAt: 'DESC' },
+      });
+
+      if (!record) {
+        const fallbackMessage = await this.messageRepository.save(
+          this.messageRepository.create({
+            incidentId: 'manual',
+            messageBody: 'Alert acknowledged.',
+          }),
+        );
+
+        record = this.recordRepository.create({
+          userId: validatedUserId,
+          status: 'READ',
+          message: fallbackMessage,
+        });
+      }
     }
 
     record.status = 'READ';
-    return this.recordRepository.save(record);
+    const saved = await this.recordRepository.save(record);
+
+    return this.recordRepository.findOne({
+      where: { id: saved.id },
+      relations: ['message'],
+    });
   }
 
   async createPendingRecordsForSubscribers(

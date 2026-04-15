@@ -8,8 +8,15 @@ import {
   ValidateIf,
 } from 'class-validator';
 import { ReportCategory } from '../enums/report-category.enum';
+import { ApiProperty } from '@nestjs/swagger';
 
 export class CreateReportDto {
+  @ApiProperty({
+    description: 'Latitude of the reported event',
+    example: 32.2211,
+    minimum: -90,
+    maximum: 90,
+  })
   @IsNumber()
   @Min(-90)
   @Max(90)
@@ -18,6 +25,12 @@ export class CreateReportDto {
   })
   latitude: number;
 
+  @ApiProperty({
+    description: 'Longitude of the reported event',
+    example: 35.2544,
+    minimum: -180,
+    maximum: 180,
+  })
   @IsNumber()
   @Min(-180)
   @Max(180)
@@ -26,13 +39,28 @@ export class CreateReportDto {
   })
   longitude: number;
 
+  @ApiProperty({
+    description: 'Human-readable location',
+    example: 'Route 60, south entrance',
+    minLength: 10,
+  })
   @IsString()
   @MinLength(10)
   location: string;
 
+  @ApiProperty({
+    description: 'Report category',
+    enum: ReportCategory,
+    example: ReportCategory.ROAD_CLOSURE,
+  })
   @IsEnum(ReportCategory)
   category: ReportCategory;
 
+  @ApiProperty({
+    description: 'Detailed report description',
+    example: 'Checkpoint lane blocked and traffic is not moving.',
+    minLength: 10,
+  })
   @IsString()
   @MinLength(10, { message: 'Description is too short or empty.' })
   description: string;
