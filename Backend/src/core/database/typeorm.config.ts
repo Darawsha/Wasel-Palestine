@@ -1,4 +1,5 @@
 import { TypeOrmModuleOptions } from '@nestjs/typeorm';
+import { ConfigService } from '@nestjs/config';
 
 const parseBoolean = (value: string | undefined, defaultValue = false): boolean => {
   if (value === undefined) {
@@ -8,14 +9,16 @@ const parseBoolean = (value: string | undefined, defaultValue = false): boolean 
   return value.toLowerCase() === 'true';
 };
 
-export const typeOrmConfig: TypeOrmModuleOptions = {
+export const createTypeOrmConfig = (
+  configService: ConfigService,
+): TypeOrmModuleOptions => ({
   type: 'mysql',
-  host: process.env.DB_HOST,
-  port: Number(process.env.DB_PORT ?? 3306),
-  username: process.env.DB_USERNAME,
-  password: process.env.DB_PASSWORD,
-  database: process.env.DB_DATABASE,
+  host: configService.get<string>('DB_HOST'),
+  port: Number(configService.get<string>('DB_PORT') ?? 3306),
+  username: configService.get<string>('DB_USERNAME'),
+  password: configService.get<string>('DB_PASSWORD'),
+  database: configService.get<string>('DB_DATABASE'),
   autoLoadEntities: true,
   // Keep schema sync opt-in to avoid crashes when legacy rows violate new FKs.
-  synchronize: parseBoolean(process.env.DB_SYNCHRONIZE, true),
-};
+  synchronize: parseBoolean(configService.get<string>('DB_SYNCHRONIZE'), true),
+});

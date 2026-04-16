@@ -3,12 +3,13 @@ import { ServeStaticModule } from '@nestjs/serve-static';
 import { join } from 'path';
 import { existsSync } from 'fs';
 import { ConfigModule } from '@nestjs/config';
+import { ConfigService } from '@nestjs/config';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { TypeOrmModule } from '@nestjs/typeorm';
 
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
-import { typeOrmConfig } from './core/database/typeorm.config';
+import { createTypeOrmConfig } from './core/database/typeorm.config';
 import { AuthMiddleware } from './core/middleware/authMiddleware';
 
 import { UsersModule } from './modules/users/users.module';
@@ -37,7 +38,11 @@ const envFilePath = Array.from(
       isGlobal: true,
       envFilePath,
     }),
-    TypeOrmModule.forRoot(typeOrmConfig),
+    TypeOrmModule.forRootAsync({
+      inject: [ConfigService],
+      useFactory: (configService: ConfigService) =>
+        createTypeOrmConfig(configService),
+    }),
     CheckpointsModule,
     IncidentsModule,
     MapModule,

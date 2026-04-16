@@ -52,6 +52,11 @@
     return error?.message || 'Unable to complete this request.';
   }
 
+  function isManageLockedStatus(status) {
+    const normalizedStatus = String(status || '').trim().toLowerCase();
+    return normalizedStatus === 'approved' || normalizedStatus === 'resolved';
+  }
+
   function escapeHtml(value) {
     return String(value ?? '')
       .replaceAll('&', '&amp;')
@@ -495,8 +500,8 @@
 
           if (action === 'edit-report') {
             const report = await dependencies.controller.loadReportDetails(reportId);
-            if (!report.canManage) {
-              notify('error', 'Approved reports can no longer be edited.');
+            if (isManageLockedStatus(report.status)) {
+              notify('error', 'Approved or resolved reports can no longer be edited.');
               await loadMyReports();
               return;
             }
@@ -510,8 +515,8 @@
 
           if (action === 'delete-report') {
             const report = await dependencies.controller.loadReportDetails(reportId);
-            if (!report.canManage) {
-              notify('error', 'Approved reports can no longer be deleted.');
+            if (isManageLockedStatus(report.status)) {
+              notify('error', 'Approved or resolved reports can no longer be deleted.');
               await loadMyReports();
               return;
             }

@@ -39,13 +39,15 @@ export class UsersService {
     });
 
     if (existingUser) {
-      const samePassword = await this.passwordService.compare(
-        password,
-        existingUser.password,
-      );
+      if (existingUser.passwordHash) {
+        const samePassword = await this.passwordService.compare(
+          password,
+          existingUser.passwordHash,
+        );
 
-      if (samePassword) {
-        return existingUser;
+        if (samePassword) {
+          return existingUser;
+        }
       }
 
       throw new ConflictException('Email already in use');

@@ -42,10 +42,10 @@ export class CreateReportDto {
   @ApiProperty({
     description: 'Human-readable location',
     example: 'Route 60, south entrance',
-    minLength: 10,
+    minLength: 4,
   })
   @IsString()
-  @MinLength(10)
+  @MinLength(4, { message: 'Location is too short or empty.' })
   location: string;
 
   @ApiProperty({

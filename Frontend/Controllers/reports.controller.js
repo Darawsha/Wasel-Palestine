@@ -250,6 +250,23 @@ function normalizeReport(report = {}) {
 }
 
 function normalizeTabCounts(rawCounts = {}) {
+  const hasDirectBuckets =
+    rawCounts &&
+    typeof rawCounts === 'object' &&
+    Object.prototype.hasOwnProperty.call(rawCounts, 'all') &&
+    Object.prototype.hasOwnProperty.call(rawCounts, 'pending') &&
+    Object.prototype.hasOwnProperty.call(rawCounts, 'verified') &&
+    Object.prototype.hasOwnProperty.call(rawCounts, 'rejected');
+
+  if (hasDirectBuckets) {
+    return {
+      all: Math.max(Number(rawCounts.all) || 0, 0),
+      pending: Math.max(Number(rawCounts.pending) || 0, 0),
+      verified: Math.max(Number(rawCounts.verified) || 0, 0),
+      rejected: Math.max(Number(rawCounts.rejected) || 0, 0),
+    };
+  }
+
   const counts = {
     all: 0,
     pending: 0,
@@ -258,6 +275,10 @@ function normalizeTabCounts(rawCounts = {}) {
   };
 
   Object.entries(rawCounts).forEach(([status, count]) => {
+    if (['all', 'pending', 'verified', 'rejected'].includes(status)) {
+      return;
+    }
+
     const numericCount = Math.max(Number(count) || 0, 0);
     counts.all += numericCount;
 
