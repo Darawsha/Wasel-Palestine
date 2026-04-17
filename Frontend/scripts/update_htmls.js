@@ -12,23 +12,29 @@ const pages = [
   { folder: 'moderation-queue', file: 'ModerationQueue' },
   { folder: 'user-management', file: 'UserManagement' },
   { folder: 'system-settings', file: 'SystemSettings' },
-  { folder: 'api-monitor', file: 'APIMonitor' }
+  { folder: 'api-monitor', file: 'APIMonitor' },
 ];
 
 pages.forEach(({ folder, file }) => {
   const filePath = path.join(adminDir, folder, `${file}.html`);
-  if (!fs.existsSync(filePath)) {
-     console.log(`Skipping ${filePath}`);
-     return;
+  let content;
+
+  try {
+    content = fs.readFileSync(filePath, 'utf8');
+  } catch (error) {
+    if (error?.code === 'ENOENT') {
+      console.log(`Skipping ${filePath}`);
+      return;
+    }
+
+    throw error;
   }
-  
-  let content = fs.readFileSync(filePath, 'utf8');
 
   if (content.match(/<html/i)) {
-      console.log(`${file} already has html tags.`);
-      return;
+    console.log(`${file} already has html tags.`);
+    return;
   }
-  
+
   content = content.replace(/<link rel="stylesheet"[^>]+>/g, '');
 
   const boilerplate = `<!DOCTYPE html>

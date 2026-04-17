@@ -78,7 +78,10 @@ function buildAbsoluteUrl(path, params) {
   // Strip the leading slash from the path so it appends correctly to the base URL
   const cleanPath = path.startsWith('/') ? path.substring(1) : path;
 
-  const url = new URL(cleanPath, baseUrl.endsWith('/') ? baseUrl : baseUrl + '/');
+  const url = new URL(
+    cleanPath,
+    baseUrl.endsWith('/') ? baseUrl : baseUrl + '/',
+  );
 
   if (params) {
     Object.entries(params).forEach(([key, value]) => {
@@ -92,15 +95,18 @@ function buildAbsoluteUrl(path, params) {
 }
 
 async function requestWithFetch(config) {
-  const response = await window.fetch(buildAbsoluteUrl(config.url, config.params), {
-    method: config.method,
-    headers: config.headers,
-    body: config.data ? JSON.stringify(config.data) : undefined,
-    signal: config.signal,
-  });
+  const response = await window.fetch(
+    buildAbsoluteUrl(config.url, config.params),
+    {
+      method: config.method,
+      headers: config.headers,
+      body: config.data ? JSON.stringify(config.data) : undefined,
+      signal: config.signal,
+    },
+  );
 
   const text = await response.text();
-  let data = text;
+  let data;
 
   try {
     data = text ? JSON.parse(text) : null;

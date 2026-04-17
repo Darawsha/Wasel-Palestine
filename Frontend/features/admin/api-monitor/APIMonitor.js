@@ -33,10 +33,12 @@
   }
 
   function getMetricCardByTitle(root, titleText) {
-    return getMetricCards(root).find((card) => {
-      const title = card.querySelector('.title-details h3');
-      return title?.textContent?.trim() === titleText;
-    }) || null;
+    return (
+      getMetricCards(root).find((card) => {
+        const title = card.querySelector('.title-details h3');
+        return title?.textContent?.trim() === titleText;
+      }) || null
+    );
   }
 
   function setRefreshButtonLoading(root, isLoading) {
@@ -56,6 +58,42 @@
     }
   }
 
+  function buildTrendIndicatorContent(trend) {
+    const icon = document.createElement('span');
+    icon.className = 'material-symbols-outlined icon';
+    icon.textContent =
+      trend.direction === 'down'
+        ? 'arrow_downward'
+        : trend.direction === 'up'
+          ? 'arrow_upward'
+          : 'remove';
+
+    return [
+      icon,
+      document.createTextNode(` ${String(trend.deltaLabel || '0ms')}`),
+    ];
+  }
+
+  function renderPaginationInfo(container, recentCalls) {
+    if (!container) {
+      return;
+    }
+
+    const currentRange = document.createElement('span');
+    currentRange.textContent = `${recentCalls.startItem}-${recentCalls.endItem}`;
+
+    const totalCount = document.createElement('span');
+    totalCount.textContent = String(recentCalls.total);
+
+    container.replaceChildren(
+      document.createTextNode('Showing '),
+      currentRange,
+      document.createTextNode(' of '),
+      totalCount,
+      document.createTextNode(' calls'),
+    );
+  }
+
   function updateMetricCard(root, metric) {
     const card = getMetricCardByTitle(root, metric.name);
     if (!card) {
@@ -63,24 +101,46 @@
     }
 
     const statusPill = card.querySelector('.status-pill');
-    const lastCallValue = Array.from(card.querySelectorAll('.metric-row')).find((row) => {
-      return row.querySelector('.metric-label')?.textContent?.includes('Last Successful Call');
-    })?.querySelector('.metric-value');
-    const responseTimeValue = Array.from(card.querySelectorAll('.metric-row')).find((row) => {
-      return row.querySelector('.metric-label')?.textContent?.includes('Avg Response Time');
-    })?.querySelector('.metric-value.bold');
+    const lastCallValue = Array.from(card.querySelectorAll('.metric-row'))
+      .find((row) => {
+        return row
+          .querySelector('.metric-label')
+          ?.textContent?.includes('Last Successful Call');
+      })
+      ?.querySelector('.metric-value');
+    const responseTimeValue = Array.from(card.querySelectorAll('.metric-row'))
+      .find((row) => {
+        return row
+          .querySelector('.metric-label')
+          ?.textContent?.includes('Avg Response Time');
+      })
+      ?.querySelector('.metric-value.bold');
     const trendIndicator = card.querySelector('.trend-indicator');
-    const rateLimitValue = Array.from(card.querySelectorAll('.metric-progress-group .metric-row')).find((row) => {
-      return row.querySelector('.metric-label')?.textContent?.includes('Rate Limit Usage');
-    })?.querySelector('.metric-value.bold');
+    const rateLimitValue = Array.from(
+      card.querySelectorAll('.metric-progress-group .metric-row'),
+    )
+      .find((row) => {
+        return row
+          .querySelector('.metric-label')
+          ?.textContent?.includes('Rate Limit Usage');
+      })
+      ?.querySelector('.metric-value.bold');
     const progressFill = card.querySelector('.progress-bar-fill');
-    const errorRateValue = Array.from(card.querySelectorAll('.metric-row')).find((row) => {
-      return row.querySelector('.metric-label')?.textContent?.includes('Error Rate');
-    })?.querySelector('.metric-value');
+    const errorRateValue = Array.from(card.querySelectorAll('.metric-row'))
+      .find((row) => {
+        return row
+          .querySelector('.metric-label')
+          ?.textContent?.includes('Error Rate');
+      })
+      ?.querySelector('.metric-value');
     const errorBadge = card.querySelector('.badge');
 
     if (statusPill) {
-      statusPill.classList.remove('status-healthy', 'status-warning', 'status-danger');
+      statusPill.classList.remove(
+        'status-healthy',
+        'status-warning',
+        'status-danger',
+      );
       if (metric.status === 'Healthy') {
         statusPill.classList.add('status-healthy');
       } else if (metric.status === 'Degraded') {
@@ -105,19 +165,12 @@
 
     if (trendIndicator) {
       trendIndicator.classList.remove('emerald', 'amber');
-      trendIndicator.classList.add(metric.trend.direction === 'down' ? 'emerald' : 'amber');
-      const icon = trendIndicator.querySelector('.icon');
-      if (icon) {
-        icon.textContent = metric.trend.direction === 'down'
-          ? 'arrow_downward'
-          : metric.trend.direction === 'up'
-            ? 'arrow_upward'
-            : 'remove';
-      }
-      trendIndicator.innerHTML = `
-        <span class="material-symbols-outlined icon">${icon?.textContent || 'remove'}</span>
-        ${metric.trend.deltaLabel}
-      `;
+      trendIndicator.classList.add(
+        metric.trend.direction === 'down' ? 'emerald' : 'amber',
+      );
+      trendIndicator.replaceChildren(
+        ...buildTrendIndicatorContent(metric.trend || {}),
+      );
     }
 
     if (rateLimitValue) {
@@ -158,7 +211,9 @@
 
     const apiName = row.querySelector('.api-name');
     apiName.textContent = call.apiName.replace(' API', '');
-    apiName.classList.add(call.apiId === 'routing' ? 'text-blue' : 'text-purple');
+    apiName.classList.add(
+      call.apiId === 'routing' ? 'text-blue' : 'text-purple',
+    );
 
     row.querySelector('.endpoint').textContent = call.endpoint;
 
@@ -180,7 +235,8 @@
 
     const statusBadge = row.querySelector('.status-badge');
     statusBadge.classList.add(call.statusPresentation.tone);
-    row.querySelector('.status-label').textContent = call.statusPresentation.label;
+    row.querySelector('.status-label').textContent =
+      call.statusPresentation.label;
 
     return row;
   }
@@ -210,9 +266,7 @@
     const previousButton = root.querySelector(PREVIOUS_BUTTON_SELECTOR);
     const nextButton = root.querySelector(NEXT_BUTTON_SELECTOR);
 
-    if (info) {
-      info.innerHTML = `Showing <span>${recentCalls.startItem}-${recentCalls.endItem}</span> of <span>${recentCalls.total}</span> calls`;
-    }
+    renderPaginationInfo(info, recentCalls);
 
     if (previousButton) {
       previousButton.disabled = recentCalls.page <= 1;
@@ -364,7 +418,8 @@
   }
 
   function observeApiMonitorMount() {
-    const mainContainer = document.getElementById('flexible_main') || document.body;
+    const mainContainer =
+      document.getElementById('flexible_main') || document.body;
     const observer = new MutationObserver(() => {
       const root = getPageRoot();
       if (root && root.dataset.apiMonitorInitialized !== 'true') {

@@ -24,7 +24,6 @@ export type IncidentCheckpointSnapshot = {
 type SaveIncidentWithCheckpointSyncOptions = {
   incident: Incident;
   previousSnapshot?: IncidentCheckpointSnapshot;
-  previousStatus?: IncidentStatus;
   changedByUserId?: number;
 };
 
@@ -106,12 +105,7 @@ export class IncidentCheckpointSyncService {
   async saveIncident(
     options: SaveIncidentWithCheckpointSyncOptions,
   ): Promise<Incident> {
-    const {
-      incident,
-      previousSnapshot,
-      previousStatus,
-      changedByUserId,
-    } = options;
+    const { incident, previousSnapshot, changedByUserId } = options;
 
     this.assertValidCheckpointLink(
       incident.type,
@@ -219,7 +213,9 @@ export class IncidentCheckpointSyncService {
       incidentType === undefined ||
       !IncidentCheckpointSyncService.LINKABLE_INCIDENT_TYPES.has(incidentType)
     ) {
-      throw new BadRequestException('Invalid incident type for checkpoint linking');
+      throw new BadRequestException(
+        'Invalid incident type for checkpoint linking',
+      );
     }
 
     if (
@@ -227,7 +223,9 @@ export class IncidentCheckpointSyncService {
       impactStatus === null ||
       !IncidentCheckpointSyncService.IMPACT_STATUSES.has(impactStatus)
     ) {
-      throw new BadRequestException('Invalid impact status for checkpoint linking');
+      throw new BadRequestException(
+        'Invalid impact status for checkpoint linking',
+      );
     }
   }
 
@@ -247,7 +245,9 @@ export class IncidentCheckpointSyncService {
       .getOne();
 
     if (!checkpoint) {
-      throw new NotFoundException(`Checkpoint with id ${checkpointId} not found`);
+      throw new NotFoundException(
+        `Checkpoint with id ${checkpointId} not found`,
+      );
     }
 
     return checkpoint;
@@ -368,7 +368,9 @@ export class IncidentCheckpointSyncService {
     });
 
     if (!checkpoint) {
-      throw new NotFoundException(`Checkpoint with id ${checkpointId} not found`);
+      throw new NotFoundException(
+        `Checkpoint with id ${checkpointId} not found`,
+      );
     }
 
     const previousStatus = checkpoint.currentStatus;

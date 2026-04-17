@@ -2,7 +2,6 @@
 
 const PAGINATION_CONTROLS_SELECTOR = '[data-checkpoint-pagination-controls]';
 const DEFAULT_PAGE = 1;
-const DEFAULT_LIMIT = 10;
 const MAX_VISIBLE_PAGES = 5;
 
 function normalizePositiveInteger(value, fallback) {

@@ -2,6 +2,7 @@ import { apiGet, apiPatch } from '/Services/api-client.js';
 
 const DRAFT_STORAGE_KEY = 'wasel.admin.system-settings.draft';
 const APPLIED_STORAGE_KEY = 'wasel.admin.system-settings.applied';
+const SECRET_FIELDS = ['routingApiKey', 'weatherApiKey'];
 
 const DEFAULT_ENV = {
   JWT_EXPIRES_IN: '1h',
@@ -17,12 +18,16 @@ const DEFAULT_ENV = {
   WEATHER_API_CACHE_TTL: '30m',
 };
 
-const WEATHER_API_FALLBACK_KEY = '51e8b6c810274f0296602528261803';
 const DEFAULT_PLATFORM_NAME = 'Wasel Palestine';
 const DEFAULT_PRIMARY_LANGUAGE = 'English';
 const ALLOWED_PRIMARY_LANGUAGES = new Set(['English', 'Arabic']);
 
 let cachedEnv = null;
+let runtimeSecretOverrides = Object.create(null);
+
+function hasOwn(object, key) {
+  return Object.prototype.hasOwnProperty.call(object, key);
+}
 
 function readJsonStorage(key) {
   try {
@@ -82,7 +87,10 @@ async function persistGeneralSettings(snapshot) {
 function mapTimezoneToOptionLabel(timezone) {
   const normalizedTimezone = String(timezone || '').trim();
 
-  if (normalizedTimezone === 'Asia/Hebron' || normalizedTimezone === 'Asia/Jerusalem') {
+  if (
+    normalizedTimezone === 'Asia/Hebron' ||
+    normalizedTimezone === 'Asia/Jerusalem'
+  ) {
     return 'Asia/Jerusalem (GMT+03:00)';
   }
 
@@ -104,7 +112,10 @@ function inferEnvironment(apiBaseUrl) {
     return 'Unknown';
   }
 
-  if (normalizedUrl.includes('localhost') || normalizedUrl.includes('127.0.0.1')) {
+  if (
+    normalizedUrl.includes('localhost') ||
+    normalizedUrl.includes('127.0.0.1')
+  ) {
     return 'Local';
   }
 
@@ -117,7 +128,9 @@ function inferEnvironment(apiBaseUrl) {
 
 function maskSecret(value) {
   const normalizedValue = String(value || '');
-  return normalizedValue ? '*'.repeat(Math.min(Math.max(normalizedValue.length, 8), 16)) : '';
+  return normalizedValue
+    ? '*'.repeat(Math.min(Math.max(normalizedValue.length, 8), 16))
+    : '';
 }
 
 function buildLinkedApis(apiBaseUrl, envOrSnapshot) {
@@ -153,12 +166,15 @@ async function probePlatformApi(apiBaseUrl) {
   const startTime = window.performance?.now?.() ?? Date.now();
 
   try {
-    const response = await fetch(`${normalizedUrl.replace(/\/$/, '')}/incidents/active-count`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
+    const response = await fetch(
+      `${normalizedUrl.replace(/\/$/, '')}/incidents/active-count`,
+      {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
       },
-    });
+    );
 
     const endTime = window.performance?.now?.() ?? Date.now();
     const durationMs = Math.max(0, Math.round(endTime - startTime));
@@ -177,7 +193,8 @@ async function probePlatformApi(apiBaseUrl) {
   } catch (_error) {
     return {
       status: 'Unreachable',
-      detail: 'Platform API could not be reached from the current frontend runtime.',
+      detail:
+        'Platform API could not be reached from the current frontend runtime.',
     };
   }
 }
@@ -206,26 +223,6 @@ async function loadEnv() {
   }
 
   cachedEnv = { ...DEFAULT_ENV };
-
-  try {
-    const response = await fetch('/.env', { cache: 'no-cache' });
-
-    if (response.ok) {
-      const text = await response.text();
-      text.split(/\r?\n/).forEach((line) => {
-        const match = line.match(/^\s*([A-Z0-9_]+)\s*=\s*(.*)\s*$/i);
-        if (match?.[1]) {
-          cachedEnv[match[1]] = match[2];
-        }
-      });
-    }
-  } catch (error) {
-    console.warn('Could not load .env for system settings defaults.', error);
-  }
-
-  if (!cachedEnv.WEATHER_API_KEY) {
-    cachedEnv.WEATHER_API_KEY = WEATHER_API_FALLBACK_KEY;
-  }
 
   return cachedEnv;
 }
@@ -320,24 +317,32 @@ export async function loadSystemSettingsSnapshot() {
 
   const snapshot = draft
     ? {
-      ...baseSnapshot,
-      ...draft,
-      configSource: appliedConfig ? 'Saved Runtime Override + Draft' : 'Draft',
-      environment: inferEnvironment(draft.apiBaseUrl || baseSnapshot.apiBaseUrl),
-    }
+        ...baseSnapshot,
+        ...draft,
+        configSource: appliedConfig
+          ? 'Saved Runtime Override + Draft'
+          : 'Draft',
+        environment: inferEnvironment(
+          draft.apiBaseUrl || baseSnapshot.apiBaseUrl,
+        ),
+      }
     : baseSnapshot;
 
-  const linkedApis = buildLinkedApis(snapshot.apiBaseUrl, snapshot);
-  const platformProbe = await probePlatformApi(snapshot.apiBaseUrl);
+  const hydratedSnapshot = applyRuntimeSecretOverrides(snapshot);
+  const linkedApis = buildLinkedApis(
+    hydratedSnapshot.apiBaseUrl,
+    hydratedSnapshot,
+  );
+  const platformProbe = await probePlatformApi(hydratedSnapshot.apiBaseUrl);
 
   return {
-    ...snapshot,
-    routingApiKeyMasked: maskSecret(snapshot.routingApiKey),
-    weatherApiKeyMasked: maskSecret(snapshot.weatherApiKey),
+    ...hydratedSnapshot,
+    routingApiKeyMasked: maskSecret(hydratedSnapshot.routingApiKey),
+    weatherApiKeyMasked: maskSecret(hydratedSnapshot.weatherApiKey),
     linkedApis,
     runtimeStatus: buildRuntimeSummary(
       {
-        ...snapshot,
+        ...hydratedSnapshot,
         linkedApis,
       },
       platformProbe,
@@ -346,7 +351,8 @@ export async function loadSystemSettingsSnapshot() {
 }
 
 export function saveSystemSettingsDraft(draft) {
-  return writeJsonStorage(DRAFT_STORAGE_KEY, draft);
+  captureRuntimeSecretOverrides(draft);
+  return writeJsonStorage(DRAFT_STORAGE_KEY, sanitizeSnapshotForStorage(draft));
 }
 
 export async function applySystemSettings(snapshot) {
@@ -356,13 +362,20 @@ export async function applySystemSettings(snapshot) {
     ...(persistedGeneralSettings || {}),
     environment: inferEnvironment(snapshot.apiBaseUrl),
     configSource: 'Saved Runtime Override',
-    linkedApis: buildLinkedApis(snapshot.apiBaseUrl, snapshot),
-    routingApiKeyMasked: maskSecret(snapshot.routingApiKey),
-    weatherApiKeyMasked: maskSecret(snapshot.weatherApiKey),
+  });
+
+  const appliedSnapshot = {
+    ...hydratedSnapshot,
+    linkedApis: buildLinkedApis(hydratedSnapshot.apiBaseUrl, hydratedSnapshot),
+    routingApiKeyMasked: maskSecret(hydratedSnapshot.routingApiKey),
+    weatherApiKeyMasked: maskSecret(hydratedSnapshot.weatherApiKey),
   };
 
   applyApiBaseUrl(appliedSnapshot.apiBaseUrl);
-  writeJsonStorage(APPLIED_STORAGE_KEY, appliedSnapshot);
+  writeJsonStorage(
+    APPLIED_STORAGE_KEY,
+    sanitizeSnapshotForStorage(appliedSnapshot),
+  );
   window.localStorage?.removeItem(DRAFT_STORAGE_KEY);
   window.dispatchEvent(
     new CustomEvent('admin:system-settings-updated', {

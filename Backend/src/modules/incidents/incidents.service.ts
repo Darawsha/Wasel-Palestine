@@ -368,7 +368,9 @@ export class IncidentsService {
     };
   }
 
-  async getFilteredIncidents(filterDto: MapFilterQueryDto): Promise<Incident[]> {
+  async getFilteredIncidents(
+    filterDto: MapFilterQueryDto,
+  ): Promise<Incident[]> {
     const { types, severity, startDate, endDate } = filterDto;
     this.assertValidMapDateRange(startDate, endDate);
 
@@ -1442,10 +1444,7 @@ export class IncidentsService {
     );
   }
 
-  private assertValidMapDateRange(
-    startDate?: Date,
-    endDate?: Date,
-  ): void {
+  private assertValidMapDateRange(startDate?: Date, endDate?: Date): void {
     const hasStartDate = Boolean(startDate);
     const hasEndDate = Boolean(endDate);
 
@@ -1478,11 +1477,17 @@ export class IncidentsService {
   }
 
   private normalizeIncidentForResponse(incident: Incident): Incident {
-    if ((incident as unknown as { checkpoint?: Checkpoint | null }).checkpoint === null) {
+    if (
+      (incident as unknown as { checkpoint?: Checkpoint | null }).checkpoint ===
+      null
+    ) {
       incident.checkpoint = undefined;
     }
 
-    if ((incident as unknown as { checkpointId?: number | null }).checkpointId === null) {
+    if (
+      (incident as unknown as { checkpointId?: number | null }).checkpointId ===
+      null
+    ) {
       incident.checkpointId = undefined;
     }
 
@@ -1490,6 +1495,8 @@ export class IncidentsService {
   }
 
   private normalizeIncidentsForResponse(incidents: Incident[]): Incident[] {
-    return incidents.map((incident) => this.normalizeIncidentForResponse(incident));
+    return incidents.map((incident) =>
+      this.normalizeIncidentForResponse(incident),
+    );
   }
 }

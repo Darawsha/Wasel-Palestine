@@ -190,9 +190,8 @@ export class RouteService {
         avoidanceZones,
       ),
       requestedConstraints,
-      alternativeRouteCount: this.resolveAlternativeRouteCount(
-        requestedConstraints,
-      ),
+      alternativeRouteCount:
+        this.resolveAlternativeRouteCount(requestedConstraints),
     };
 
     let bestRequest = request;
@@ -224,17 +223,16 @@ export class RouteService {
     }
 
     if (!bestRoute.metadata.compliance.isFullyCompliant) {
-      const detourResult = await this.resolveDetourRoute(
-        context,
-        bestRequest,
-        bestRoute,
-        requestedConstraints,
-        zoneGroupsByConstraint,
-        baseFactors,
-      );
-
-      bestRequest = detourResult.bestRequest;
-      bestRoute = detourResult.bestRoute;
+      bestRoute = (
+        await this.resolveDetourRoute(
+          context,
+          bestRequest,
+          bestRoute,
+          requestedConstraints,
+          zoneGroupsByConstraint,
+          baseFactors,
+        )
+      ).bestRoute;
     }
 
     return bestRoute;
@@ -268,7 +266,9 @@ export class RouteService {
         };
       })
       .filter(
-        (entry): entry is {
+        (
+          entry,
+        ): entry is {
           zone: RouteAvoidanceZone;
           corridorDistanceMeters: number;
           zoneArea: number;
@@ -419,7 +419,9 @@ export class RouteService {
             detourWaypoint,
           );
 
-          if (this.areSameWaypointSets(viaPoints, bestRequest.viaPoints ?? [])) {
+          if (
+            this.areSameWaypointSets(viaPoints, bestRequest.viaPoints ?? [])
+          ) {
             continue;
           }
 
@@ -499,9 +501,7 @@ export class RouteService {
     };
   }
 
-  private buildRouteCandidateKey(
-    candidate: RouteEstimationCandidate,
-  ): string {
+  private buildRouteCandidateKey(candidate: RouteEstimationCandidate): string {
     const coordinates = Array.isArray(candidate.geometry?.coordinates)
       ? candidate.geometry.coordinates
       : [];
@@ -705,8 +705,7 @@ export class RouteService {
     }
 
     return left.every(
-      (zone, index) =>
-        JSON.stringify(zone) === JSON.stringify(right[index]),
+      (zone, index) => JSON.stringify(zone) === JSON.stringify(right[index]),
     );
   }
 
@@ -784,7 +783,9 @@ export class RouteService {
 
         return [first, second];
       })
-      .filter((coordinate): coordinate is number[] => Array.isArray(coordinate));
+      .filter((coordinate): coordinate is number[] =>
+        Array.isArray(coordinate),
+      );
 
     if (normalizedCoordinates.length === 0) {
       return [];
