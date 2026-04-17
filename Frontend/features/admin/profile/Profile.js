@@ -19,6 +19,7 @@
   const MAX_PROFILE_IMAGE_BYTES = 700 * 1024;
 
   const stateByRoot = new WeakMap();
+  const rootByForm = new WeakMap();
   let dependenciesPromise;
 
   function getDependencies() {
@@ -158,14 +159,28 @@
     }
 
     if (elements.profileMeta) {
-      const providerLabel = nextProfile.provider
-        ? ` via ${String(nextProfile.provider).charAt(0).toUpperCase()}${String(nextProfile.provider).slice(1)}`
-        : '';
       elements.profileMeta.textContent = nextProfile.email
-        ? `${formatRole(nextProfile.role)}${providerLabel} - ${nextProfile.email}`
-        : `${formatRole(nextProfile.role)}${providerLabel}`;
+        ? `${formatRole(nextProfile.role)} - ${nextProfile.email}`
+        : formatRole(nextProfile.role);
     }
 
+    global.applyHeaderAvatar?.(avatarImage || '', { initials });
+  }
+
+  function applyDraftAvatar(root) {
+    const state = getRootState(root);
+    const elements = getFormElements(root);
+    const fullName =
+      elements.fullName?.value?.trim() || state.latestProfile?.fullName || '';
+    const email = elements.email?.value?.trim() || state.latestProfile?.email;
+    const initials =
+      state.latestProfile?.initials || getInitials(fullName, email);
+    const avatarImage =
+      state.draftAvatarImage !== undefined
+        ? state.draftAvatarImage
+        : state.latestProfile?.profileImage || '';
+
+    applyAvatarImage(elements.avatarCircle, avatarImage, initials);
     global.applyHeaderAvatar?.(avatarImage || '', { initials });
   }
 
@@ -274,7 +289,7 @@
     const currentPassword = elements.currentPassword?.value?.trim() || '';
     const newPassword = elements.newPassword?.value || '';
     const confirmPassword = elements.confirmPassword?.value || '';
-    const wantsPasswordChange = currentPassword || newPassword || confirmPassword;
+    const wantsPasswordChange = newPassword || confirmPassword;
 
     if (wantsPasswordChange) {
       if (!currentPassword) {
@@ -408,7 +423,7 @@
 
       const state = getRootState(root);
       state.draftAvatarImage = result;
-      applyProfile(root, state.latestProfile);
+      applyDraftAvatar(root);
       setProfileStatus(
         elements,
         'New profile photo selected. Save changes to persist it to your account.',
@@ -420,7 +435,10 @@
   async function handleSave(event) {
     event.preventDefault();
 
-    const root = event.currentTarget.closest('#profileModalOverlay') || document;
+    const root =
+      rootByForm.get(event.currentTarget) ||
+      event.currentTarget.closest('#profileModalOverlay') ||
+      document;
     const elements = getFormElements(root);
     const validationError = validateDraft(root);
 
@@ -432,7 +450,7 @@
 
     if (
       !hasUnsavedChanges(root) &&
-      !(elements.currentPassword?.value || elements.newPassword?.value || elements.confirmPassword?.value)
+      !(elements.newPassword?.value || elements.confirmPassword?.value)
     ) {
       setProfileStatus(elements, 'No profile changes to save.');
       flashButtonState(elements.saveButton, 'No Changes');
@@ -478,6 +496,7 @@
     }
 
     elements.form.dataset.bound = 'true';
+    rootByForm.set(elements.form, root);
     elements.form.addEventListener('submit', handleSave);
     elements.newPassword?.addEventListener('input', () => {
       updatePasswordStrength(elements);

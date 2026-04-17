@@ -193,7 +193,9 @@
         <span class="status-badge ${getVerificationBadgeClass(incident?.isVerified)}">${escapeHtml(formatVerificationLabel(incident?.isVerified))}</span>
       </td>
       <td>
-        <span class="status-badge ${getStatusBadgeClass(incident?.status)}">${escapeHtml(formatStatusLabel(incident?.status))}</span>
+        <div class="status-stack">
+          <span class="status-badge ${getStatusBadgeClass(incident?.status)}">${escapeHtml(formatStatusLabel(incident?.status))}</span>
+        </div>
       </td>
       <td class="cell-date text-center">${escapeHtml(formatDate(incident?.createdAt))}</td>
       <td class="cell-date text-center">${escapeHtml(formatDate(incident?.updatedAt))}</td>

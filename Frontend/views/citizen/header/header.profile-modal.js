@@ -2,29 +2,32 @@
   const PROFILE_HTML = "/features/citizen/profile/Profile.html";
   const PROFILE_CSS = "/features/citizen/profile/Profile.css";
   const PROFILE_JS = "/features/citizen/profile/Profile.js";
+  const PROFILE_ASSET_VERSION = "profile-language-20260417-1";
   const OVERLAY_ID = "headerProfileOverlay";
   let handlersBound = false;
 
   function ensureStyle(href) {
+    const assetHref = href + "?v=" + PROFILE_ASSET_VERSION;
     const existing = document.querySelector(
-      'link[rel="stylesheet"][href="' + href + '"]',
+      'link[rel="stylesheet"][href="' + assetHref + '"]',
     );
     if (existing) return;
 
     const link = document.createElement("link");
     link.rel = "stylesheet";
-    link.href = href;
+    link.href = assetHref;
     document.head.appendChild(link);
   }
 
   function ensureScript(src) {
-    const existing = document.querySelector('script[src="' + src + '"]');
+    const assetSrc = src + "?v=" + PROFILE_ASSET_VERSION;
+    const existing = document.querySelector('script[src="' + assetSrc + '"]');
     if (existing) {
       return Promise.resolve(existing);
     }
 
     const script = document.createElement("script");
-    script.src = src;
+    script.src = assetSrc;
 
     return new Promise((resolve, reject) => {
       script.onload = () => resolve(script);
@@ -81,6 +84,11 @@
   }
 
   async function open() {
+    if (global.CitizenPreview?.isActive?.()) {
+      global.CitizenPreview.notifyBlockedAction?.('Profile');
+      return;
+    }
+
     const overlay = getOrCreateOverlay();
     const content = overlay.querySelector(".header-profile-modal-content");
     if (!content) return;
@@ -89,7 +97,9 @@
     await ensureScript(PROFILE_JS);
 
     try {
-      const res = await fetch(PROFILE_HTML);
+      const res = await fetch(PROFILE_HTML + "?v=" + PROFILE_ASSET_VERSION, {
+        cache: "no-store",
+      });
       if (!res.ok) {
         throw new Error("Failed to load profile page: " + res.status);
       }

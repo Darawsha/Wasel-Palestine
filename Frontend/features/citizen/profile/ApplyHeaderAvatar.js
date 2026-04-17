@@ -43,6 +43,12 @@
       return;
     }
 
+    if (global.CitizenPreview?.isActive?.()) {
+      profileBtn.style.backgroundImage = '';
+      profileBtn.textContent = 'P';
+      return;
+    }
+
     const user = readCurrentUser();
     const initials = String(options.initials || buildInitials(user) || 'U');
     profileBtn.dataset.initials = initials;
@@ -64,6 +70,11 @@
   }
 
   function syncStoredHeaderAvatar() {
+    if (global.CitizenPreview?.isActive?.()) {
+      global.CitizenPreview.applyShellState?.();
+      return;
+    }
+
     const user = readCurrentUser();
     applyHeaderAvatar(getStoredImage(user), {
       initials: buildInitials(user),

@@ -1,0 +1,7 @@
+export enum AuditAction {
+  CREATED = 'CREATED',
+  UPDATED = 'UPDATED',
+  DELETED = 'DELETED',
+  APPROVED = 'APPROVED',
+  REJECTED = 'REJECTED',
+}

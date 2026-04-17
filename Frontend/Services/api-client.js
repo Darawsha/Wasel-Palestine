@@ -25,6 +25,24 @@ function getApiClient() {
   return window.appApiClient;
 }
 
+function isCitizenPreviewActive() {
+  if (window.CitizenPreview?.isActive?.()) {
+    return true;
+  }
+
+  try {
+    const params = new URLSearchParams(window.location.search || '');
+    const queryValue = String(params.get('adminPreview') || '').toLowerCase();
+    if (queryValue === '1' || queryValue === 'true' || queryValue === 'yes') {
+      return true;
+    }
+
+    return window.sessionStorage?.getItem('wasel.adminCitizenPreview') === '1';
+  } catch (_error) {
+    return false;
+  }
+}
+
 function buildRequestConfig(path, options = {}) {
   const token = window.localStorage?.getItem('token');
   const headers = {
@@ -35,7 +53,12 @@ function buildRequestConfig(path, options = {}) {
     headers['Content-Type'] = 'application/json';
   }
 
-  if (token && options.includeAuth !== false && !headers.Authorization) {
+  if (
+    token &&
+    options.includeAuth !== false &&
+    !isCitizenPreviewActive() &&
+    !headers.Authorization
+  ) {
     headers.Authorization = 'Bearer ' + token;
   }
 

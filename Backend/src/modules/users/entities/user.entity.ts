@@ -10,6 +10,7 @@ import {
 import { Exclude } from 'class-transformer';
 import { UserRole } from '../../../common/enums/user-role.enum';
 import { ReportVote } from '../../reports/entities/vote.entity';
+import { PrimaryLanguage } from '../../system-settings/enums/primary-language.enum';
 
 @Entity('user')
 export class User {
@@ -43,6 +44,13 @@ passwordHash: string | null;
   @Column({ nullable: true, length: 200 })
   address?: string;
 
+  @Column({
+    type: 'enum',
+    enum: PrimaryLanguage,
+    default: PrimaryLanguage.ENGLISH,
+  })
+  language: PrimaryLanguage;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 
@@ -69,5 +77,7 @@ profileImageUpdatedAt?: Date;
 
 @Column({ default: false })
 isVerified: boolean;
-}
 
+@Column({ type: 'timestamp', nullable: true })
+lastAlertsViewedAt?: Date | null;
+}

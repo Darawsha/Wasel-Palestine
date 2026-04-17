@@ -1,4 +1,5 @@
 document.addEventListener('DOMContentLoaded', () => {
+  const PROFILE_ASSET_VERSION = 'profile-db-save-20260417-2';
   const openModalBtn = document.getElementById('openProfileModalBtn');
   const profileDropdown = document.getElementById('profileDropdown');
 
@@ -7,24 +8,26 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function ensureStyle(href) {
-    if (document.querySelector(`link[href="${href}"]`)) {
+    const assetHref = `${href}?v=${PROFILE_ASSET_VERSION}`;
+    if (document.querySelector(`link[href="${assetHref}"]`)) {
       return;
     }
 
     const link = document.createElement('link');
     link.rel = 'stylesheet';
-    link.href = href;
+    link.href = assetHref;
     document.head.appendChild(link);
   }
 
   function ensureScript(src) {
-    const existing = document.querySelector(`script[src="${src}"]`);
+    const assetSrc = `${src}?v=${PROFILE_ASSET_VERSION}`;
+    const existing = document.querySelector(`script[src="${assetSrc}"]`);
     if (existing) {
       return Promise.resolve(existing);
     }
 
     const script = document.createElement('script');
-    script.src = src;
+    script.src = assetSrc;
 
     return new Promise((resolve, reject) => {
       script.addEventListener(
@@ -55,7 +58,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (!overlay) {
       try {
-        const response = await fetch('/features/admin/profile/Profile.html');
+        const response = await fetch(
+          `/features/admin/profile/Profile.html?v=${PROFILE_ASSET_VERSION}`,
+          { cache: 'no-store' },
+        );
         if (!response.ok) {
           throw new Error('Failed to load profile modal');
         }

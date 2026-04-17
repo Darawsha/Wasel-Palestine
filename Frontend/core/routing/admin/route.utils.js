@@ -87,9 +87,16 @@
       .map((href) => resolveAssetUrl(href, pagePath));
 
     const scripts = Array.from(doc.querySelectorAll("script[src]"))
-      .map((node) => node.getAttribute("src"))
-      .filter(Boolean)
-      .map((src) => resolveAssetUrl(src, pagePath));
+      .map((node) => {
+        const src = node.getAttribute("src");
+        if (!src) return null;
+
+        return {
+          src: resolveAssetUrl(src, pagePath),
+          type: node.getAttribute("type") || "",
+        };
+      })
+      .filter(Boolean);
 
     return {
       styles,

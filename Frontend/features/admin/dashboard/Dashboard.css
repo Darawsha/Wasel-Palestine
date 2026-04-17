@@ -395,8 +395,11 @@
 .dot-weather {
   background-color: var(--weather, #f87171);
 }
+.dot-checkpoint {
+  background-color: var(--accent, #6366f1);
+}
 .dot-other {
-  background-color: var(--um-ghost);
+  background-color: var(--um-ghost, #94a3b8);
 }
 .dot-new {
   background-color: var(--primary);

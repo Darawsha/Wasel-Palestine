@@ -21,6 +21,8 @@ import { MapModule } from './modules/map/map.module';
 import { ReportsModule } from './modules/reports/reports.module';
 import { RouteModule } from './modules/route/route.module';
 import { WeatherModule } from './modules/weather/weather.module';
+import { AuditLogModule } from './modules/audit-log/audit-log.module';
+import { SystemSettingsModule } from './modules/system-settings/system-settings.module';
 
 const projectRoot = process.cwd();
 const workspaceRoot = existsSync(join(projectRoot, 'Frontend'))
@@ -48,7 +50,9 @@ const envFilePath = Array.from(
     MapModule,
     RouteModule,
     ReportsModule,
+    AuditLogModule,
     WeatherModule,
+    SystemSettingsModule,
     ServeStaticModule.forRoot({
       rootPath: join(workspaceRoot, 'Frontend'),
       exclude: ['/api*wildcard'],

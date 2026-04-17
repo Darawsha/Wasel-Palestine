@@ -27,7 +27,7 @@ export function isRequired(value) {
 }
 
 export function isValidStatus(status) {
-  const validStatuses = ['ACTIVE', 'DELAYED', 'RESTRICTED', 'CLOSED'];
+  const validStatuses = ['OPEN', 'DELAYED', 'RESTRICTED', 'CLOSED'];
   return validStatuses.includes(status);
 }
 

@@ -135,6 +135,28 @@ export class AlertsController {
     return this.alertsService.getUserAlertOverview(userId);
   }
 
+  @Get('unread-count')
+  @ApiOperation({
+    summary: 'Get unread alert match count',
+    description:
+      'Returns the number of matching incident/checkpoint updates created after the user last opened Alerts.',
+  })
+  getUnreadMatchesCount(@Request() req) {
+    const userId = this.extractAuthenticatedUserId(req);
+    return this.alertsService.getUnreadMatchesCount(userId);
+  }
+
+  @Patch('viewed')
+  @ApiOperation({
+    summary: 'Mark alert matches as viewed',
+    description:
+      'Stores the current time as the user last opened Alerts and resets the unread badge count.',
+  })
+  markAlertMatchesViewed(@Request() req) {
+    const userId = this.extractAuthenticatedUserId(req);
+    return this.alertsService.markAllMatchesViewed(userId);
+  }
+
   @Delete('preferences/:id')
   @ApiOperation({
     summary: 'Unsubscribe from an alert preference',

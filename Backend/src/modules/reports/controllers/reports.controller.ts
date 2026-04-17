@@ -36,6 +36,7 @@ import {
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
 import {
+  ReportCategorySummaryResponseDto,
   ReportPaginatedResponseDto,
   ReportResponseDto,
 } from '../dto/report-response.dto';
@@ -171,6 +172,35 @@ export class ReportsController {
   ) {
     const userId = this.getAuthenticatedUserId(req);
     return this.reportsService.findCommunityReports(query, userId);
+  }
+
+  @Get('category-summary')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  @ApiBearerAuth('token')
+  @ApiOperation({
+    summary: 'Get report counts grouped by category (admin only)',
+    description:
+      'Returns report category totals for the admin analytics dashboard.',
+  })
+  @ApiOkResponse({
+    description: 'Report category summary returned',
+    type: ReportCategorySummaryResponseDto,
+  })
+  @ApiUnauthorizedResponse({
+    description: 'Authentication required',
+    type: ErrorResponseDto,
+  })
+  @ApiForbiddenResponse({
+    description: 'Admin role required',
+    type: ErrorResponseDto,
+  })
+  @ApiInternalServerErrorResponse({
+    description: 'Unexpected server error',
+    type: ErrorResponseDto,
+  })
+  getCategorySummary() {
+    return this.reportsService.getCategorySummary();
   }
 
   @Get()

@@ -12,6 +12,7 @@ import { IncidentType } from '../../incidents/enums/incident-type.enum';
 import { Report } from '../../reports/entities/report.entity';
 import { ReportCategory } from '../../reports/enums/report-category.enum';
 import { ReportStatus } from '../../reports/enums/report-status.enum';
+import { User } from '../../users/entities/user.entity';
 import { AlertPreference } from '../entities/alert-preference.entity';
 import { AlertMatchesService } from './alert-matches.service';
 import { AlertsValidationService } from './alerts-validation.service';
@@ -22,6 +23,7 @@ describe('AlertMatchesService', () => {
   let checkpointsRepository: { find: jest.Mock };
   let incidentsRepository: { find: jest.Mock };
   let reportsRepository: { find: jest.Mock };
+  let usersRepository: { findOne: jest.Mock; save: jest.Mock };
   let alertsValidationService: { ensureValidUserId: jest.Mock };
 
   beforeEach(async () => {
@@ -29,6 +31,10 @@ describe('AlertMatchesService', () => {
     checkpointsRepository = { find: jest.fn() };
     incidentsRepository = { find: jest.fn() };
     reportsRepository = { find: jest.fn() };
+    usersRepository = {
+      findOne: jest.fn(),
+      save: jest.fn((user) => Promise.resolve(user)),
+    };
     alertsValidationService = {
       ensureValidUserId: jest.fn((userId) => userId),
     };
@@ -51,6 +57,10 @@ describe('AlertMatchesService', () => {
         {
           provide: getRepositoryToken(Report),
           useValue: reportsRepository,
+        },
+        {
+          provide: getRepositoryToken(User),
+          useValue: usersRepository,
         },
         {
           provide: AlertsValidationService,

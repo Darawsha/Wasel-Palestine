@@ -16,6 +16,7 @@ import { IncidentStatus } from '../enums/incident-status.enum';
 import { Checkpoint } from '../../checkpoints/entities/checkpoint.entity';
 import { IncidentStatusHistory } from './status-history.entity';
 import { CheckpointStatus } from '../../checkpoints/enums/checkpoint-status.enum';
+import { ModerationStatus } from '../../../common/enums/moderation-status.enum';
 
 const decimalColumnTransformer = {
   to: (value: number | null | undefined): number | null | undefined => value,
@@ -78,6 +79,16 @@ export class Incident {
 
   @Column({
     type: 'enum',
+    enum: ModerationStatus,
+    default: ModerationStatus.APPROVED,
+  })
+  moderationStatus: ModerationStatus;
+
+  @Column({ type: 'simple-json', nullable: true })
+  pendingChanges?: Record<string, unknown> | null;
+
+  @Column({
+    type: 'enum',
     enum: CheckpointStatus,
     nullable: true,
   })
@@ -116,4 +127,25 @@ export class Incident {
 
   @Column({ type: 'timestamp', nullable: true })
   closedAt?: Date;
+
+  @Column({ type: 'int', nullable: true })
+  createdByUserId?: number | null;
+
+  @Column({ type: 'int', nullable: true })
+  updatedByUserId?: number | null;
+
+  @Column({ type: 'int', nullable: true })
+  approvedByUserId?: number | null;
+
+  @Column({ type: 'timestamp', nullable: true })
+  approvedAt?: Date | null;
+
+  @Column({ type: 'int', nullable: true })
+  rejectedByUserId?: number | null;
+
+  @Column({ type: 'timestamp', nullable: true })
+  rejectedAt?: Date | null;
+
+  @Column({ type: 'text', nullable: true })
+  rejectionReason?: string | null;
 }

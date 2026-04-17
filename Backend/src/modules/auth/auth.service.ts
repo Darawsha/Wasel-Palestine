@@ -25,6 +25,7 @@ type SocialLoginUser = {
   firstname?: string;
   lastname?: string;
   name?: string;
+  profileImage?: string | null;
   provider: string;
   providerId?: string;
 };
@@ -112,6 +113,7 @@ export class AuthService {
         firstname: googleUser?.given_name || '',
         lastname: googleUser?.family_name || '',
         name: googleUser?.name || '',
+        profileImage: googleUser?.picture || null,
         provider: 'google',
         providerId: googleUser?.sub,
       });
@@ -218,6 +220,7 @@ export class AuthService {
         firstname: linkedinUser?.given_name || '',
         lastname: linkedinUser?.family_name || '',
         name: linkedinUser?.name || '',
+        profileImage: linkedinUser?.picture || null,
         provider: 'linkedin',
         providerId: linkedinUser?.sub,
       });
@@ -253,6 +256,7 @@ export class AuthService {
       firstname,
       lastname,
       email: socialUser.email,
+      profileImage: socialUser.profileImage,
       provider: socialUser.provider,
       providerId: socialUser.providerId,
     });

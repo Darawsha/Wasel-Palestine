@@ -1,15 +1,12 @@
-import { Controller, Get, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Query } from '@nestjs/common';
 import {
   ApiBadRequestResponse,
-  ApiBearerAuth,
   ApiInternalServerErrorResponse,
   ApiOkResponse,
   ApiOperation,
   ApiQuery,
   ApiTags,
-  ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
-import { JwtAuthGuard } from '../../core/guards/jwt-auth.guard';
 import { CurrentWeatherQueryDto } from './dto/current-weather-query.dto';
 import { CurrentWeatherResponseDto } from './dto/current-weather-response.dto';
 import { WeatherService } from './weather.service';
@@ -19,8 +16,6 @@ import {
 } from '../../common/dto/error-response.dto';
 
 @ApiTags('Weather')
-@ApiBearerAuth('token')
-@UseGuards(JwtAuthGuard)
 @Controller({ path: 'weather', version: '1' })
 export class WeatherController {
   constructor(private readonly weatherService: WeatherService) {}
@@ -52,10 +47,6 @@ export class WeatherController {
   @ApiBadRequestResponse({
     description: 'Invalid weather query parameters',
     type: ValidationErrorResponseDto,
-  })
-  @ApiUnauthorizedResponse({
-    description: 'Authentication required',
-    type: ErrorResponseDto,
   })
   @ApiInternalServerErrorResponse({
     description: 'Unexpected server error',

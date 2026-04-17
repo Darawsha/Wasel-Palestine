@@ -4,6 +4,8 @@ import {
   createAlertPreferencesBatch,
   deleteAlertPreference,
   getAlertPreferencesOverview,
+  getAlertsUnreadCount,
+  markAlertsViewed,
 } from '/Services/alerts.service.js';
 
 export const ALERT_CATEGORY_PRESENTATION = {
@@ -374,6 +376,7 @@ function normalizeOverviewSubscription(subscription = {}) {
           key: presentation.key,
           label: presentation.label,
           badgeClass: presentation.badgeClass,
+          preferenceId: normalizeText(category?.preferenceId),
         };
       })
     : [];
@@ -481,6 +484,19 @@ export async function loadAlertSubscriptions() {
   }
 
   return response.map(normalizeOverviewSubscription);
+}
+
+export async function loadAlertsUnreadCount() {
+  const response = await getAlertsUnreadCount();
+  return Math.max(Number(response?.unreadCount) || 0, 0);
+}
+
+export async function markAlertMatchesViewed() {
+  const response = await markAlertsViewed();
+  return {
+    unreadCount: Math.max(Number(response?.unreadCount) || 0, 0),
+    lastAlertsViewedAt: response?.lastAlertsViewedAt || null,
+  };
 }
 
 export function extractAlertErrorMessage(error, fallback = 'Request failed.') {

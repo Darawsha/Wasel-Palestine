@@ -1,5 +1,6 @@
 import { confirmAndDeleteCheckpoint } from '/features/admin/checkpoint-management/delete_btn.js';
 import { openEditCheckpointModal } from '/features/admin/checkpoint-management/EditCheckpoint_btn.js';
+import { openCheckpointHistoryModal } from '/features/admin/checkpoint-management/CheckpointHistoryModal.js';
 
 const ACTION_MENU_ID = 'checkpoint-actions-floating-menu';
 
@@ -33,7 +34,7 @@ function ensureActionMenu() {
   menuRoot.id = ACTION_MENU_ID;
   menuRoot.className = 'checkpoint-actions-floating-menu';
   menuRoot.innerHTML = `
-    <button class="dropdown-item" type="button" data-checkpoint-action="edit">
+    <button class="dropdown-item" type="button" data-checkpoint-action="edit" data-checkpoint-edit-action>
       <span class="material-symbols-outlined">edit</span>
       Update checkpoint
     </button>
@@ -41,7 +42,7 @@ function ensureActionMenu() {
       <span class="material-symbols-outlined">history</span>
       History
     </button>
-    <button class="dropdown-item text-danger" type="button" data-checkpoint-action="delete">
+    <button class="dropdown-item text-danger" type="button" data-checkpoint-action="delete" data-checkpoint-delete-action>
       <span class="material-symbols-outlined">delete</span>
       Delete checkpoint
     </button>
@@ -67,9 +68,7 @@ function ensureActionMenu() {
     } else if (action === 'delete') {
       await confirmAndDeleteCheckpoint(checkpoint);
     } else if (action === 'history') {
-      if (typeof window.showInfo === 'function') {
-        window.showInfo('History feature coming soon.');
-      }
+      await openCheckpointHistoryModal(checkpoint);
     }
   });
 
@@ -119,6 +118,15 @@ function positionActionMenu(triggerButton) {
   menu.style.visibility = '';
 }
 
+function updatePendingActions(checkpoint) {
+  const menu = ensureActionMenu();
+  void checkpoint;
+
+  menu.querySelectorAll('[data-checkpoint-edit-action], [data-checkpoint-delete-action]').forEach((button) => {
+    button.hidden = false;
+  });
+}
+
 export function bindCheckpointActionMenus(root, options = {}) {
   if (!root) return;
 
@@ -157,6 +165,7 @@ export function bindCheckpointActionMenus(root, options = {}) {
 
     const menu = ensureActionMenu();
     menu.dataset.checkpointId = String(checkpointId);
+    updatePendingActions(actionContext.getCheckpointById?.(checkpointId));
     activeTrigger = triggerButton;
     activeTrigger.classList.add('is-open');
     activeTrigger.setAttribute('aria-expanded', 'true');

@@ -5,7 +5,12 @@
   let currentPageAssets = { styles: new Set(), inline: new Set(), scripts: new Set() };
   let previousPageAssets = { styles: new Set(), inline: new Set(), scripts: new Set() };
 
-  function ensureScript(src) {
+  function ensureScript(scriptAsset) {
+    const src =
+      typeof scriptAsset === "string" ? scriptAsset : scriptAsset?.src;
+    const type =
+      typeof scriptAsset === "string" ? "" : scriptAsset?.type || "";
+
     if (!src) return Promise.resolve();
     const existing = document.querySelector('script[src="' + src + '"]');
     if (existing) {
@@ -18,6 +23,9 @@
 
     const script = document.createElement("script");
     script.src = src;
+    if (type) {
+      script.type = type;
+    }
     script.dataset.adminPageAsset = "script";
     currentPageAssets.scripts.add(script);
 

@@ -37,7 +37,7 @@ export class MapCheckpointsResponseDto {
         latitude: 32.205,
         longitude: 35.284,
         location: 'South Nablus, Route 60',
-        currentStatus: 'active',
+        currentStatus: 'OPEN',
         description: 'Military gate with document checks.',
         createdAt: '2026-04-13T07:15:00.000Z',
         updatedAt: '2026-04-13T09:20:00.000Z',
@@ -93,12 +93,6 @@ export class MapReportMarkerResponseDto {
   status: ReportStatus;
 
   @ApiProperty({
-    description: 'Submitting user identifier',
-    example: 15,
-  })
-  submittedByUserId: number;
-
-  @ApiProperty({
     description: 'Duplicate source report id when flagged as duplicate',
     example: null,
     nullable: true,
@@ -138,7 +132,6 @@ export class MapReportsResponseDto {
         category: 'road_closure',
         description: 'Checkpoint lane blocked and traffic is not moving.',
         status: 'pending',
-        submittedByUserId: 15,
         confidenceScore: 76,
       },
     ],

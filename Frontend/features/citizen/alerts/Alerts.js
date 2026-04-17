@@ -61,6 +61,10 @@
   }
 
   function notifyNotificationCenter() {
+    if (global.CitizenPreview?.isActive?.()) {
+      return;
+    }
+
     global.dispatchEvent(
       new CustomEvent(NOTIFICATION_REFRESH_EVENT, {
         detail: {
@@ -83,6 +87,10 @@
     link.rel = 'stylesheet';
     link.href = href;
     document.head.appendChild(link);
+  }
+
+  function isPreviewMode() {
+    return global.CitizenPreview?.isActive?.() === true;
   }
 
   function getDependencies() {
@@ -651,7 +659,12 @@
         try {
           const controller = await getDependencies();
           await controller.deleteAlertSubscriptionGroup(subscription);
-          notify('success', 'Subscription deleted successfully.');
+          notify(
+            'success',
+            isPreviewMode()
+              ? 'Preview subscription removed. Nothing was saved.'
+              : 'Subscription deleted successfully.',
+          );
         } catch (error) {
           const controller = await getDependencies();
           notify(
@@ -837,9 +850,13 @@
 
       notify(
         'success',
-        isEditMode
-          ? 'Subscription updated successfully.'
-          : 'Subscription created successfully.',
+        isPreviewMode()
+          ? isEditMode
+            ? 'Preview subscription updated. Nothing was saved.'
+            : 'Preview subscription created. Nothing was saved.'
+          : isEditMode
+            ? 'Subscription updated successfully.'
+            : 'Subscription created successfully.',
       );
 
       closeModal();
@@ -905,7 +922,31 @@
 
     root.dataset.alertsInitialized = 'true';
     startAutoRefresh();
+    await markAlertsViewedForBadge();
     await refreshSubscriptions();
+  }
+
+  async function markAlertsViewedForBadge() {
+    if (isPreviewMode()) {
+      global.dispatchEvent(
+        new CustomEvent('alerts:unread-refresh', {
+          detail: { unreadCount: 0 },
+        }),
+      );
+      return;
+    }
+
+    try {
+      const controller = await getDependencies();
+      const result = await controller.markAlertMatchesViewed();
+      global.dispatchEvent(
+        new CustomEvent('alerts:unread-refresh', {
+          detail: { unreadCount: result.unreadCount },
+        }),
+      );
+    } catch (error) {
+      console.warn('Unable to mark alert matches as viewed', error);
+    }
   }
 
   function startAutoRefresh() {

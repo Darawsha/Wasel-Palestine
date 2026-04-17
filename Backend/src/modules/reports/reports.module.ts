@@ -12,9 +12,11 @@ import { ReportInteractionsController } from './controllers/report-interactions.
 import { ReportModerationController } from './controllers/report-moderation.controller';
 import { ReportModerationService } from './services/report-moderation.service';
 import { ReportValidationService } from './services/report-validation.service';
+import { AuditLogModule } from '../audit-log/audit-log.module';
 
 @Module({
   imports: [
+    AuditLogModule,
     TypeOrmModule.forFeature([
       Report,
       ReportModerationAudit,

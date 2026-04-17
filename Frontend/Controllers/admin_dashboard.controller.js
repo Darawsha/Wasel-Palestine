@@ -6,6 +6,7 @@ import {
   getIncidentsCreatedTodayCount,
   getIncidentsTimeline,
   getPendingReportsCount,
+  getReportsCategorySummary,
   getSubscriptionsCount,
   getDashboardResponseTime,
   getUserRegistrationBuckets,
@@ -29,6 +30,10 @@ export function countCheckpoints() {
 
 export function countPendingReports() {
   return getPendingReportsCount();
+}
+
+export function getReportCategorySummary() {
+  return getReportsCategorySummary();
 }
 
 export function countSubscriptions() {

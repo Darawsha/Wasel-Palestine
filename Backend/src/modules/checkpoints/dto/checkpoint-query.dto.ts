@@ -31,7 +31,7 @@ export class CheckpointQueryDto {
     required: false,
     description: 'Filter checkpoints by current status',
     enum: CheckpointStatus,
-    example: CheckpointStatus.ACTIVE,
+    example: CheckpointStatus.OPEN,
   })
   @Transform(({ value }) => CheckpointQueryDto.normalizeOptional(value))
   @IsEnum(CheckpointStatus)

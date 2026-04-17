@@ -8,6 +8,7 @@
   const STATUS_BANNER_SELECTOR = '[data-settings-status]';
   const STATUS_BANNER_COPY_SELECTOR = '[data-settings-status-copy]';
   const STATUS_BANNER_BADGE_SELECTOR = '[data-settings-status-badge]';
+  const ALLOWED_PRIMARY_LANGUAGES = new Set(['English', 'Arabic']);
 
   let dependenciesPromise;
   let latestSnapshot = null;
@@ -69,7 +70,10 @@
 
     const normalizedText = String(desiredText || '').trim().toLowerCase();
     const matchingOption = Array.from(selectElement.options).find((option) => {
-      return option.textContent.trim().toLowerCase() === normalizedText;
+      return (
+        option.value.trim().toLowerCase() === normalizedText ||
+        option.textContent.trim().toLowerCase() === normalizedText
+      );
     });
 
     if (matchingOption) {
@@ -269,8 +273,7 @@
   function collectSnapshot(elements) {
     return {
       platformName: elements.platformName?.value?.trim() || '',
-      primaryLanguage:
-        elements.primaryLanguage?.selectedOptions?.[0]?.textContent?.trim() || 'English',
+      primaryLanguage: elements.primaryLanguage?.value || 'English',
       timezone:
         elements.timezone?.selectedOptions?.[0]?.textContent?.trim() || '',
       accessTokenExpiry: elements.accessTokenExpiry?.value?.trim() || '',
@@ -307,6 +310,10 @@
   function validateSnapshot(snapshot) {
     if (!snapshot.platformName) {
       return 'Platform name is required.';
+    }
+
+    if (!ALLOWED_PRIMARY_LANGUAGES.has(snapshot.primaryLanguage)) {
+      return 'Primary language must be English or Arabic.';
     }
 
     if (!isValidUrl(snapshot.apiBaseUrl)) {
@@ -513,8 +520,7 @@
         'Applying',
       );
 
-      controller.saveSystemSettings(nextSnapshot);
-      controller.applySettings(nextSnapshot);
+      await controller.applySettings(nextSnapshot);
       latestSnapshot = await controller.loadSystemSettings();
       applySnapshot(elements, latestSnapshot);
 

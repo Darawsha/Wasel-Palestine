@@ -11,6 +11,7 @@ import { IncidentStatusLifecycleService } from './services/incident-status-lifec
 import { IncidentAlertObserver } from './observers/incident-created.observer';
 import { CheckpointStatusHistory } from '../checkpoints/entities/status-history.entity';
 import { IncidentCheckpointSyncService } from './sync/incident-checkpoint-sync.service';
+import { AuditLogModule } from '../audit-log/audit-log.module';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { IncidentCheckpointSyncService } from './sync/incident-checkpoint-sync.s
       IncidentStatusHistory,
       CheckpointStatusHistory,
     ]),
+    AuditLogModule,
   ],
   controllers: [IncidentsController],
   providers: [

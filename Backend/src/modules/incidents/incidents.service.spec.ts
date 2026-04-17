@@ -17,6 +17,8 @@ import { IncidentStatusLifecycleService } from './services/incident-status-lifec
 import { IncidentUpdateStrategyService } from './services/incident-update-strategy.service';
 import { IncidentsService } from './incidents.service';
 import { IncidentCheckpointSyncService } from './sync/incident-checkpoint-sync.service';
+import { AuditLogService } from '../audit-log/audit-log.service';
+import { ModerationStatus } from '../../common/enums/moderation-status.enum';
 
 describe('IncidentsService', () => {
   let service: IncidentsService;
@@ -24,6 +26,7 @@ describe('IncidentsService', () => {
   let incidentStore: Incident[];
   let incidentsRepository: {
     create: jest.Mock;
+    save: jest.Mock;
     findOne: jest.Mock;
     count: jest.Mock;
     createQueryBuilder: jest.Mock;
@@ -47,6 +50,12 @@ describe('IncidentsService', () => {
     create: jest.Mock;
     save: jest.Mock;
   };
+  let checkpointsRepository: {
+    findOne: jest.Mock;
+  };
+  let auditLogService: {
+    record: jest.Mock;
+  };
   let incidentAlertObserver: {
     notifyIncidentVerified: jest.Mock;
     notifyIncidentResolved: jest.Mock;
@@ -68,7 +77,7 @@ describe('IncidentsService', () => {
     location: 'Qalandiya Checkpoint',
     latitude: 31.8571,
     longitude: 35.2177,
-    currentStatus: CheckpointStatus.ACTIVE,
+    currentStatus: CheckpointStatus.OPEN,
     updatedAt: new Date('2026-04-01T10:00:00.000Z'),
   } as Checkpoint;
 
@@ -78,7 +87,7 @@ describe('IncidentsService', () => {
     location: 'Container Checkpoint',
     latitude: 31.75,
     longitude: 35.29,
-    currentStatus: CheckpointStatus.ACTIVE,
+    currentStatus: CheckpointStatus.OPEN,
     updatedAt: new Date('2026-04-01T10:00:00.000Z'),
   } as Checkpoint;
 
@@ -244,7 +253,26 @@ describe('IncidentsService', () => {
 
     incidentsRepository = {
       create: jest.fn((payload) => payload),
-      findOne: jest.fn(),
+      save: jest.fn(async (entity: Incident) => {
+        const savedIncident = entity as Incident;
+        savedIncident.id = savedIncident.id ?? 101;
+        savedIncident.checkpointId = savedIncident.checkpoint?.id ?? null;
+        const existingIncidentIndex = incidentStore.findIndex(
+          (storedIncident) => storedIncident.id === savedIncident.id,
+        );
+        if (existingIncidentIndex >= 0) {
+          incidentStore[existingIncidentIndex] = { ...savedIncident };
+        } else {
+          incidentStore.push({ ...savedIncident });
+        }
+        return savedIncident;
+      }),
+      findOne: jest.fn(async ({ where: { id } }) => {
+        const incident = incidentStore.find(
+          (storedIncident) => storedIncident.id === id,
+        );
+        return incident ? ({ ...incident } as Incident) : null;
+      }),
       count: jest.fn(),
       createQueryBuilder: jest.fn(() => {
         let title: string | undefined;
@@ -411,6 +439,17 @@ describe('IncidentsService', () => {
       }),
     };
 
+    checkpointsRepository = {
+      findOne: jest.fn(async ({ where: { id } }) => {
+        const checkpoint = checkpointStore.get(id);
+        return checkpoint ? ({ ...checkpoint } as Checkpoint) : null;
+      }),
+    };
+
+    auditLogService = {
+      record: jest.fn(async () => undefined),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         IncidentsService,
@@ -422,6 +461,10 @@ describe('IncidentsService', () => {
         {
           provide: getRepositoryToken(IncidentStatusHistory),
           useValue: incidentStatusHistoryRepository,
+        },
+        {
+          provide: getRepositoryToken(Checkpoint),
+          useValue: checkpointsRepository,
         },
         {
           provide: IncidentQueryStrategyService,
@@ -438,6 +481,10 @@ describe('IncidentsService', () => {
         {
           provide: IncidentAlertObserver,
           useValue: incidentAlertObserver,
+        },
+        {
+          provide: AuditLogService,
+          useValue: auditLogService,
         },
       ],
     }).compile();
@@ -473,8 +520,17 @@ describe('IncidentsService', () => {
         location: checkpointA.location,
         latitude: checkpointA.latitude,
         longitude: checkpointA.longitude,
+        moderationStatus: ModerationStatus.PENDING_CREATE,
       }),
     );
+    expect(incidentStatusHistoryRepository.save).not.toHaveBeenCalled();
+    expect(checkpointStore.get(checkpointA.id)?.currentStatus).toBe(
+      CheckpointStatus.OPEN,
+    );
+    expect(incidentAlertObserver.notifyIncidentVerified).not.toHaveBeenCalled();
+
+    const approvedIncident = await service.approve(result.id, 15);
+
     expect(incidentStatusHistoryRepository.save).toHaveBeenCalledWith(
       expect.objectContaining({
         oldStatus: IncidentStatus.ACTIVE,
@@ -487,21 +543,21 @@ describe('IncidentsService', () => {
     );
     expect(checkpointStatusHistoryRepository.save).toHaveBeenCalledWith(
       expect.objectContaining({
-        oldStatus: CheckpointStatus.ACTIVE,
+        oldStatus: CheckpointStatus.OPEN,
         newStatus: CheckpointStatus.CLOSED,
         changedByUserId: 15,
       }),
     );
     expect(incidentAlertObserver.notifyIncidentVerified).toHaveBeenCalledWith(
       expect.objectContaining({
-        id: result.id,
+        id: approvedIncident.id,
         impactStatus: CheckpointStatus.CLOSED,
       }),
     );
     expect(incidentAlertObserver.notifyIncidentResolved).not.toHaveBeenCalled();
   });
 
-  it('accepts ACTIVE as a valid checkpoint impact override', async () => {
+  it('accepts OPEN as a valid checkpoint impact override', async () => {
     const result = await service.create(
       {
         title: 'Verified incident with open impact',
@@ -511,24 +567,28 @@ describe('IncidentsService', () => {
         status: IncidentStatus.ACTIVE,
         isVerified: true,
         checkpointId: checkpointA.id,
-        impactStatus: CheckpointStatus.ACTIVE,
+        impactStatus: CheckpointStatus.OPEN,
       },
       16,
     );
 
     expect(result).toEqual(
       expect.objectContaining({
-        impactStatus: CheckpointStatus.ACTIVE,
+        impactStatus: CheckpointStatus.OPEN,
         checkpoint: expect.objectContaining({ id: checkpointA.id }),
       }),
     );
     expect(checkpointStore.get(checkpointA.id)?.currentStatus).toBe(
-      CheckpointStatus.ACTIVE,
+      CheckpointStatus.OPEN,
     );
+    expect(incidentAlertObserver.notifyIncidentVerified).not.toHaveBeenCalled();
+
+    const approvedIncident = await service.approve(result.id, 16);
+
     expect(incidentAlertObserver.notifyIncidentVerified).toHaveBeenCalledWith(
       expect.objectContaining({
-        id: result.id,
-        impactStatus: CheckpointStatus.ACTIVE,
+        id: approvedIncident.id,
+        impactStatus: CheckpointStatus.OPEN,
       }),
     );
   });
@@ -545,13 +605,14 @@ describe('IncidentsService', () => {
       status: IncidentStatus.ACTIVE,
       type: IncidentType.CLOSURE,
       severity: IncidentSeverity.HIGH,
+      impactStatus: CheckpointStatus.CLOSED,
       location: checkpointA.location,
       latitude: checkpointA.latitude,
       longitude: checkpointA.longitude,
       checkpoint: { ...checkpointA, currentStatus: CheckpointStatus.CLOSED },
     } as Incident;
 
-    incidentsRepository.findOne.mockResolvedValue(incident);
+    incidentStore.push({ ...incident });
 
     const result = await service.update(
       incident.id,
@@ -565,6 +626,32 @@ describe('IncidentsService', () => {
 
     expect(result).toEqual(
       expect.objectContaining({
+        checkpoint: expect.objectContaining({ id: checkpointA.id }),
+        location: checkpointA.location,
+        latitude: checkpointA.latitude,
+        longitude: checkpointA.longitude,
+        type: IncidentType.CLOSURE,
+        impactStatus: CheckpointStatus.CLOSED,
+        moderationStatus: ModerationStatus.PENDING_UPDATE,
+        pendingChanges: expect.objectContaining({
+          checkpointId: checkpointB.id,
+          type: IncidentType.DELAY,
+          impactStatus: CheckpointStatus.RESTRICTED,
+        }),
+      }),
+    );
+    expect(checkpointStore.get(checkpointA.id)?.currentStatus).toBe(
+      CheckpointStatus.CLOSED,
+    );
+    expect(checkpointStore.get(checkpointB.id)?.currentStatus).toBe(
+      CheckpointStatus.OPEN,
+    );
+    expect(incidentStatusHistoryRepository.save).not.toHaveBeenCalled();
+
+    const approvedIncident = await service.approve(incident.id, 19);
+
+    expect(approvedIncident).toEqual(
+      expect.objectContaining({
         checkpoint: expect.objectContaining({ id: checkpointB.id }),
         location: checkpointB.location,
         latitude: checkpointB.latitude,
@@ -574,7 +661,7 @@ describe('IncidentsService', () => {
       }),
     );
     expect(checkpointStore.get(checkpointA.id)?.currentStatus).toBe(
-      CheckpointStatus.ACTIVE,
+      CheckpointStatus.OPEN,
     );
     expect(checkpointStore.get(checkpointB.id)?.currentStatus).toBe(
       CheckpointStatus.RESTRICTED,
@@ -604,7 +691,7 @@ describe('IncidentsService', () => {
       longitude: 35.21,
     } as Incident;
 
-    incidentsRepository.findOne.mockResolvedValue(incident);
+    incidentStore.push({ ...incident });
 
     const result = await service.update(
       incident.id,
@@ -615,6 +702,20 @@ describe('IncidentsService', () => {
     );
 
     expect(result).toEqual(
+      expect.objectContaining({
+        title: 'Original title',
+        status: IncidentStatus.ACTIVE,
+        moderationStatus: ModerationStatus.PENDING_UPDATE,
+        pendingChanges: expect.objectContaining({
+          title: 'Updated title',
+        }),
+      }),
+    );
+    expect(incidentStatusHistoryRepository.save).not.toHaveBeenCalled();
+
+    const approvedIncident = await service.approve(incident.id, 66);
+
+    expect(approvedIncident).toEqual(
       expect.objectContaining({
         title: 'Updated title',
         status: IncidentStatus.ACTIVE,
@@ -688,7 +789,7 @@ describe('IncidentsService', () => {
       longitude: 35.21,
     } as Incident;
 
-    incidentsRepository.findOne.mockResolvedValue(incident);
+    incidentStore.push({ ...incident });
 
     await expect(
       service.update(
@@ -703,7 +804,7 @@ describe('IncidentsService', () => {
     );
   });
 
-  it('restores the linked checkpoint to ACTIVE when the incident is closed', async () => {
+  it('restores the linked checkpoint to OPEN when the incident is closed', async () => {
     checkpointStore.set(checkpointA.id, {
       ...checkpointA,
       currentStatus: CheckpointStatus.DELAYED,
@@ -721,13 +822,25 @@ describe('IncidentsService', () => {
       checkpoint: { ...checkpointA, currentStatus: CheckpointStatus.DELAYED },
     } as Incident;
 
-    incidentsRepository.findOne.mockResolvedValue(incident);
+    incidentStore.push({ ...incident });
 
     const result = await service.close(incident.id, 77);
 
-    expect(result.status).toBe(IncidentStatus.CLOSED);
+    expect(result.status).toBe(IncidentStatus.ACTIVE);
+    expect(result.moderationStatus).toBe(ModerationStatus.PENDING_UPDATE);
+    expect(result.pendingChanges).toEqual(
+      expect.objectContaining({ status: IncidentStatus.CLOSED }),
+    );
     expect(checkpointStore.get(checkpointA.id)?.currentStatus).toBe(
-      CheckpointStatus.ACTIVE,
+      CheckpointStatus.DELAYED,
+    );
+    expect(incidentStatusHistoryRepository.save).not.toHaveBeenCalled();
+
+    const approvedIncident = await service.approve(incident.id, 77);
+
+    expect(approvedIncident.status).toBe(IncidentStatus.CLOSED);
+    expect(checkpointStore.get(checkpointA.id)?.currentStatus).toBe(
+      CheckpointStatus.OPEN,
     );
     expect(incidentStatusHistoryRepository.save).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -757,11 +870,26 @@ describe('IncidentsService', () => {
       longitude: 35.21,
     } as Incident;
 
-    incidentsRepository.findOne.mockResolvedValue(incident);
+    incidentStore.push({ ...incident });
 
     const result = await service.verify(incident.id, 55);
 
     expect(result).toEqual(
+      expect.objectContaining({
+        isVerified: false,
+        status: IncidentStatus.ACTIVE,
+        moderationStatus: ModerationStatus.PENDING_UPDATE,
+        pendingChanges: expect.objectContaining({
+          isVerified: true,
+        }),
+      }),
+    );
+    expect(incidentStatusHistoryRepository.save).not.toHaveBeenCalled();
+    expect(incidentAlertObserver.notifyIncidentVerified).not.toHaveBeenCalled();
+
+    const approvedIncident = await service.approve(incident.id, 55);
+
+    expect(approvedIncident).toEqual(
       expect.objectContaining({
         isVerified: true,
         status: IncidentStatus.ACTIVE,
@@ -784,7 +912,7 @@ describe('IncidentsService', () => {
     expect(incidentAlertObserver.notifyIncidentResolved).not.toHaveBeenCalled();
   });
 
-  it('restores the linked checkpoint before hard deletion', async () => {
+  it('restores the linked checkpoint only after delete approval', async () => {
     checkpointStore.set(checkpointA.id, {
       ...checkpointA,
       currentStatus: CheckpointStatus.CLOSED,
@@ -799,19 +927,33 @@ describe('IncidentsService', () => {
       impactStatus: CheckpointStatus.CLOSED,
     } as Incident;
 
-    incidentsRepository.findOne.mockResolvedValue(incident);
+    incidentStore.push({ ...incident });
 
-    await service.remove(incident.id, 33);
+    const pendingDeletion = await service.remove(incident.id, 33);
+
+    expect(pendingDeletion).toEqual(
+      expect.objectContaining({
+        moderationStatus: ModerationStatus.PENDING_DELETE,
+      }),
+    );
+    expect(checkpointStore.get(checkpointA.id)?.currentStatus).toBe(
+      CheckpointStatus.CLOSED,
+    );
+    expect(incidentTransactionRepository.remove).not.toHaveBeenCalled();
+
+    await service.approve(incident.id, 44);
 
     expect(checkpointStore.get(checkpointA.id)?.currentStatus).toBe(
-      CheckpointStatus.ACTIVE,
+      CheckpointStatus.OPEN,
     );
-    expect(incidentTransactionRepository.remove).toHaveBeenCalledWith(incident);
+    expect(incidentTransactionRepository.remove).toHaveBeenCalledWith(
+      expect.objectContaining({ id: incident.id }),
+    );
     expect(checkpointStatusHistoryRepository.save).toHaveBeenCalledWith(
       expect.objectContaining({
         oldStatus: CheckpointStatus.CLOSED,
-        newStatus: CheckpointStatus.ACTIVE,
-        changedByUserId: 33,
+        newStatus: CheckpointStatus.OPEN,
+        changedByUserId: 44,
       }),
     );
   });
@@ -848,20 +990,22 @@ describe('IncidentsService', () => {
       description: 'Existing active incident linked to checkpoint',
     } as Incident);
 
-    await expect(
-      service.create(
-        {
-          title: 'Second active incident',
-          description:
-            'Should conflict with existing active checkpoint incident',
-          type: IncidentType.CLOSURE,
-          severity: IncidentSeverity.HIGH,
-          status: IncidentStatus.ACTIVE,
-          checkpointId: checkpointA.id,
-          impactStatus: CheckpointStatus.CLOSED,
-        },
-        71,
-      ),
-    ).rejects.toThrow('already linked to active incident');
+    const pendingIncident = await service.create(
+      {
+        title: 'Second active incident',
+        description:
+          'Should conflict with existing active checkpoint incident',
+        type: IncidentType.CLOSURE,
+        severity: IncidentSeverity.HIGH,
+        status: IncidentStatus.ACTIVE,
+        checkpointId: checkpointA.id,
+        impactStatus: CheckpointStatus.CLOSED,
+      },
+      71,
+    );
+
+    await expect(service.approve(pendingIncident.id, 71)).rejects.toThrow(
+      'already linked to active incident',
+    );
   });
 });

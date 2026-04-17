@@ -70,6 +70,11 @@
   }
 
   async function open() {
+    if (global.CitizenPreview?.isActive?.()) {
+      global.CitizenPreview.notifyBlockedAction?.('Logout');
+      return;
+    }
+
     const overlay = getOrCreateOverlay();
     const content = overlay.querySelector(".header-logout-modal-content");
     if (!content) return;

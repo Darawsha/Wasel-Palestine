@@ -1,6 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { PaginationMetaResponseDto } from '../../../common/dto/common-response.dto';
 import { CheckpointStatus } from '../enums/checkpoint-status.enum';
+import { ModerationStatus } from '../../../common/enums/moderation-status.enum';
 
 export class CheckpointResponseDto {
   @ApiProperty({
@@ -36,9 +37,24 @@ export class CheckpointResponseDto {
   @ApiProperty({
     description: 'Describes the current status field.',
     enum: CheckpointStatus,
-    example: CheckpointStatus.ACTIVE,
+    example: CheckpointStatus.OPEN,
   })
   currentStatus: CheckpointStatus;
+
+  @ApiProperty({
+    description: 'Checkpoint moderation workflow status.',
+    enum: ModerationStatus,
+    example: ModerationStatus.PENDING_CREATE,
+  })
+  moderationStatus: ModerationStatus;
+
+  @ApiProperty({
+    required: false,
+    description: 'Pending update changes waiting for approval.',
+    example: { currentStatus: 'DELAYED' },
+    nullable: true,
+  })
+  pendingChanges?: Record<string, unknown> | null;
 
   @ApiProperty({
     description: 'Describes the description field.',
@@ -58,6 +74,62 @@ export class CheckpointResponseDto {
     example: '2026-04-13T09:20:00.000Z'
   })
   updatedAt: string;
+
+  @ApiProperty({
+    required: false,
+    description: 'Admin user id that created the checkpoint.',
+    example: 7,
+    nullable: true,
+  })
+  createdByUserId?: number | null;
+
+  @ApiProperty({
+    required: false,
+    description: 'Admin user id that last submitted an update.',
+    example: 8,
+    nullable: true,
+  })
+  updatedByUserId?: number | null;
+
+  @ApiProperty({
+    required: false,
+    description: 'Admin user id that last approved the checkpoint workflow.',
+    example: 7,
+    nullable: true,
+  })
+  approvedByUserId?: number | null;
+
+  @ApiProperty({
+    required: false,
+    description: 'Timestamp of the last approval decision.',
+    example: '2026-04-13T09:20:00.000Z',
+    nullable: true,
+  })
+  approvedAt?: string | null;
+
+  @ApiProperty({
+    required: false,
+    description: 'Admin user id that last rejected the checkpoint workflow.',
+    example: 9,
+    nullable: true,
+  })
+  rejectedByUserId?: number | null;
+
+  @ApiProperty({
+    required: false,
+    description: 'Timestamp of the last rejection decision.',
+    example: '2026-04-13T09:20:00.000Z',
+    nullable: true,
+  })
+  rejectedAt?: string | null;
+
+  @ApiProperty({
+    required: false,
+    description: 'Optional reason recorded for the last rejection.',
+    example: 'Duplicate checkpoint entry.',
+    nullable: true,
+  })
+  rejectionReason?: string | null;
 }
 
 export class CheckpointStatusHistoryResponseDto {
@@ -68,8 +140,14 @@ export class CheckpointStatusHistoryResponseDto {
   id: number;
 
   @ApiProperty({
+    description: 'Describes the checkpoint id field.',
+    example: 8,
+  })
+  checkpointId: number;
+
+  @ApiProperty({
     description: 'Describes the old status field.',
-    enum: CheckpointStatus, example: CheckpointStatus.ACTIVE
+    enum: CheckpointStatus, example: CheckpointStatus.OPEN
   })
   oldStatus: CheckpointStatus;
 
@@ -94,19 +172,46 @@ export class CheckpointStatusHistoryResponseDto {
 
 export class CheckpointHistoryEnvelopeResponseDto {
   @ApiProperty({
-    description: 'Describes the data field.',
+    description: 'Checkpoint identifier.',
+    example: 8,
+  })
+  checkpointId: number;
+
+  @ApiProperty({
+    description: 'Checkpoint display name.',
+    example: 'Huwara Checkpoint',
+  })
+  checkpointName: string;
+
+  @ApiProperty({
+    description: 'Checkpoint location label.',
+    example: 'South Nablus, Route 60',
+    required: false,
+  })
+  location?: string;
+
+  @ApiProperty({
+    description: 'Current checkpoint status.',
+    enum: CheckpointStatus,
+    example: CheckpointStatus.CLOSED,
+  })
+  currentStatus: CheckpointStatus;
+
+  @ApiProperty({
+    description: 'Newest-first checkpoint status history.',
     type: [CheckpointStatusHistoryResponseDto],
     example: [
       {
         id: 48,
-        oldStatus: 'active',
-        newStatus: 'delayed',
+        checkpointId: 8,
+        oldStatus: 'OPEN',
+        newStatus: 'DELAYED',
         changedByUserId: 7,
         changedAt: '2026-04-13T09:10:00.000Z',
       },
     ],
   })
-  data: CheckpointStatusHistoryResponseDto[];
+  history: CheckpointStatusHistoryResponseDto[];
 }
 
 export class CheckpointPaginatedResponseDto {
@@ -120,7 +225,7 @@ export class CheckpointPaginatedResponseDto {
         latitude: 32.205,
         longitude: 35.284,
         location: 'South Nablus, Route 60',
-        currentStatus: 'active',
+        currentStatus: 'OPEN',
         description: 'Military gate with document checks.',
         createdAt: '2026-04-13T07:15:00.000Z',
         updatedAt: '2026-04-13T09:20:00.000Z',

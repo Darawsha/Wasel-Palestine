@@ -36,6 +36,37 @@ function readTotal(response) {
   return 0;
 }
 
+function normalizeReportCategorySummary(response) {
+  const rawCategories = Array.isArray(response?.categories)
+    ? response.categories
+    : Array.isArray(response?.data)
+      ? response.data
+      : [];
+  const categories = rawCategories
+    .map((item) => {
+      const count = Number(item?.count);
+      const percentage = Number(item?.percentage);
+
+      return {
+        category: String(item?.category || '').trim(),
+        label: String(item?.label || item?.category || 'Other').trim(),
+        count: Number.isFinite(count) && count >= 0 ? count : 0,
+        percentage:
+          Number.isFinite(percentage) && percentage >= 0 ? percentage : 0,
+      };
+    })
+    .filter((item) => item.category);
+  const totalFromResponse = Number(response?.total);
+  const total = Number.isFinite(totalFromResponse) && totalFromResponse >= 0
+    ? totalFromResponse
+    : categories.reduce((sum, item) => sum + item.count, 0);
+
+  return {
+    total,
+    categories,
+  };
+}
+
 function normalizePositiveInteger(value, fallback) {
   const normalizedValue = Number(value);
   return Number.isFinite(normalizedValue) && normalizedValue > 0
@@ -238,6 +269,19 @@ export async function getPendingReportsCount() {
   } catch (err) {
     console.error('Failed to fetch pending reports count', err);
     return 0;
+  }
+}
+
+export async function getReportsCategorySummary() {
+  try {
+    const response = await apiGet('/reports/category-summary');
+    return normalizeReportCategorySummary(response);
+  } catch (err) {
+    console.error('Failed to fetch reports category summary', err);
+    return {
+      total: 0,
+      categories: [],
+    };
   }
 }
 

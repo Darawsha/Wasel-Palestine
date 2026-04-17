@@ -19,3 +19,9 @@ export function deleteIncident(id) {
     method: 'DELETE',
   });
 }
+
+export function getIncidentHistory(id) {
+  return apiRequest(`/incidents/${id}/history`, {
+    method: 'GET',
+  });
+}

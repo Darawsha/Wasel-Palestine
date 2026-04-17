@@ -210,6 +210,13 @@
   font-weight: 700;
 }
 
+.status-stack {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+  align-items: center;
+}
+
 .status-open {
   background-color: var(--badge-low-bg);
   color: var(--badge-low-color);
@@ -440,4 +447,201 @@ textarea.input-error {
 
 .nav-btn .material-symbols-outlined {
   font-size: 1rem;
+}
+
+.checkpoint-history-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background-color: rgba(15, 23, 42, 0.4);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity 0.2s ease,
+    visibility 0.2s ease;
+}
+
+.checkpoint-history-overlay.show {
+  opacity: 1;
+  visibility: visible;
+}
+
+.checkpoint-history-modal {
+  width: min(100%, 460px);
+  max-height: min(86vh, 620px);
+  display: flex;
+  flex-direction: column;
+  background-color: var(--surface-bg, #ffffff);
+  color: var(--text-dark, #0f172a);
+  border: 1px solid var(--um-border, #e2e8f0);
+  border-radius: 12px;
+  box-shadow:
+    0 20px 45px -15px rgba(15, 23, 42, 0.35),
+    0 10px 20px -12px rgba(15, 23, 42, 0.2);
+  overflow: hidden;
+  transform: translateY(12px) scale(0.98);
+  transition: transform 0.2s ease;
+}
+
+.checkpoint-history-overlay.show .checkpoint-history-modal {
+  transform: translateY(0) scale(1);
+}
+
+.checkpoint-history-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1.25rem 1.25rem 1rem;
+  border-bottom: 1px solid var(--um-border, #e2e8f0);
+}
+
+.checkpoint-history-title {
+  margin: 0;
+  font-family: var(--font-heading);
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: var(--text-dark, #0f172a);
+}
+
+.checkpoint-history-subtitle {
+  margin: 0.25rem 0 0;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-muted, #64748b);
+}
+
+.checkpoint-history-close {
+  width: 2rem;
+  height: 2rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  border: none;
+  border-radius: 0.5rem;
+  background-color: transparent;
+  color: var(--text-muted, #64748b);
+  cursor: pointer;
+  transition:
+    background-color 0.2s,
+    color 0.2s;
+}
+
+.checkpoint-history-close:hover {
+  background-color: var(--bg-hover, #f8fafc);
+  color: var(--text-dark, #0f172a);
+}
+
+.checkpoint-history-summary {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.75rem;
+  padding: 1rem 1.25rem;
+  background-color: var(--bg-hover, #f8fafc);
+  border-bottom: 1px solid var(--um-border, #e2e8f0);
+}
+
+.checkpoint-history-label {
+  display: block;
+  margin-bottom: 0.25rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--text-muted, #64748b);
+  text-transform: uppercase;
+}
+
+.checkpoint-history-location {
+  display: block;
+  font-size: 0.875rem;
+  color: var(--text-dark, #0f172a);
+  overflow-wrap: anywhere;
+}
+
+.checkpoint-history-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1rem 1.25rem 1.25rem;
+  overflow-y: auto;
+}
+
+.checkpoint-history-state {
+  padding: 1rem;
+  border: 1px dashed var(--um-border, #e2e8f0);
+  border-radius: 8px;
+  background-color: var(--bg-hover, #f8fafc);
+  color: var(--text-muted, #64748b);
+  font-size: 0.875rem;
+  text-align: center;
+}
+
+.checkpoint-history-state.is-error {
+  border-color: var(--um-alert-strong, #dc3545);
+  background-color: rgba(220, 53, 69, 0.08);
+  color: var(--um-alert-strong, #dc3545);
+}
+
+.checkpoint-history-state.is-empty {
+  background-color: transparent;
+}
+
+.checkpoint-history-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.875rem;
+  border: 1px solid var(--um-border, #e2e8f0);
+  border-radius: 8px;
+  background-color: var(--surface-bg, #ffffff);
+}
+
+.checkpoint-history-item-title {
+  margin: 0 0 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--text-muted, #64748b);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.checkpoint-history-transition {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 0;
+}
+
+.checkpoint-history-arrow {
+  color: var(--text-muted, #64748b);
+  font-weight: 700;
+}
+
+.checkpoint-history-time {
+  flex: 0 0 auto;
+  max-width: 8.5rem;
+  color: var(--text-muted, #64748b);
+  font-size: 0.8rem;
+  text-align: right;
+}
+
+@media (max-width: 520px) {
+  .checkpoint-history-item {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .checkpoint-history-time {
+    max-width: none;
+    text-align: left;
+  }
 }

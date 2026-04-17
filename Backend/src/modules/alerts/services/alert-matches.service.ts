@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 
@@ -12,6 +12,8 @@ import { ReportCategory } from '../../reports/enums/report-category.enum';
 import { ReportStatus } from '../../reports/enums/report-status.enum';
 import { AlertPreference } from '../entities/alert-preference.entity';
 import { AlertsValidationService } from './alerts-validation.service';
+import { PUBLIC_MODERATION_STATUSES } from '../../../common/enums/moderation-status.enum';
+import { User } from '../../users/entities/user.entity';
 
 type AlertPreferenceGroup = {
   key: string;
@@ -69,6 +71,8 @@ export class AlertMatchesService {
     private readonly incidentsRepository: Repository<Incident>,
     @InjectRepository(Report)
     private readonly reportsRepository: Repository<Report>,
+    @InjectRepository(User)
+    private readonly usersRepository: Repository<User>,
     private readonly alertsValidationService: AlertsValidationService,
   ) {}
 
@@ -109,6 +113,60 @@ export class AlertMatchesService {
         matchCount: currentMatches.length,
       };
     });
+  }
+
+  async getUnreadMatchesCount(userId: number) {
+    const user = await this.findUserForAlertState(userId);
+    const lastViewedAt = user.lastAlertsViewedAt ?? null;
+    const lastViewedTime = this.toTimeValue(lastViewedAt, 0);
+    const overview = await this.getUserAlertOverview(user.id);
+    const seenMatchIds = new Set<string>();
+    let unreadCount = 0;
+
+    overview.forEach((subscription) => {
+      subscription.currentMatches
+        .filter((match) => match.sourceType === 'incident' || match.sourceType === 'checkpoint')
+        .forEach((match) => {
+          if (seenMatchIds.has(match.id)) {
+            return;
+          }
+
+          seenMatchIds.add(match.id);
+
+          if (this.toTimeValue(match.createdAt, 0) > lastViewedTime) {
+            unreadCount += 1;
+          }
+        });
+    });
+
+    return {
+      unreadCount,
+      lastAlertsViewedAt: lastViewedAt,
+    };
+  }
+
+  async markAllMatchesViewed(userId: number) {
+    const user = await this.findUserForAlertState(userId);
+    user.lastAlertsViewedAt = new Date();
+    await this.usersRepository.save(user);
+
+    return {
+      unreadCount: 0,
+      lastAlertsViewedAt: user.lastAlertsViewedAt,
+    };
+  }
+
+  private async findUserForAlertState(userId: number): Promise<User> {
+    const validatedUserId = this.alertsValidationService.ensureValidUserId(userId);
+    const user = await this.usersRepository.findOne({
+      where: { id: validatedUserId },
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    return user;
   }
 
   private groupPreferences(preferences: AlertPreference[]): AlertPreferenceGroup[] {
@@ -184,6 +242,7 @@ export class AlertMatchesService {
         type: In(categories),
         status: IncidentStatus.ACTIVE,
         isVerified: true,
+        moderationStatus: In(PUBLIC_MODERATION_STATUSES),
       },
       relations: {
         checkpoint: true,
@@ -210,6 +269,7 @@ export class AlertMatchesService {
     return this.checkpointsRepository.find({
       where: {
         currentStatus: In(statuses),
+        moderationStatus: In(PUBLIC_MODERATION_STATUSES),
       },
       order: {
         updatedAt: 'DESC',
@@ -329,7 +389,7 @@ export class AlertMatchesService {
       statusKey: String(incident.status || '').trim() || null,
       severityKey: String(incident.severity || '').trim().toUpperCase() || null,
       isVerified: Boolean(incident.isVerified),
-      createdAt: incident.updatedAt ?? incident.createdAt ?? null,
+      createdAt: incident.createdAt ?? null,
     };
   }
 
@@ -352,7 +412,7 @@ export class AlertMatchesService {
       statusKey: String(checkpoint.currentStatus || '').trim() || null,
       severityKey: null,
       isVerified: null,
-      createdAt: checkpoint.updatedAt ?? checkpoint.createdAt ?? null,
+      createdAt: checkpoint.createdAt ?? null,
     };
   }
 
@@ -444,7 +504,7 @@ export class AlertMatchesService {
 
   private formatCheckpointStatusLabel(status: CheckpointStatus): string {
     switch (status) {
-      case CheckpointStatus.ACTIVE:
+      case CheckpointStatus.OPEN:
         return 'Open';
       case CheckpointStatus.CLOSED:
         return 'Closed';

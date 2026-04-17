@@ -15,6 +15,9 @@ export class CheckpointStatusHistory {
   @PrimaryGeneratedColumn()
   id: number;
 
+  @Column({ type: 'int' })
+  checkpointId: number;
+
   @ManyToOne(() => Checkpoint, (checkpoint) => checkpoint.statusHistory, {
     onDelete: 'CASCADE',
   })

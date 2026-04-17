@@ -1,5 +1,6 @@
 import { confirmAndDeleteIncident } from '/features/admin/incidents/delete_btn.js';
 import { openEditIncidentModal } from '/features/admin/incidents/EditIncident_btn.js';
+import { openIncidentHistoryModal } from '/features/admin/incidents/IncidentHistoryModal.js';
 
 const ACTION_MENU_ID = 'incident-actions-floating-menu';
 
@@ -33,7 +34,7 @@ function ensureActionMenu() {
   menuRoot.id = ACTION_MENU_ID;
   menuRoot.className = 'incident-actions-floating-menu';
   menuRoot.innerHTML = `
-    <button class="dropdown-item" type="button" data-incident-action="edit">
+    <button class="dropdown-item" type="button" data-incident-action="edit" data-incident-edit-action>
       <span class="material-symbols-outlined">edit</span>
       Update incident
     </button>
@@ -41,7 +42,7 @@ function ensureActionMenu() {
       <span class="material-symbols-outlined">history</span>
       History
     </button>
-    <button class="dropdown-item text-danger" type="button" data-incident-action="delete">
+    <button class="dropdown-item text-danger" type="button" data-incident-action="delete" data-incident-delete-action>
       <span class="material-symbols-outlined">delete</span>
       Delete incident
     </button>
@@ -67,11 +68,14 @@ function ensureActionMenu() {
       return;
     }
 
+    if (actionButton.dataset.incidentAction === 'history') {
+      await openIncidentHistoryModal(incident);
+      return;
+    }
+
     if (actionButton.dataset.incidentAction === 'delete') {
       await confirmAndDeleteIncident(incident);
     }
-
-    // history
 
   });
 
@@ -95,6 +99,15 @@ function ensureActionMenu() {
   }
 
   return menuRoot;
+}
+
+function updatePendingActions(incident) {
+  const menu = ensureActionMenu();
+  void incident;
+
+  menu.querySelectorAll('[data-incident-edit-action], [data-incident-delete-action]').forEach((button) => {
+    button.hidden = false;
+  });
 }
 
 function positionActionMenu(triggerButton) {
@@ -161,6 +174,7 @@ export function bindIncidentActionMenus(root, options = {}) {
 
     const menu = ensureActionMenu();
     menu.dataset.incidentId = String(incidentId);
+    updatePendingActions(actionContext.getIncidentById?.(incidentId));
     activeTrigger = triggerButton;
     activeTrigger.classList.add('is-open');
     activeTrigger.setAttribute('aria-expanded', 'true');

@@ -85,7 +85,7 @@ export class AlertNotificationService {
 
     if (event.trigger === IncidentAlertTrigger.RESOLVED) {
       if (checkpointName) {
-        return `Resolved: The ${typeLabel} incident affecting ${checkpointName} has been resolved. The checkpoint is now ${this.formatCheckpointStatusLabel(CheckpointStatus.ACTIVE)}.`;
+        return `Resolved: The ${typeLabel} incident affecting ${checkpointName} has been resolved. The checkpoint is now ${this.formatCheckpointStatusLabel(CheckpointStatus.OPEN)}.`;
       }
 
       return `Resolved: The ${typeLabel} incident in ${geographicArea} has been resolved.`;
@@ -145,7 +145,7 @@ export class AlertNotificationService {
   }
 
   private formatCheckpointStatusLabel(status: CheckpointStatus): string {
-    if (status === CheckpointStatus.ACTIVE) {
+    if (status === CheckpointStatus.OPEN) {
       return 'Open';
     }
 

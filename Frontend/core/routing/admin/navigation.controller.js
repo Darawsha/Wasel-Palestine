@@ -56,10 +56,16 @@
 
         // 🔹 6. Load scripts
         if (assets) {
-            runtime
+            await runtime
                 .loadPageScripts?.(assets)
                 ?.catch((err) => console.error("Admin assets load failed:", err));
         }
+
+        global.dispatchEvent(
+            new CustomEvent("admin:route-loaded", {
+                detail: { routeKey },
+            })
+        );
 
         // 🔹 7. Show content (after CSS applied)
         requestAnimationFrame(() => {
@@ -88,7 +94,7 @@
 
     // Prevent duplicate navigation
     if (nextRoute === currentRoute) {
-      runtime.applyPageChrome?.(currentRoute);
+      handleLocation();
       return;
     }
 

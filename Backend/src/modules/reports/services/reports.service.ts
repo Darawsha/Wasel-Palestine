@@ -70,6 +70,20 @@ type ReportModerationSummary = {
   latestActionAt: Date | null;
 };
 
+type ReportCategoryCountRow = {
+  category: ReportCategory;
+  count: string;
+};
+
+const REPORT_CATEGORY_LABELS: Record<ReportCategory, string> = {
+  [ReportCategory.ROAD_CLOSURE]: 'Closure',
+  [ReportCategory.DELAY]: 'Delay',
+  [ReportCategory.ACCIDENT]: 'Accident',
+  [ReportCategory.HAZARD]: 'Weather',
+  [ReportCategory.CHECKPOINT_ISSUE]: 'Checkpoint Issue',
+  [ReportCategory.OTHER]: 'Other',
+};
+
 @Injectable()
 export class ReportsService {
   constructor(
@@ -255,6 +269,49 @@ export class ReportsService {
     }
 
     return queryBuilder.orderBy('report.updatedAt', 'DESC').getMany();
+  }
+
+  async getCategorySummary() {
+    const categoryRows = await this.reportRepo
+      .createQueryBuilder('report')
+      .select('report.category', 'category')
+      .addSelect('COUNT(*)', 'count')
+      .groupBy('report.category')
+      .getRawMany<ReportCategoryCountRow>();
+
+    const countsByCategory = categoryRows.reduce(
+      (accumulator, row) => {
+        accumulator[row.category] = Number(row.count) || 0;
+        return accumulator;
+      },
+      Object.values(ReportCategory).reduce(
+        (accumulator, category) => {
+          accumulator[category] = 0;
+          return accumulator;
+        },
+        {} as Record<ReportCategory, number>,
+      ),
+    );
+
+    const total = Object.values(countsByCategory).reduce(
+      (sum, count) => sum + count,
+      0,
+    );
+
+    return {
+      total,
+      categories: Object.values(ReportCategory).map((category) => ({
+        category,
+        label: REPORT_CATEGORY_LABELS[category],
+        count: countsByCategory[category] ?? 0,
+        percentage:
+          total > 0
+            ? Number(
+                (((countsByCategory[category] ?? 0) / total) * 100).toFixed(1),
+              )
+            : 0,
+      })),
+    };
   }
 
   private async findReportsPage(

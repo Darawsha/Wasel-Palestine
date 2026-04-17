@@ -52,6 +52,10 @@
     return error?.message || 'Unable to complete this request.';
   }
 
+  function isPreviewMode() {
+    return global.CitizenPreview?.isActive?.() === true;
+  }
+
   function isManageLockedStatus(status) {
     const normalizedStatus = String(status || '').trim().toLowerCase();
     return normalizedStatus === 'approved' || normalizedStatus === 'resolved';
@@ -480,14 +484,24 @@
         try {
           if (action === 'upvote') {
             await dependencies.controller.voteCommunityReport(reportId, 'UP');
-            notify('success', 'Upvote recorded.');
+            notify(
+              'success',
+              isPreviewMode()
+                ? 'Preview upvote recorded. Nothing was saved.'
+                : 'Upvote recorded.',
+            );
             await loadCommunityReports();
             return;
           }
 
           if (action === 'downvote') {
             await dependencies.controller.voteCommunityReport(reportId, 'DOWN');
-            notify('success', 'Downvote recorded.');
+            notify(
+              'success',
+              isPreviewMode()
+                ? 'Preview downvote recorded. Nothing was saved.'
+                : 'Downvote recorded.',
+            );
             await loadCommunityReports();
             return;
           }
@@ -527,7 +541,12 @@
             }
 
             await dependencies.controller.deleteCitizenReport(reportId);
-            notify('success', 'Report deleted successfully.');
+            notify(
+              'success',
+              isPreviewMode()
+                ? 'Preview report removed. Nothing was saved.'
+                : 'Report deleted successfully.',
+            );
             global.document.dispatchEvent(
               new global.CustomEvent('citizen:report-deleted'),
             );

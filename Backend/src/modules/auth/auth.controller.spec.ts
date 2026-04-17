@@ -62,4 +62,25 @@ describe('AuthController', () => {
       profileImage: null,
     });
   });
+
+  it('should accept the JWT sub claim as the authenticated user id', () => {
+    controller.updateProfile(
+      {
+        user: {
+          sub: 12,
+          email: 'admin@example.com',
+          role: 'admin',
+        },
+      },
+      {
+        firstname: 'Admin',
+        lastname: 'Updated',
+      },
+    );
+
+    expect(authServiceMock.updateProfile).toHaveBeenCalledWith(12, {
+      firstname: 'Admin',
+      lastname: 'Updated',
+    });
+  });
 });

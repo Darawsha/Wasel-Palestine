@@ -1,6 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { PaginationMetaResponseDto } from '../../../common/dto/common-response.dto';
 import { UserRole } from '../../../common/enums/user-role.enum';
+import { PrimaryLanguage } from '../../system-settings/enums/primary-language.enum';
 
 export class UserResponseDto {
   @ApiProperty({
@@ -46,6 +47,13 @@ export class UserResponseDto {
   address?: string | null;
 
   @ApiProperty({
+    description: 'User-specific application language preference.',
+    enum: PrimaryLanguage,
+    example: PrimaryLanguage.ENGLISH
+  })
+  language: PrimaryLanguage;
+
+  @ApiProperty({
     description: 'Describes the created at field.',
     example: '2026-04-13T08:00:00.000Z'
   })
@@ -71,6 +79,7 @@ export class UserPaginatedResponseDto {
         role: 'citizen',
         phone: '0599123456',
         address: 'Ramallah - Al-Tireh',
+        language: 'English',
         createdAt: '2026-04-13T08:00:00.000Z',
         updatedAt: '2026-04-13T09:05:00.000Z',
       },

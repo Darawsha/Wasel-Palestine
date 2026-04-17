@@ -9,6 +9,7 @@ import { Checkpoint } from './entities/checkpoint.entity';
 import { CheckpointStatusHistory } from './entities/status-history.entity';
 import { CheckpointStatus } from './enums/checkpoint-status.enum';
 import { CheckpointsService } from './checkpoints.service';
+import { AuditLogService } from '../audit-log/audit-log.service';
 
 describe('CheckpointsService', () => {
   let service: CheckpointsService;
@@ -27,6 +28,9 @@ describe('CheckpointsService', () => {
     create: jest.Mock;
     save: jest.Mock;
   };
+  let auditLogService: {
+    record: jest.Mock;
+  };
 
   const checkpoint = {
     id: 7,
@@ -34,7 +38,7 @@ describe('CheckpointsService', () => {
     location: 'Qalandiya Checkpoint',
     latitude: 31.8571,
     longitude: 35.2177,
-    currentStatus: CheckpointStatus.ACTIVE,
+    currentStatus: CheckpointStatus.OPEN,
   } as Checkpoint;
 
   beforeEach(async () => {
@@ -183,6 +187,9 @@ describe('CheckpointsService', () => {
         transaction: jest.fn(async (callback) => callback(manager)),
       },
     };
+    auditLogService = {
+      record: jest.fn(async () => undefined),
+    };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -198,6 +205,10 @@ describe('CheckpointsService', () => {
         {
           provide: getRepositoryToken(Incident),
           useValue: {},
+        },
+        {
+          provide: AuditLogService,
+          useValue: auditLogService,
         },
       ],
     }).compile();
@@ -244,14 +255,88 @@ describe('CheckpointsService', () => {
       service.update(
         checkpoint.id,
         {
-          currentStatus: CheckpointStatus.ACTIVE,
+          currentStatus: CheckpointStatus.OPEN,
         },
         11,
       ),
     ).rejects.toThrow('Status is locked by an active incident');
   });
 
-  it('cascades location updates to linked active incidents only', async () => {
+  it('records checkpoint history when a pending status change is approved', async () => {
+    await service.update(
+      checkpoint.id,
+      {
+        currentStatus: CheckpointStatus.DELAYED,
+      },
+      12,
+    );
+
+    expect(checkpointStatusHistoryRepository.create).not.toHaveBeenCalled();
+
+    await service.approve(checkpoint.id, 12);
+
+    expect(checkpointStatusHistoryRepository.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        checkpointId: checkpoint.id,
+        oldStatus: CheckpointStatus.OPEN,
+        newStatus: CheckpointStatus.DELAYED,
+        changedByUserId: 12,
+      }),
+    );
+    expect(checkpointStatusHistoryRepository.save).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not record checkpoint history when status does not change', async () => {
+    await service.update(
+      checkpoint.id,
+      {
+        location: 'Updated checkpoint location',
+      },
+      12,
+    );
+
+    expect(checkpointStatusHistoryRepository.create).not.toHaveBeenCalled();
+    expect(checkpointStatusHistoryRepository.save).not.toHaveBeenCalled();
+  });
+
+  it('returns checkpoint history newest first with checkpoint metadata', async () => {
+    const changedAt = new Date('2026-04-17T00:31:00.000Z');
+
+    checkpointStatusHistoryRepository.find.mockResolvedValueOnce([
+      {
+        id: 101,
+        checkpointId: checkpoint.id,
+        oldStatus: CheckpointStatus.DELAYED,
+        newStatus: CheckpointStatus.CLOSED,
+        changedByUserId: 12,
+        changedAt,
+      },
+    ]);
+
+    await expect(service.getHistory(checkpoint.id)).resolves.toEqual({
+      checkpointId: checkpoint.id,
+      checkpointName: checkpoint.name,
+      location: checkpoint.location,
+      currentStatus: CheckpointStatus.OPEN,
+      history: [
+        {
+          id: 101,
+          checkpointId: checkpoint.id,
+          oldStatus: CheckpointStatus.DELAYED,
+          newStatus: CheckpointStatus.CLOSED,
+          changedByUserId: 12,
+          changedAt,
+        },
+      ],
+    });
+
+    expect(checkpointStatusHistoryRepository.find).toHaveBeenCalledWith({
+      where: { checkpointId: checkpoint.id },
+      order: { changedAt: 'DESC', id: 'DESC' },
+    });
+  });
+
+  it('cascades approved location updates to linked active incidents only', async () => {
     incidentStore.push(
       {
         id: 91,
@@ -289,11 +374,29 @@ describe('CheckpointsService', () => {
 
     expect(updatedCheckpoint).toEqual(
       expect.objectContaining({
-        location: 'Updated checkpoint location',
-        latitude: 31.9,
-        longitude: 35.3,
+        location: checkpoint.location,
+        latitude: checkpoint.latitude,
+        longitude: checkpoint.longitude,
+        moderationStatus: 'PENDING_UPDATE',
+        pendingChanges: expect.objectContaining({
+          location: 'Updated checkpoint location',
+          latitude: 31.9,
+          longitude: 35.3,
+        }),
       }),
     );
+    expect(
+      incidentStore.find((incident) => incident.id === 91),
+    ).toEqual(
+      expect.objectContaining({
+        location: checkpoint.location,
+        latitude: checkpoint.latitude,
+        longitude: checkpoint.longitude,
+      }),
+    );
+
+    await service.approve(checkpoint.id, 12);
+
     expect(
       incidentStore.find((incident) => incident.id === 91),
     ).toEqual(

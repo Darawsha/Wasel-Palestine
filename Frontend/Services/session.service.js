@@ -4,8 +4,30 @@ const USER_KEY = 'user';
 const TOKEN_KEY = 'token';
 const LEGACY_TOKEN_KEY = 'jwtToken';
 const PROFILE_IMAGE_KEY = 'profileImage';
+const USER_LANGUAGE_KEY = 'wasel.user.language';
 const LEGACY_PROFILE_OVERRIDES_KEY = 'wasel.admin.profile.overrides';
 const SIGN_IN_PATH = '/features/public/auth/signin_signup.html';
+const ALLOWED_LANGUAGES = new Set(['English', 'Arabic']);
+
+function normalizeLanguage(value) {
+  const normalizedValue = String(value || '').trim();
+  return ALLOWED_LANGUAGES.has(normalizedValue) ? normalizedValue : '';
+}
+
+function getUserLanguage(user) {
+  return normalizeLanguage(user?.language || user?.preferredLanguage);
+}
+
+function notifyUserUpdated(user) {
+  window.dispatchEvent(
+    new CustomEvent('wasel:user-updated', {
+      detail: {
+        user,
+        language: getUserLanguage(user) || null,
+      },
+    }),
+  );
+}
 
 export function setCurrentUser(user, token) {
   if (user) {
@@ -17,6 +39,15 @@ export function setCurrentUser(user, token) {
     } else {
       window.localStorage?.removeItem(PROFILE_IMAGE_KEY);
     }
+
+    const language = getUserLanguage(user);
+    if (language) {
+      window.localStorage?.setItem(USER_LANGUAGE_KEY, language);
+    } else {
+      window.localStorage?.removeItem(USER_LANGUAGE_KEY);
+    }
+
+    notifyUserUpdated(user);
   }
 
   if (token) {
@@ -43,6 +74,7 @@ export function clearCurrentUser() {
   window.localStorage?.removeItem(TOKEN_KEY);
   window.localStorage?.removeItem(LEGACY_TOKEN_KEY);
   window.localStorage?.removeItem(PROFILE_IMAGE_KEY);
+  window.localStorage?.removeItem(USER_LANGUAGE_KEY);
   window.localStorage?.removeItem(LEGACY_PROFILE_OVERRIDES_KEY);
 }
 
