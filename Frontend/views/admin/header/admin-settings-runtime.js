@@ -702,15 +702,6 @@ function applyPageLanguage() {
   });
 }
 
-function restorePageLanguageSources() {
-  const pageRoot = document.getElementById('flexible_main');
-  if (!pageRoot) return;
-
-  pageRoot.querySelectorAll('[data-i18n-source-text]').forEach((element) => {
-    setTranslatableElementText(element, element.dataset.i18nSourceText);
-  });
-}
-
 function applyAdminSystemSettings(settings) {
   currentSettings = normalizeSettings(settings);
   window.AdminSystemSettings = {
