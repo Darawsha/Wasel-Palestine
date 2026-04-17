@@ -192,7 +192,6 @@ const TRANSLATIONS = {
     'Weather': 'الطقس',
     'Routing': 'التوجيه',
     'Map Server': 'خادم الخريطة',
-    'Weather API': 'API الطقس',
     'Routing API': 'API التوجيه',
     'Endpoint': 'نقطة النهاية',
     'Response Code': 'رمز الاستجابة',
@@ -356,38 +355,6 @@ function setElementText(element, value) {
   if (element) {
     element.textContent = value;
   }
-}
-
-function getTranslatableElementText(element) {
-  if (element.dataset.i18nSourceText) {
-    return element.dataset.i18nSourceText;
-  }
-
-  const directText = Array.from(element.childNodes)
-    .filter((node) => node.nodeType === Node.TEXT_NODE)
-    .map((node) => node.textContent.trim())
-    .filter(Boolean)
-    .join(' ')
-    .trim();
-
-  return directText || element.textContent.trim();
-}
-
-function setTranslatableElementText(element, value) {
-  const textNodes = Array.from(element.childNodes).filter(
-    (node) => node.nodeType === Node.TEXT_NODE,
-  );
-
-  if (textNodes.length > 0) {
-    textNodes[textNodes.length - 1].textContent = element.children.length
-      ? ` ${value}`
-      : value;
-    return;
-  }
-
-  element.appendChild(
-    document.createTextNode(element.children.length ? ` ${value}` : value),
-  );
 }
 
 function shouldSkipElement(element) {

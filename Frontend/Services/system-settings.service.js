@@ -23,7 +23,10 @@ const DEFAULT_PRIMARY_LANGUAGE = 'English';
 const ALLOWED_PRIMARY_LANGUAGES = new Set(['English', 'Arabic']);
 
 let cachedEnv = null;
-let runtimeSecretOverrides = Object.create(null);
+let runtimeSecretOverrides = {
+  applied: Object.create(null),
+  draft: Object.create(null),
+};
 
 function hasOwn(object, key) {
   return Object.prototype.hasOwnProperty.call(object, key);
@@ -42,6 +45,77 @@ function readJsonStorage(key) {
 function writeJsonStorage(key, value) {
   window.localStorage?.setItem(key, JSON.stringify(value));
   return value;
+}
+
+// Keep API keys in memory so the UI can rehydrate them without writing secrets to localStorage.
+function captureRuntimeSecretOverrides(snapshot, scope) {
+  if (!hasOwn(runtimeSecretOverrides, scope)) {
+    return;
+  }
+
+  if (!snapshot || typeof snapshot !== 'object') {
+    runtimeSecretOverrides[scope] = Object.create(null);
+    return;
+  }
+
+  const scopedOverrides = runtimeSecretOverrides[scope];
+
+  SECRET_FIELDS.forEach((field) => {
+    if (!hasOwn(snapshot, field)) {
+      return;
+    }
+
+    const normalizedValue = String(snapshot[field] || '').trim();
+    if (normalizedValue) {
+      scopedOverrides[field] = normalizedValue;
+      return;
+    }
+
+    delete scopedOverrides[field];
+  });
+}
+
+function applyRuntimeSecretOverrides(snapshot, scope) {
+  if (!hasOwn(runtimeSecretOverrides, scope)) {
+    return snapshot;
+  }
+
+  if (!snapshot || typeof snapshot !== 'object') {
+    return snapshot;
+  }
+
+  const hydratedSnapshot = { ...snapshot };
+  const scopedOverrides = runtimeSecretOverrides[scope];
+
+  SECRET_FIELDS.forEach((field) => {
+    if (hasOwn(scopedOverrides, field)) {
+      hydratedSnapshot[field] = scopedOverrides[field];
+    }
+  });
+
+  return hydratedSnapshot;
+}
+
+function clearRuntimeSecretOverrides(scope) {
+  if (hasOwn(runtimeSecretOverrides, scope)) {
+    runtimeSecretOverrides[scope] = Object.create(null);
+  }
+}
+
+function sanitizeSnapshotForStorage(snapshot) {
+  if (!snapshot || typeof snapshot !== 'object') {
+    return snapshot;
+  }
+
+  const sanitizedSnapshot = { ...snapshot };
+
+  SECRET_FIELDS.forEach((field) => {
+    if (hasOwn(sanitizedSnapshot, field)) {
+      sanitizedSnapshot[field] = '';
+    }
+  });
+
+  return sanitizedSnapshot;
 }
 
 function normalizePrimaryLanguage(value) {
@@ -328,7 +402,10 @@ export async function loadSystemSettingsSnapshot() {
       }
     : baseSnapshot;
 
-  const hydratedSnapshot = applyRuntimeSecretOverrides(snapshot);
+  let hydratedSnapshot = applyRuntimeSecretOverrides(snapshot, 'applied');
+  if (draft) {
+    hydratedSnapshot = applyRuntimeSecretOverrides(hydratedSnapshot, 'draft');
+  }
   const linkedApis = buildLinkedApis(
     hydratedSnapshot.apiBaseUrl,
     hydratedSnapshot,
@@ -351,11 +428,13 @@ export async function loadSystemSettingsSnapshot() {
 }
 
 export function saveSystemSettingsDraft(draft) {
-  captureRuntimeSecretOverrides(draft);
+  captureRuntimeSecretOverrides(draft, 'draft');
   return writeJsonStorage(DRAFT_STORAGE_KEY, sanitizeSnapshotForStorage(draft));
 }
 
 export async function applySystemSettings(snapshot) {
+  captureRuntimeSecretOverrides(snapshot, 'applied');
+  clearRuntimeSecretOverrides('draft');
   const persistedGeneralSettings = await persistGeneralSettings(snapshot);
   const baseAppliedSnapshot = {
     ...snapshot,
@@ -364,7 +443,10 @@ export async function applySystemSettings(snapshot) {
     configSource: 'Saved Runtime Override',
   };
 
-  const hydratedSnapshot = applyRuntimeSecretOverrides(baseAppliedSnapshot);
+  const hydratedSnapshot = applyRuntimeSecretOverrides(
+    baseAppliedSnapshot,
+    'applied',
+  );
   const appliedSnapshot = {
     ...hydratedSnapshot,
     linkedApis: buildLinkedApis(hydratedSnapshot.apiBaseUrl, hydratedSnapshot),
@@ -388,6 +470,7 @@ export async function applySystemSettings(snapshot) {
 }
 
 export async function resetSystemSettingsDraft() {
+  clearRuntimeSecretOverrides('draft');
   window.localStorage?.removeItem(DRAFT_STORAGE_KEY);
   return loadSystemSettingsSnapshot();
 }
