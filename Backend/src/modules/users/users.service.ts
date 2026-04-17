@@ -13,7 +13,6 @@ import { User } from './entities/user.entity';
 import { PasswordService } from '../../core/services/password/password.service';
 import { UserRole } from '../../common/enums/user-role.enum';
 import { UserQueryDto } from './dto/user-query.dto';
-import { AlertsService } from '../alerts/alerts.service';
 import { UpdateProfileDto } from '../auth/dto/update-profile.dto';
 
 @Injectable()
@@ -23,7 +22,6 @@ export class UsersService {
     private usersRepository: Repository<User>,
 
     private passwordService: PasswordService,
-    private readonly alertsService: AlertsService,
   ) {}
 
   /**
@@ -280,7 +278,6 @@ export class UsersService {
     id: number,
     updateProfileDto: UpdateProfileDto,
   ): Promise<User> {
-    console.log('📥 updateCurrentUser - ID:', id, 'DTO:', JSON.stringify(updateProfileDto));
     const user = await this.findOneOrFail(id);
     const firstname =
       updateProfileDto.firstname !== undefined
@@ -290,7 +287,6 @@ export class UsersService {
       updateProfileDto.lastname !== undefined
         ? updateProfileDto.lastname.trim()
         : user.lastname;
-    console.log('📝 Setting user data - firstname:', firstname, 'lastname:', lastname);
 
     if (!firstname && !lastname) {
       throw new BadRequestException('A profile name is required');
@@ -339,9 +335,11 @@ export class UsersService {
     }
 
     if (updateProfileDto.profileImage !== undefined) {
-      user.profileImage = this.normalizeNullableString(
+      const normalizedProfileImage = this.normalizeNullableString(
         updateProfileDto.profileImage,
-      ) || updateProfileDto.profileImage || null;
+      );
+
+      user.profileImage = normalizedProfileImage ?? null;
       // Record when the profile image was last updated
       if (user.profileImage) {
         user.profileImageUpdatedAt = new Date();
@@ -350,10 +348,7 @@ export class UsersService {
       // Only modified through explicit Profile page updates
     }
 
-    console.log('💾 Saving user - firstname:', user.firstname, 'lastname:', user.lastname, 'profileImage exists:', !!user.profileImage);
-    const savedUser = await this.usersRepository.save(user);
-    console.log('✅ User saved successfully - ID:', savedUser.id, 'firstname:', savedUser.firstname, 'lastname:', savedUser.lastname);
-    return savedUser;
+    return this.usersRepository.save(user);
   }
 
   /**

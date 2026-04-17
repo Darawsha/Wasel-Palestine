@@ -67,7 +67,6 @@ function ensureActionMenu() {
     } else if (action === 'delete') {
       await confirmAndDeleteCheckpoint(checkpoint);
     } else if (action === 'history') {
-      console.log('History for checkpoint:', checkpointId);
       if (typeof window.showInfo === 'function') {
         window.showInfo('History feature coming soon.');
       }

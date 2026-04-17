@@ -106,16 +106,13 @@ export async function loadCurrentProfile() {
 
 export async function saveCurrentProfile(profileDraft) {
   const updatePayload = buildUpdatePayload(profileDraft);
-  console.log('🔵 Sending to DB:', updatePayload);
-  
+
   try {
     const profile = await apiPatch('/auth/profile', updatePayload);
-    console.log('✅ Received from DB:', profile);
-    
+
     setCurrentUser(profile);
     return normalizeProfile(profile);
   } catch (error) {
-    console.error('❌ Save failed:', error);
     throw error;
   }
 }

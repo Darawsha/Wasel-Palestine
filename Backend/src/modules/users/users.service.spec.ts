@@ -4,6 +4,7 @@ import { UsersService } from './users.service';
 import { User } from './entities/user.entity';
 import { PasswordService } from '../../core/services/password/password.service';
 import { UserRole } from '../../common/enums/user-role.enum';
+import { UpdateProfileDto } from '../auth/dto/update-profile.dto';
 
 describe('UsersService', () => {
   let service: UsersService;
@@ -27,6 +28,7 @@ describe('UsersService', () => {
 
   const passwordServiceMock = {
     hash: jest.fn(),
+    compare: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -88,5 +90,31 @@ describe('UsersService', () => {
         totalPages: 1,
       },
     });
+  });
+
+  it('normalizes whitespace-only profileImage to null when updating the current user', async () => {
+    const user = {
+      id: 7,
+      firstname: 'Lina',
+      lastname: 'Yousef',
+      email: 'lina@example.com',
+      profileImage: 'existing-image',
+      profileImageUpdatedAt: null,
+    } as User;
+    const updateProfileDto = {
+      profileImage: '   ',
+    } as UpdateProfileDto;
+
+    usersRepositoryMock.findOne.mockResolvedValue(user);
+    usersRepositoryMock.save.mockImplementation(async (savedUser: User) => savedUser);
+
+    const result = await service.updateCurrentUser(user.id, updateProfileDto);
+
+    expect(usersRepositoryMock.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        profileImage: null,
+      }),
+    );
+    expect(result.profileImage).toBeNull();
   });
 });

@@ -450,10 +450,8 @@
       const controller = await getDependencies();
       const state = getRootState(root);
       const draft = collectProfileDraft(root);
-      console.log('📝 Profile Draft:', draft);
-      
+
       const savedProfile = await controller.persistCurrentProfile(draft);
-      console.log('✅ Profile Saved:', savedProfile);
 
       state.latestProfile = savedProfile;
       state.draftAvatarImage = savedProfile.profileImage || '';
@@ -468,7 +466,7 @@
       );
       flashButtonState(elements.saveButton, 'Saved');
     } catch (error) {
-      console.error('❌ Failed to save citizen profile', error);
+      console.error('Failed to save citizen profile', error);
       setProfileStatus(
         elements,
         getErrorMessage(
