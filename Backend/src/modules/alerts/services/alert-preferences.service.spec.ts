@@ -1,6 +1,5 @@
 /// <reference types="jest" />
 
-import { BadRequestException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 
@@ -28,6 +27,7 @@ describe('AlertPreferencesService', () => {
   let queryBuilder: {
     where: jest.Mock;
     andWhere: jest.Mock;
+    getOne: jest.Mock;
     getMany: jest.Mock;
   };
   let transactionPreferenceRepository: {
@@ -44,6 +44,7 @@ describe('AlertPreferencesService', () => {
     queryBuilder = {
       where: jest.fn().mockReturnThis(),
       andWhere: jest.fn().mockReturnThis(),
+      getOne: jest.fn(),
       getMany: jest.fn(),
     };
 
@@ -115,6 +116,7 @@ describe('AlertPreferencesService', () => {
       incidentCategory: IncidentType.CLOSURE,
     } as AlertPreference;
 
+    queryBuilder.getOne.mockResolvedValue(null);
     queryBuilder.getMany.mockResolvedValue([]);
     transactionPreferenceRepository.save.mockResolvedValue(savedPreference);
     transactionUserRepository.findOne.mockResolvedValue({
@@ -205,20 +207,22 @@ describe('AlertPreferencesService', () => {
     );
   });
 
-  it('does not create admin notifications when a duplicate subscription exists', async () => {
-    queryBuilder.getMany.mockResolvedValue([
-      {
-        id: 'existing-pref',
-      },
-    ]);
+  it('returns the existing subscription without notifying admins when an identical active preference already exists', async () => {
+    const existingPreference = {
+      id: 'existing-pref',
+      userId: 7,
+      geographicArea: 'Nablus',
+      incidentCategory: IncidentType.CLOSURE,
+    } as AlertPreference;
 
-    await expect(
-      service.subscribeToArea(7, {
-        geographicArea: 'Nablus',
-        incidentCategory: IncidentType.CLOSURE,
-      }),
-    ).rejects.toBeInstanceOf(BadRequestException);
+    queryBuilder.getOne.mockResolvedValue(existingPreference);
 
+    const result = await service.subscribeToArea(7, {
+      geographicArea: 'Nablus',
+      incidentCategory: IncidentType.CLOSURE,
+    });
+
+    expect(result).toBe(existingPreference);
     expect(transactionPreferenceRepository.save).not.toHaveBeenCalled();
     expect(
       alertRecordsService.createPendingRecordsForSubscribers,

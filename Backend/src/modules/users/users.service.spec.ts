@@ -6,6 +6,7 @@ import { PasswordService } from '../../core/services/password/password.service';
 import { UserRole } from '../../common/enums/user-role.enum';
 import { AlertsService } from '../alerts/alerts.service';
 import { PrimaryLanguage } from '../system-settings/enums/primary-language.enum';
+import { UpdateProfileDto } from '../auth/dto/update-profile.dto';
 
 describe('UsersService', () => {
   let service: UsersService;
