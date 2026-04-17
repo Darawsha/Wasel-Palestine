@@ -136,28 +136,13 @@ export class ReportsService {
   }
 
   async findCommunityReports(query: ReportQueryDto, userId: number) {
-    const requestedStatuses =
-      Array.isArray(query.statuses) && query.statuses.length > 0
-        ? query.statuses
-        : query.status
-          ? [query.status]
-          : [];
-
-    const visibleStatuses =
-      requestedStatuses.length > 0
-        ? requestedStatuses.filter((status) =>
-            PUBLIC_COMMUNITY_REPORT_STATUSES.includes(status),
-          )
-        : [...PUBLIC_COMMUNITY_REPORT_STATUSES];
+    const visibleStatuses = this.resolveCommunityStatuses(query);
 
     return this.findReportsPage(
       {
         ...query,
         status: undefined,
-        statuses:
-          visibleStatuses.length > 0
-            ? visibleStatuses
-            : [...PUBLIC_COMMUNITY_REPORT_STATUSES],
+        statuses: visibleStatuses,
         excludeSubmittedByUserId: userId,
       },
       userId,
@@ -510,6 +495,10 @@ export class ReportsService {
     };
   }
 
+  private isAuthenticatedUserId(currentUserId?: number): currentUserId is number {
+    return Number.isInteger(currentUserId) && Number(currentUserId) > 0;
+  }
+
   private isPubliclyVisibleStatus(status: ReportStatus): boolean {
     return PUBLIC_COMMUNITY_REPORT_STATUSES.includes(status);
   }
@@ -543,7 +532,7 @@ export class ReportsService {
   }
 
   private canCurrentUserVote(report: Report, currentUserId?: number): boolean {
-    if (!Number.isInteger(currentUserId) || Number(currentUserId) <= 0) {
+    if (!this.isAuthenticatedUserId(currentUserId)) {
       return false;
     }
 
@@ -561,8 +550,7 @@ export class ReportsService {
     currentUserId?: number,
   ) {
     const isOwnReport =
-      Number.isInteger(currentUserId) &&
-      Number(currentUserId) > 0 &&
+      this.isAuthenticatedUserId(currentUserId) &&
       report.submittedByUserId === currentUserId;
     const canManage = isOwnReport && this.isOwnerEditableStatus(report.status);
 
@@ -584,19 +572,8 @@ export class ReportsService {
       isOwnReport,
       canManage,
       canVote: this.canCurrentUserVote(report, currentUserId),
-      interactionSummary: interactionSummary ?? {
-        upVotes: 0,
-        downVotes: 0,
-        totalVotes: 0,
-        confirmations: 0,
-        userVoteType: null,
-        isConfirmedByCurrentUser: false,
-      },
-      moderationSummary: moderationSummary ?? {
-        latestAction: null,
-        latestNotes: null,
-        latestActionAt: null,
-      },
+      interactionSummary: interactionSummary ?? this.createEmptyInteractionSummary(),
+      moderationSummary: moderationSummary ?? this.createEmptyModerationSummary(),
     };
   }
 
@@ -609,79 +586,75 @@ export class ReportsService {
     }
 
     const reportIds = reports.map((report) => report.reportId);
+    const hasCurrentUser = this.isAuthenticatedUserId(currentUserId);
 
-    const voteCounts = await this.voteRepo
-      .createQueryBuilder('vote')
-      .select('vote.reportId', 'reportId')
-      .addSelect('vote.type', 'type')
-      .addSelect('COUNT(*)', 'count')
-      .where('vote.reportId IN (:...reportIds)', { reportIds })
-      .groupBy('vote.reportId')
-      .addGroupBy('vote.type')
-      .getRawMany<{ reportId: string; type: VoteType; count: string }>();
+    const userVotesPromise = hasCurrentUser
+      ? this.voteRepo.find({
+          where: {
+            reportId: In(reportIds),
+            userId: currentUserId,
+          },
+        })
+      : Promise.resolve([] as ReportVote[]);
 
-    const confirmationCounts = await this.confirmRepo
-      .createQueryBuilder('confirmation')
-      .select('confirmation.reportId', 'reportId')
-      .addSelect('COUNT(*)', 'count')
-      .where('confirmation.reportId IN (:...reportIds)', { reportIds })
-      .groupBy('confirmation.reportId')
-      .getRawMany<{ reportId: string; count: string }>();
+    const userConfirmationsPromise = hasCurrentUser
+      ? this.confirmRepo.find({
+          where: {
+            reportId: In(reportIds),
+            userId: currentUserId,
+          },
+        })
+      : Promise.resolve([] as ReportConfirmation[]);
 
-    const userVotes =
-      currentUserId && Number.isInteger(currentUserId)
-        ? await this.voteRepo.find({
-            where: {
-              reportId: In(reportIds),
-              userId: currentUserId,
-            },
-          })
-        : [];
-
-    const userConfirmations =
-      currentUserId && Number.isInteger(currentUserId)
-        ? await this.confirmRepo.find({
-            where: {
-              reportId: In(reportIds),
-              userId: currentUserId,
-            },
-          })
-        : [];
+    const [
+      voteCounts,
+      confirmationCounts,
+      userVotes,
+      userConfirmations,
+      auditRows,
+    ] = await Promise.all([
+      this.voteRepo
+        .createQueryBuilder('vote')
+        .select('vote.reportId', 'reportId')
+        .addSelect('vote.type', 'type')
+        .addSelect('COUNT(*)', 'count')
+        .where('vote.reportId IN (:...reportIds)', { reportIds })
+        .groupBy('vote.reportId')
+        .addGroupBy('vote.type')
+        .getRawMany<{ reportId: string; type: VoteType; count: string }>(),
+      this.confirmRepo
+        .createQueryBuilder('confirmation')
+        .select('confirmation.reportId', 'reportId')
+        .addSelect('COUNT(*)', 'count')
+        .where('confirmation.reportId IN (:...reportIds)', { reportIds })
+        .groupBy('confirmation.reportId')
+        .getRawMany<{ reportId: string; count: string }>(),
+      userVotesPromise,
+      userConfirmationsPromise,
+      this.auditRepo
+        .createQueryBuilder('audit')
+        .select('audit.reportId', 'reportId')
+        .addSelect('audit.action', 'action')
+        .addSelect('audit.notes', 'notes')
+        .addSelect('audit.createdAt', 'createdAt')
+        .where('audit.reportId IN (:...reportIds)', { reportIds })
+        .orderBy('audit.reportId', 'ASC')
+        .addOrderBy('audit.createdAt', 'DESC')
+        .addOrderBy('audit.id', 'DESC')
+        .getRawMany<{
+          reportId: string;
+          action: string | null;
+          notes: string | null;
+          createdAt: Date | string | null;
+        }>(),
+    ]);
 
     const summaries = new Map<number, ReportInteractionSummary>();
     const moderationSummaries = new Map<number, ReportModerationSummary>();
 
-    const auditRows = await this.auditRepo
-      .createQueryBuilder('audit')
-      .select('audit.reportId', 'reportId')
-      .addSelect('audit.action', 'action')
-      .addSelect('audit.notes', 'notes')
-      .addSelect('audit.createdAt', 'createdAt')
-      .where('audit.reportId IN (:...reportIds)', { reportIds })
-      .orderBy('audit.reportId', 'ASC')
-      .addOrderBy('audit.createdAt', 'DESC')
-      .addOrderBy('audit.id', 'DESC')
-      .getRawMany<{
-        reportId: string;
-        action: string | null;
-        notes: string | null;
-        createdAt: Date | string | null;
-      }>();
-
     reports.forEach((report) => {
-      summaries.set(report.reportId, {
-        upVotes: 0,
-        downVotes: 0,
-        totalVotes: 0,
-        confirmations: 0,
-        userVoteType: null,
-        isConfirmedByCurrentUser: false,
-      });
-      moderationSummaries.set(report.reportId, {
-        latestAction: null,
-        latestNotes: null,
-        latestActionAt: null,
-      });
+      summaries.set(report.reportId, this.createEmptyInteractionSummary());
+      moderationSummaries.set(report.reportId, this.createEmptyModerationSummary());
     });
 
     voteCounts.forEach((row) => {
@@ -778,6 +751,46 @@ export class ReportsService {
         ),
       ),
     );
+  }
+
+  private resolveCommunityStatuses(query: ReportQueryDto): ReportStatus[] {
+    const requestedStatuses =
+      Array.isArray(query.statuses) && query.statuses.length > 0
+        ? query.statuses
+        : query.status
+          ? [query.status]
+          : [];
+
+    if (requestedStatuses.length === 0) {
+      return [...PUBLIC_COMMUNITY_REPORT_STATUSES];
+    }
+
+    const visibleStatuses = requestedStatuses.filter((status) =>
+      PUBLIC_COMMUNITY_REPORT_STATUSES.includes(status),
+    );
+
+    return visibleStatuses.length > 0
+      ? visibleStatuses
+      : [...PUBLIC_COMMUNITY_REPORT_STATUSES];
+  }
+
+  private createEmptyInteractionSummary(): ReportInteractionSummary {
+    return {
+      upVotes: 0,
+      downVotes: 0,
+      totalVotes: 0,
+      confirmations: 0,
+      userVoteType: null,
+      isConfirmedByCurrentUser: false,
+    };
+  }
+
+  private createEmptyModerationSummary(): ReportModerationSummary {
+    return {
+      latestAction: null,
+      latestNotes: null,
+      latestActionAt: null,
+    };
   }
 
   private assertValidMapDateRange(startDate?: Date, endDate?: Date): void {
