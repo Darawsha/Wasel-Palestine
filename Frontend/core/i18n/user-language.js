@@ -15,7 +15,6 @@
       'Home': 'الرئيسية',
       'Incidents': 'الحوادث',
       'Route Planner': 'مخطط المسار',
-      'My Reports': 'بلاغاتي',
       'Alerts': 'التنبيهات',
       'Profile': 'الملف الشخصي',
       'Logout': 'تسجيل الخروج',
