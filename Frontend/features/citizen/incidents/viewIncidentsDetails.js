@@ -73,7 +73,7 @@
   function formatCheckpointStatus(status) {
     const normalized = String(status || '').trim().toUpperCase();
 
-    if (normalized === 'ACTIVE') return 'Open';
+    if (normalized === 'OPEN') return 'Open';
     if (normalized === 'DELAYED') return 'Delayed';
     if (normalized === 'RESTRICTED') return 'Restricted';
     if (normalized === 'CLOSED') return 'Closed';

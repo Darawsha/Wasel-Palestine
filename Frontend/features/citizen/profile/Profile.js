@@ -5,6 +5,7 @@
   const EMAIL_SELECTOR = '#email';
   const PHONE_SELECTOR = '#phone';
   const ADDRESS_SELECTOR = '#address';
+  const LANGUAGE_SELECTOR = '#language';
   const CURRENT_PASSWORD_SELECTOR = '#currentPassword';
   const NEW_PASSWORD_SELECTOR = '#newPassword';
   const CONFIRM_PASSWORD_SELECTOR = '#confirmPassword';
@@ -17,8 +18,11 @@
   const CHANGE_PHOTO_SELECTOR = '.change-photo-link';
   const FILE_INPUT_SELECTOR = '#fileInput';
   const MAX_PROFILE_IMAGE_BYTES = 700 * 1024;
+  const DEFAULT_LANGUAGE = 'English';
+  const ALLOWED_LANGUAGES = new Set(['English', 'Arabic']);
 
   const stateByRoot = new WeakMap();
+  const rootByForm = new WeakMap();
   let dependenciesPromise;
 
   function getDependencies() {
@@ -34,6 +38,7 @@
       stateByRoot.set(root, {
         latestProfile: null,
         draftAvatarImage: undefined,
+        loadedFromDatabase: false,
       });
     }
 
@@ -47,6 +52,7 @@
       email: root.querySelector(EMAIL_SELECTOR),
       phone: root.querySelector(PHONE_SELECTOR),
       address: root.querySelector(ADDRESS_SELECTOR),
+      language: root.querySelector(LANGUAGE_SELECTOR),
       currentPassword: root.querySelector(CURRENT_PASSWORD_SELECTOR),
       newPassword: root.querySelector(NEW_PASSWORD_SELECTOR),
       confirmPassword: root.querySelector(CONFIRM_PASSWORD_SELECTOR),
@@ -75,6 +81,211 @@
 
     const emailInitial = String(email || '').trim().charAt(0).toUpperCase();
     return emailInitial || 'U';
+  }
+
+  function normalizeText(value) {
+    return typeof value === 'string' ? value.trim() : '';
+  }
+
+  function normalizeLanguage(value) {
+    const normalizedValue = normalizeText(value);
+    return ALLOWED_LANGUAGES.has(normalizedValue)
+      ? normalizedValue
+      : DEFAULT_LANGUAGE;
+  }
+
+  function splitFullName(fullName) {
+    const parts = normalizeText(fullName).split(/\s+/).filter(Boolean);
+
+    return {
+      firstname: parts.shift() || '',
+      lastname: parts.join(' '),
+    };
+  }
+
+  function buildFullName(user) {
+    const firstname = normalizeText(user?.firstname || user?.firstName);
+    const lastname = normalizeText(user?.lastname || user?.lastName);
+    const directName = normalizeText(user?.fullName || user?.name);
+
+    if (firstname || lastname) {
+      return `${firstname} ${lastname}`.trim();
+    }
+
+    if (directName) {
+      return directName;
+    }
+
+    return normalizeText(user?.email).split('@')[0] || 'User';
+  }
+
+  function normalizeProfile(user) {
+    const fullName = buildFullName(user);
+    const email = normalizeText(user?.email);
+
+    return {
+      id: user?.id ?? null,
+      firstname: normalizeText(user?.firstname || user?.firstName),
+      lastname: normalizeText(user?.lastname || user?.lastName),
+      fullName,
+      email,
+      phone: normalizeText(user?.phone),
+      address: normalizeText(user?.address),
+      language: normalizeLanguage(user?.language || user?.preferredLanguage),
+      role: normalizeText(user?.role),
+      profileImage: user?.profileImage || null,
+      provider: normalizeText(user?.provider),
+      isVerified: Boolean(user?.isVerified),
+      profileImageUpdatedAt: user?.profileImageUpdatedAt || null,
+      initials: getInitials(fullName, email),
+    };
+  }
+
+  function getApiBaseUrl() {
+    if (global.AppConfig?.API_BASE_URL) {
+      return global.AppConfig.API_BASE_URL;
+    }
+
+    return `${global.location.origin}/api/v1`;
+  }
+
+  function buildApiUrl(path) {
+    const baseUrl = getApiBaseUrl();
+    const cleanPath = path.startsWith('/') ? path.slice(1) : path;
+
+    return new URL(cleanPath, baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`)
+      .toString();
+  }
+
+  function storeCurrentUser(user) {
+    global.localStorage?.setItem('user', JSON.stringify(user));
+
+    const profileImage = String(user?.profileImage || '').trim();
+    if (profileImage) {
+      global.localStorage?.setItem('profileImage', profileImage);
+    } else {
+      global.localStorage?.removeItem('profileImage');
+    }
+
+    const language = normalizeLanguage(user?.language || user?.preferredLanguage);
+    global.localStorage?.setItem('wasel.user.language', language);
+    global.dispatchEvent(
+      new CustomEvent('wasel:user-updated', {
+        detail: {
+          user,
+          language,
+        },
+      }),
+    );
+  }
+
+  function buildUpdatePayload(draft) {
+    const { firstname, lastname } = splitFullName(draft.fullName);
+    const payload = {
+      firstname,
+      lastname,
+      phone: normalizeText(draft.phone) || null,
+      address: normalizeText(draft.address) || null,
+    };
+
+    const language = normalizeText(draft.language);
+    if (!ALLOWED_LANGUAGES.has(language)) {
+      throw new Error('Language must be English or Arabic.');
+    }
+
+    payload.language = language;
+
+    if (Object.prototype.hasOwnProperty.call(draft, 'profileImage')) {
+      payload.profileImage =
+        typeof draft.profileImage === 'string' && draft.profileImage
+          ? draft.profileImage
+          : null;
+    }
+
+    if (normalizeText(draft.newPassword)) {
+      if (normalizeText(draft.currentPassword)) {
+        payload.currentPassword = draft.currentPassword;
+      }
+
+      payload.newPassword = draft.newPassword;
+    }
+
+    return payload;
+  }
+
+  async function fetchDatabaseProfile(token) {
+    const response = await global.fetch(buildApiUrl('/auth/profile'), {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+      cache: 'no-store',
+    });
+
+    const text = await response.text();
+    let data = text;
+
+    try {
+      data = text ? JSON.parse(text) : null;
+    } catch (_error) {
+      data = text;
+    }
+
+    if (!response.ok) {
+      const error = new Error(response.statusText || 'Profile reload failed');
+      error.response = {
+        status: response.status,
+        data,
+      };
+      throw error;
+    }
+
+    return data;
+  }
+
+  async function persistProfileDraft(draft) {
+    const token = global.localStorage?.getItem('token');
+    if (!token) {
+      throw new Error('Authentication token is missing');
+    }
+
+    const response = await global.fetch(buildApiUrl('/auth/profile'), {
+      method: 'PATCH',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(buildUpdatePayload(draft)),
+    });
+
+    const text = await response.text();
+    let data = text;
+
+    try {
+      data = text ? JSON.parse(text) : null;
+    } catch (_error) {
+      data = text;
+    }
+
+    if (!response.ok) {
+      const error = new Error(response.statusText || 'Profile update failed');
+      error.response = {
+        status: response.status,
+        data,
+      };
+      throw error;
+    }
+
+    let databaseUser = data;
+
+    try {
+      databaseUser = await fetchDatabaseProfile(token);
+    } catch (error) {
+      console.warn('Profile saved, but database reload failed', error);
+    }
+
+    storeCurrentUser(databaseUser);
+    return normalizeProfile(databaseUser);
   }
 
   function applyAvatarImage(avatarCircle, image, initials) {
@@ -151,6 +362,10 @@
       elements.address.value = nextProfile.address || '';
     }
 
+    if (elements.language) {
+      elements.language.value = normalizeLanguage(nextProfile.language);
+    }
+
     applyAvatarImage(elements.avatarCircle, avatarImage, initials);
 
     if (elements.profileName) {
@@ -158,14 +373,28 @@
     }
 
     if (elements.profileMeta) {
-      const providerLabel = nextProfile.provider
-        ? ` via ${String(nextProfile.provider).charAt(0).toUpperCase()}${String(nextProfile.provider).slice(1)}`
-        : '';
       elements.profileMeta.textContent = nextProfile.email
-        ? `${formatRole(nextProfile.role)}${providerLabel} - ${nextProfile.email}`
-        : `${formatRole(nextProfile.role)}${providerLabel}`;
+        ? `${formatRole(nextProfile.role)} - ${nextProfile.email}`
+        : formatRole(nextProfile.role);
     }
 
+    global.applyHeaderAvatar?.(avatarImage || '', { initials });
+  }
+
+  function applyDraftAvatar(root) {
+    const state = getRootState(root);
+    const elements = getFormElements(root);
+    const fullName =
+      elements.fullName?.value?.trim() || state.latestProfile?.fullName || '';
+    const email = elements.email?.value?.trim() || state.latestProfile?.email;
+    const initials =
+      state.latestProfile?.initials || getInitials(fullName, email);
+    const avatarImage =
+      state.draftAvatarImage !== undefined
+        ? state.draftAvatarImage
+        : state.latestProfile?.profileImage || '';
+
+    applyAvatarImage(elements.avatarCircle, avatarImage, initials);
     global.applyHeaderAvatar?.(avatarImage || '', { initials });
   }
 
@@ -177,12 +406,12 @@
       fullName: elements.fullName?.value?.trim() || '',
       phone: elements.phone?.value?.trim() || '',
       address: elements.address?.value?.trim() || '',
-      profileImage:
-        state.draftAvatarImage !== undefined
-          ? state.draftAvatarImage
-          : state.latestProfile?.profileImage || '',
+      language: elements.language?.value || DEFAULT_LANGUAGE,
       currentPassword: elements.currentPassword?.value || '',
       newPassword: elements.newPassword?.value || '',
+      ...(state.draftAvatarImage !== undefined
+        ? { profileImage: state.draftAvatarImage }
+        : {}),
     };
   }
 
@@ -191,21 +420,28 @@
       fullName: String(draft?.fullName || '').trim(),
       phone: String(draft?.phone || '').trim(),
       address: String(draft?.address || '').trim(),
-      profileImageExists: !!draft?.profileImage,  // ← Check if exists, don't serialize it
+      language: normalizeLanguage(draft?.language),
+      profileImage: String(draft?.profileImage || ''),
     });
   }
 
   function hasUnsavedChanges(root) {
     const state = getRootState(root);
     if (!state.latestProfile) {
-      return false;
+      return true;
     }
     
-    const currentDraft = normalizeDraft(collectProfileDraft(root));
+    const currentDraft = normalizeDraft({
+      ...collectProfileDraft(root),
+      profileImage:
+        state.draftAvatarImage !== undefined
+          ? state.draftAvatarImage
+          : state.latestProfile.profileImage || '',
+    });
     const lastSaved = normalizeDraft(state.latestProfile);
-    
-    // Also check if profile image changed
-    const imageChanged = state.draftAvatarImage !== undefined;
+    const imageChanged =
+      state.draftAvatarImage !== undefined &&
+      state.draftAvatarImage !== (state.latestProfile.profileImage || '');
     
     return currentDraft !== lastSaved || imageChanged;
   }
@@ -278,10 +514,14 @@
       return 'Please enter a valid phone number.';
     }
 
+    if (!ALLOWED_LANGUAGES.has(normalizeText(elements.language?.value))) {
+      return 'Language must be English or Arabic.';
+    }
+
     const currentPassword = elements.currentPassword?.value?.trim() || '';
     const newPassword = elements.newPassword?.value || '';
     const confirmPassword = elements.confirmPassword?.value || '';
-    const wantsPasswordChange = currentPassword || newPassword || confirmPassword;
+    const wantsPasswordChange = newPassword || confirmPassword;
 
     if (wantsPasswordChange) {
       if (!currentPassword) {
@@ -363,7 +603,8 @@
 
     try {
       state.latestProfile = await controller.getCurrentProfile();
-      state.draftAvatarImage = state.latestProfile.profileImage || '';
+      state.draftAvatarImage = undefined;
+      state.loadedFromDatabase = true;
       applyProfile(root, state.latestProfile);
       clearPasswordFields(elements);
       setProfileStatus(
@@ -375,7 +616,8 @@
       const cachedProfile = controller.getCachedCurrentProfile?.();
       if (cachedProfile) {
         state.latestProfile = cachedProfile;
-        state.draftAvatarImage = cachedProfile.profileImage || '';
+        state.draftAvatarImage = undefined;
+        state.loadedFromDatabase = false;
         applyProfile(root, cachedProfile);
       }
 
@@ -415,7 +657,7 @@
 
       const state = getRootState(root);
       state.draftAvatarImage = result;
-      applyProfile(root, state.latestProfile);
+      applyDraftAvatar(root);
       setProfileStatus(
         elements,
         'New profile photo selected. Save changes to persist it to your account.',
@@ -427,9 +669,13 @@
   async function handleSave(event) {
     event.preventDefault();
 
-    const root = event.currentTarget.closest('#headerProfileOverlay') || document;
+    const root =
+      rootByForm.get(event.currentTarget) ||
+      event.currentTarget.closest('.header-profile-modal-content') ||
+      document;
     const elements = getFormElements(root);
     const validationError = validateDraft(root);
+    const state = getRootState(root);
 
     if (validationError) {
       setProfileStatus(elements, validationError);
@@ -437,9 +683,18 @@
       return;
     }
 
+    if (!state.loadedFromDatabase) {
+      setProfileStatus(
+        elements,
+        'Profile details must be loaded from the database before saving changes.',
+      );
+      flashButtonState(elements.saveButton, 'Reload Required');
+      return;
+    }
+
     if (
       !hasUnsavedChanges(root) &&
-      !(elements.currentPassword?.value || elements.newPassword?.value || elements.confirmPassword?.value)
+      !(elements.newPassword?.value || elements.confirmPassword?.value)
     ) {
       setProfileStatus(elements, 'No profile changes to save.');
       flashButtonState(elements.saveButton, 'No Changes');
@@ -447,17 +702,15 @@
     }
 
     try {
-      const controller = await getDependencies();
-      const state = getRootState(root);
       const draft = collectProfileDraft(root);
-      console.log('📝 Profile Draft:', draft);
-      
-      const savedProfile = await controller.persistCurrentProfile(draft);
-      console.log('✅ Profile Saved:', savedProfile);
+      setProfileStatus(elements, 'Saving profile changes to the database...');
+      const savedProfile = await persistProfileDraft(draft);
 
       state.latestProfile = savedProfile;
-      state.draftAvatarImage = savedProfile.profileImage || '';
+      state.draftAvatarImage = undefined;
+      state.loadedFromDatabase = true;
       applyProfile(root, savedProfile);
+      global.WaselUserLanguage?.applyLanguage?.(savedProfile.language);
       clearPasswordFields(elements);
       if (elements.fileInput) {
         elements.fileInput.value = '';
@@ -468,7 +721,7 @@
       );
       flashButtonState(elements.saveButton, 'Saved');
     } catch (error) {
-      console.error('❌ Failed to save citizen profile', error);
+      console.error('Failed to save citizen profile', error);
       setProfileStatus(
         elements,
         getErrorMessage(
@@ -487,6 +740,7 @@
     }
 
     elements.form.dataset.bound = 'true';
+    rootByForm.set(elements.form, root);
     elements.form.addEventListener('submit', handleSave);
     elements.newPassword?.addEventListener('input', () => {
       updatePasswordStrength(elements);

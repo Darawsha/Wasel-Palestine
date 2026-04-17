@@ -12,6 +12,10 @@ export async function getCheckpoint(id) {
   return checkpointService.getCheckpointById(id);
 }
 
+export async function getCheckpointHistory(id) {
+  return checkpointService.getCheckpointHistory(id);
+}
+
 export async function createNewCheckpoint(payload) {
   return checkpointService.createNewCheckpoint(payload);
 }

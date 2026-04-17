@@ -126,6 +126,11 @@
     const headers = {
       Accept: 'application/json',
     };
+
+    if (global.CitizenPreview?.isActive?.()) {
+      return headers;
+    }
+
     const token =
       global.localStorage?.getItem('token') ||
       global.localStorage?.getItem('jwtToken');

@@ -60,6 +60,10 @@
     return error?.message || 'Unable to submit this report right now.';
   }
 
+  function isPreviewMode() {
+    return global.CitizenPreview?.isActive?.() === true;
+  }
+
   function getField(root, selector) {
     return root?.querySelector(selector) || null;
   }
@@ -216,13 +220,23 @@
 
       if (isEditMode) {
         await updateCitizenReport(Number(context.report.id), payload);
-        notify('success', 'Report updated successfully.');
+        notify(
+          'success',
+          isPreviewMode()
+            ? 'Preview report updated. Nothing was saved.'
+            : 'Report updated successfully.',
+        );
         global.document.dispatchEvent(
           new global.CustomEvent('citizen:report-updated'),
         );
       } else {
         await submitCitizenReport(payload);
-        notify('success', 'Report submitted successfully.');
+        notify(
+          'success',
+          isPreviewMode()
+            ? 'Preview report submitted. Nothing was saved.'
+            : 'Report submitted successfully.',
+        );
         global.document.dispatchEvent(
           new global.CustomEvent('citizen:report-created'),
         );

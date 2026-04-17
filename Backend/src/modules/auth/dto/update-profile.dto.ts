@@ -1,5 +1,6 @@
 import { Transform } from 'class-transformer';
 import {
+  IsEnum,
   IsOptional,
   IsString,
   Matches,
@@ -7,6 +8,7 @@ import {
   MinLength,
   ValidateIf,
 } from 'class-validator';
+import { PrimaryLanguage } from '../../system-settings/enums/primary-language.enum';
 
 export class UpdateProfileDto {
   @IsOptional()
@@ -42,6 +44,15 @@ export class UpdateProfileDto {
   @IsString()
   @MaxLength(200, { message: 'Address must not exceed 200 characters' })
   address?: string | null;
+
+  @IsOptional()
+  @Transform(({ value }: { value: unknown }) =>
+    typeof value === 'string' ? value.trim() : value,
+  )
+  @IsEnum(PrimaryLanguage, {
+    message: 'Language must be English or Arabic',
+  })
+  language?: PrimaryLanguage;
 
   @IsOptional()
   @Transform(({ value }: { value: unknown }) =>

@@ -288,6 +288,12 @@
             notify('success', 'Report rejected successfully.');
           }
 
+          global.document.dispatchEvent(
+            new CustomEvent('admin:report-updated', {
+              detail: { reportId, decision },
+            }),
+          );
+
           dependencies.state.setSelectedModerationReport(pageState, null);
           dependencies.renderer.closeModerationModal(root);
           await loadModerationQueue();

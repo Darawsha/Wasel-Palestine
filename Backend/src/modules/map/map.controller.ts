@@ -1,19 +1,16 @@
-import { Controller, Get, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Query } from '@nestjs/common';
 
-import { JwtAuthGuard } from '../../core/guards/jwt-auth.guard';
 import { CheckpointsService } from '../checkpoints/checkpoints.service';
 import { IncidentsService } from '../incidents/incidents.service';
 import { ReportsService } from '../reports/services/reports.service';
 import { MapFilterQueryDto } from './dto/map-filter-query.dto';
 import {
   ApiBadRequestResponse,
-  ApiBearerAuth,
   ApiInternalServerErrorResponse,
   ApiOkResponse,
   ApiOperation,
   ApiQuery,
   ApiTags,
-  ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
 import {
   MapCheckpointsResponseDto,
@@ -26,8 +23,6 @@ import {
 } from '../../common/dto/error-response.dto';
 
 @ApiTags('Map')
-@ApiBearerAuth('token')
-@UseGuards(JwtAuthGuard)
 @Controller({ path: 'map', version: '1' })
 export class MapController {
   constructor(
@@ -80,10 +75,6 @@ export class MapController {
   @ApiBadRequestResponse({
     description: 'Invalid map filter query',
     type: ValidationErrorResponseDto,
-  })
-  @ApiUnauthorizedResponse({
-    description: 'Authentication required',
-    type: ErrorResponseDto,
   })
   @ApiInternalServerErrorResponse({
     description: 'Unexpected server error',
@@ -139,10 +130,6 @@ export class MapController {
     description: 'Invalid map filter query',
     type: ValidationErrorResponseDto,
   })
-  @ApiUnauthorizedResponse({
-    description: 'Authentication required',
-    type: ErrorResponseDto,
-  })
   @ApiInternalServerErrorResponse({
     description: 'Unexpected server error',
     type: ErrorResponseDto,
@@ -197,16 +184,25 @@ export class MapController {
     description: 'Invalid map filter query',
     type: ValidationErrorResponseDto,
   })
-  @ApiUnauthorizedResponse({
-    description: 'Authentication required',
-    type: ErrorResponseDto,
-  })
   @ApiInternalServerErrorResponse({
     description: 'Unexpected server error',
     type: ErrorResponseDto,
   })
   async getFilteredReports(@Query() filterDto: MapFilterQueryDto) {
-    const data = await this.reportsService.getMapReports(filterDto);
+    const reports = await this.reportsService.getMapReports(filterDto);
+    const data = reports.map((report) => ({
+      reportId: report.reportId,
+      latitude: Number(report.latitude),
+      longitude: Number(report.longitude),
+      location: report.location,
+      category: report.category,
+      description: report.description,
+      status: report.status,
+      duplicateOf: report.duplicateOf ?? null,
+      confidenceScore: report.confidenceScore,
+      createdAt: report.createdAt,
+      updatedAt: report.updatedAt,
+    }));
     return { data };
   }
 }

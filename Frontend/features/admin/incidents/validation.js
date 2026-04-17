@@ -52,7 +52,7 @@ export function isValidStatus(status) {
 }
 
 export function isValidImpactStatus(impactStatus) {
-  const validImpactStatuses = ['ACTIVE', 'CLOSED', 'RESTRICTED', 'DELAYED'];
+  const validImpactStatuses = ['OPEN', 'CLOSED', 'RESTRICTED', 'DELAYED'];
   return validImpactStatuses.includes(impactStatus);
 }
 

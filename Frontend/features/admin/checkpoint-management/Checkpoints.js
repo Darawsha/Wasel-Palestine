@@ -76,7 +76,7 @@
 
   function formatStatusLabel(status) {
     switch (status) {
-      case 'ACTIVE':
+      case 'OPEN':
         return 'Open';
       case 'DELAYED':
         return 'Delayed';
@@ -91,7 +91,7 @@
 
   function getStatusBadgeClass(status) {
     switch (status) {
-      case 'ACTIVE':
+      case 'OPEN':
         return 'status-open';
       case 'DELAYED':
         return 'status-delayed';
@@ -113,7 +113,9 @@
       <td class="cell-name">${escapeHtml(checkpoint?.name || 'N/A')}</td>
       <td class="cell-location">${escapeHtml(checkpoint?.location || 'N/A')}</td>
       <td>
-        <span class="status-badge ${getStatusBadgeClass(status)}">${escapeHtml(formatStatusLabel(status))}</span>
+        <div class="status-stack">
+          <span class="status-badge ${getStatusBadgeClass(status)}">${escapeHtml(formatStatusLabel(status))}</span>
+        </div>
       </td>
       <td class="cell-date">${escapeHtml(formatDate(checkpoint?.updatedAt))}</td>
       <td class="cell-actions text-right">

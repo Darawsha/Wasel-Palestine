@@ -37,7 +37,7 @@ export class IncidentCheckpointSyncService {
   ]);
 
   private static readonly IMPACT_STATUSES = new Set<CheckpointStatus>([
-    CheckpointStatus.ACTIVE,
+    CheckpointStatus.OPEN,
     CheckpointStatus.CLOSED,
     CheckpointStatus.RESTRICTED,
     CheckpointStatus.DELAYED,
@@ -192,7 +192,7 @@ export class IncidentCheckpointSyncService {
         await this.updateCheckpointStatusInTransaction(
           manager,
           checkpointId,
-          CheckpointStatus.ACTIVE,
+          CheckpointStatus.OPEN,
           changedByUserId,
         );
       }
@@ -298,7 +298,7 @@ export class IncidentCheckpointSyncService {
       await this.updateCheckpointStatusInTransaction(
         manager,
         previousCheckpointId,
-        CheckpointStatus.ACTIVE,
+        CheckpointStatus.OPEN,
         changedByUserId,
       );
     }
@@ -335,7 +335,7 @@ export class IncidentCheckpointSyncService {
     }
 
     if (incident.status === IncidentStatus.CLOSED) {
-      return CheckpointStatus.ACTIVE;
+      return CheckpointStatus.OPEN;
     }
 
     if (this.isIncidentDrivingCheckpoint(incident)) {
@@ -346,7 +346,7 @@ export class IncidentCheckpointSyncService {
       previousSnapshot?.checkpointId === currentCheckpointId &&
       this.isIncidentDrivingCheckpoint(previousSnapshot)
     ) {
-      return CheckpointStatus.ACTIVE;
+      return CheckpointStatus.OPEN;
     }
 
     return null;
@@ -380,6 +380,7 @@ export class IncidentCheckpointSyncService {
     if (previousStatus !== nextStatus) {
       const historyRecord = checkpointStatusHistoryRepository.create({
         checkpoint: savedCheckpoint,
+        checkpointId: savedCheckpoint.id,
         oldStatus: previousStatus,
         newStatus: nextStatus,
         changedByUserId,

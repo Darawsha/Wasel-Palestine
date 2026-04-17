@@ -14,7 +14,7 @@ function fillEditCheckpointForm(overlay, checkpoint, activeIncident = null) {
   if (locationInput) locationInput.value = checkpoint.location || '';
   if (statusSelect) {
     statusSelect.value =
-      checkpoint.currentStatus || checkpoint.status || 'ACTIVE';
+      checkpoint.currentStatus || checkpoint.status || 'OPEN';
     const isLocked = Boolean(activeIncident?.id);
     statusSelect.disabled = isLocked;
     statusSelect.title = isLocked

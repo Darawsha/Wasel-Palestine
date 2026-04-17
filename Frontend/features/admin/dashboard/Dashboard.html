@@ -120,7 +120,7 @@
             </div>
 
             <!-- Donut Chart -->
-            <div class="chart-card donut-chart-card">
+            <div class="chart-card donut-chart-card" data-dashboard-chart="reports-by-category">
                 <div class="chart-header">
                     <div>
                         <h3 class="chart-title">Reports by Category</h3>
@@ -129,17 +129,15 @@
                 </div>
                 <div class="donut-chart-layout">
                     <div class="donut-circle-wrapper">
-                        <svg class="donut-svg" viewBox="0 0 100 100">
+                        <svg class="donut-svg" viewBox="0 0 100 100" data-report-category-segments>
                             <circle class="donut-base" cx="50" cy="50" r="40"></circle>
-                            <circle class="donut-segment segment-closure" cx="50" cy="50" r="40"></circle> <!-- 35% -->
-                            <circle class="donut-segment segment-delay" cx="50" cy="50" r="40"></circle> <!-- 25% -->
                         </svg>
                         <div class="donut-center-text">
-                            <span class="donut-val" data-stat-number="reports">1,042</span>
+                            <span class="donut-val" data-stat-number="reports" aria-live="polite">0</span>
                             <span class="donut-lbl">Total</span>
                         </div>
                     </div>
-                    <div class="donut-legend">
+                    <div class="donut-legend" data-report-category-legend>
                         <div class="legend-item">
                             <div class="legend-info">
                                 <div class="legend-dot dot-closure"></div><span class="legend-name">Closure</span>
@@ -292,4 +290,3 @@
 </body>
 
 </html>
-

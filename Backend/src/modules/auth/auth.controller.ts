@@ -9,6 +9,7 @@ import {
   Req,
   Request,
   Res,
+  UnauthorizedException,
   UseGuards,
 } from '@nestjs/common';
 import type {
@@ -45,6 +46,13 @@ import {
   ErrorResponseDto,
   ValidationErrorResponseDto,
 } from '../../common/dto/error-response.dto';
+
+type AuthenticatedRequestUser = {
+  userId?: number;
+  sub?: number;
+  email?: string;
+  role?: string;
+};
 
 @ApiTags('Authentication')
 @Controller({ path: 'auth', version: '1' })
@@ -150,18 +158,21 @@ export class AuthController {
     type: ErrorResponseDto,
   })
   getProfile(
-    @Request() req: { user: { userId: number; email: string; role: string } },
+    @Request() req: { user: AuthenticatedRequestUser },
   ) {
-    return this.authService.getProfile(req.user.userId);
+    return this.authService.getProfile(this.getAuthenticatedUserId(req.user));
   }
 
   @UseGuards(JwtAuthGuard)
   @Patch('profile')
   updateProfile(
-    @Request() req: { user: { userId: number } },
+    @Request() req: { user: AuthenticatedRequestUser },
     @Body() updateProfileDto: UpdateProfileDto,
   ) {
-    return this.authService.updateProfile(req.user.userId, updateProfileDto);
+    return this.authService.updateProfile(
+      this.getAuthenticatedUserId(req.user),
+      updateProfileDto,
+    );
   }
 
   @Post('google')
@@ -222,5 +233,16 @@ export class AuthController {
     }
 
     return undefined;
+  }
+
+  private getAuthenticatedUserId(user: AuthenticatedRequestUser): number {
+    const rawUserId = user?.userId ?? user?.sub;
+    const userId = Number(rawUserId);
+
+    if (!Number.isInteger(userId) || userId <= 0) {
+      throw new UnauthorizedException('Authenticated user id not found');
+    }
+
+    return userId;
   }
 }

@@ -1,4 +1,5 @@
 import { User } from './entities/user.entity';
+import { PrimaryLanguage } from '../system-settings/enums/primary-language.enum';
 
 export type SafeUserResponse = {
   id: number;
@@ -8,6 +9,7 @@ export type SafeUserResponse = {
   role: User['role'];
   phone?: string | null;
   address?: string | null;
+  language: PrimaryLanguage;
   profileImage?: string | null;
   profileImageUpdatedAt?: Date | null;
   provider?: string | null;
@@ -25,6 +27,7 @@ export function toSafeUserResponse(user: User): SafeUserResponse {
     role: user.role,
     phone: user.phone ?? null,
     address: user.address ?? null,
+    language: user.language ?? PrimaryLanguage.ENGLISH,
     profileImage: user.profileImage ?? null,
     profileImageUpdatedAt: user.profileImageUpdatedAt ?? null,
     provider: user.provider ?? null,

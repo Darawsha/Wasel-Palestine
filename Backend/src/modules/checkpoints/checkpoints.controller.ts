@@ -82,8 +82,11 @@ export class CheckpointsController {
     description: 'Unexpected server error',
     type: ErrorResponseDto,
   })
-  createFromCollection(@Body() createCheckpointDto: CreateCheckpointDto) {
-    return this.create(createCheckpointDto);
+  createFromCollection(
+    @Body() createCheckpointDto: CreateCheckpointDto,
+    @Request() req,
+  ) {
+    return this.create(createCheckpointDto, req);
   }
 
   @Roles(UserRole.ADMIN)
@@ -113,8 +116,11 @@ export class CheckpointsController {
     description: 'Unexpected server error',
     type: ErrorResponseDto,
   })
-  create(@Body() createCheckpointDto: CreateCheckpointDto) {
-    return this.checkpointsService.create(createCheckpointDto);
+  create(@Body() createCheckpointDto: CreateCheckpointDto, @Request() req) {
+    return this.checkpointsService.create(
+      createCheckpointDto,
+      req.user.userId,
+    );
   }
 
   @Get()
@@ -126,8 +132,8 @@ export class CheckpointsController {
   @ApiQuery({
     name: 'currentStatus',
     required: false,
-    enum: ['ACTIVE', 'DELAYED', 'CLOSED', 'RESTRICTED'],
-    example: 'ACTIVE',
+    enum: ['OPEN', 'DELAYED', 'CLOSED', 'RESTRICTED'],
+    example: 'OPEN',
     description: 'Filter checkpoints by current status',
   })
   @ApiQuery({
@@ -178,8 +184,10 @@ export class CheckpointsController {
     description: 'Unexpected server error',
     type: ErrorResponseDto,
   })
-  findAll(@Query() checkpointQueryDto: CheckpointQueryDto) {
-    return this.checkpointsService.findAll(checkpointQueryDto);
+  findAll(@Query() checkpointQueryDto: CheckpointQueryDto, @Request() req) {
+    return this.checkpointsService.findAll(checkpointQueryDto, {
+      includeUnpublished: req.user.role === UserRole.ADMIN,
+    });
   }
 
   @UseGuards(JwtAuthGuard)
@@ -209,7 +217,7 @@ export class CheckpointsController {
   @Get('active-count')
   @ApiOperation({
     summary: 'Get active checkpoint count',
-    description: 'Returns the number of checkpoints currently marked as ACTIVE.',
+    description: 'Returns the number of checkpoints currently marked as OPEN.',
   })
   @ApiOkResponse({
     description: 'Active checkpoint count returned',
@@ -261,7 +269,7 @@ export class CheckpointsController {
     type: ErrorResponseDto,
   })
   getHistory(@Param('id', ParseIntPipe) id: number) {
-    return this.checkpointsService.getHistory(id).then((data) => ({ data }));
+    return this.checkpointsService.getHistory(id);
   }
 
   @Get(':id')
@@ -295,8 +303,10 @@ export class CheckpointsController {
     description: 'Unexpected server error',
     type: ErrorResponseDto,
   })
-  findOne(@Param('id') id: string) {
-    return this.checkpointsService.findOne(+id);
+  findOne(@Param('id') id: string, @Request() req) {
+    return this.checkpointsService.findOne(+id, {
+      includeUnpublished: req.user.role === UserRole.ADMIN,
+    });
   }
 
   @Roles(UserRole.ADMIN)
@@ -434,7 +444,7 @@ export class CheckpointsController {
     type: ErrorResponseDto,
   })
   @HttpCode(HttpStatus.NO_CONTENT)
-  remove(@Param('id', ParseIntPipe) id: number) {
-    return this.checkpointsService.remove(id);
+  remove(@Param('id', ParseIntPipe) id: number, @Request() req) {
+    return this.checkpointsService.remove(id, req.user.userId);
   }
 }

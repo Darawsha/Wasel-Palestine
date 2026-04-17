@@ -1157,7 +1157,7 @@
   function formatCheckpointMessage(checkpoints) {
     const total = checkpoints.length;
     const statusCounts = countBy(checkpoints, (checkpoint) =>
-      checkpoint.status === 'ACTIVE' ? '' : checkpoint.status,
+      checkpoint.status === 'OPEN' ? '' : checkpoint.status,
     );
     const details = [];
 

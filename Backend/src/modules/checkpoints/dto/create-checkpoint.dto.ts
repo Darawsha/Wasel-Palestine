@@ -61,7 +61,7 @@ export class CreateCheckpointDto {
   @ApiProperty({
     description: 'Initial checkpoint status',
     enum: CheckpointStatus,
-    example: CheckpointStatus.ACTIVE,
+    example: CheckpointStatus.OPEN,
   })
   @IsEnum(CheckpointStatus)
   @IsNotEmpty()
@@ -81,7 +81,7 @@ export class CreateCheckpointDto {
     required: false,
     description: 'Current dynamic status for filtering and updates',
     enum: CheckpointStatus,
-    example: CheckpointStatus.ACTIVE,
+    example: CheckpointStatus.OPEN,
   })
   @IsEnum(CheckpointStatus)
   @IsOptional()

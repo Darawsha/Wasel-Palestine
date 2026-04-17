@@ -198,6 +198,47 @@ export class ReportCountsResponseDto {
   rejected: number;
 }
 
+export class ReportCategorySummaryItemResponseDto {
+  @ApiProperty({
+    description: 'Report category key.',
+    enum: ReportCategory,
+    example: ReportCategory.ROAD_CLOSURE,
+  })
+  category: ReportCategory;
+
+  @ApiProperty({
+    description: 'Human-readable category label.',
+    example: 'Closure',
+  })
+  label: string;
+
+  @ApiProperty({
+    description: 'Number of reports in this category.',
+    example: 42,
+  })
+  count: number;
+
+  @ApiProperty({
+    description: 'Percentage of total reports represented by this category.',
+    example: 35,
+  })
+  percentage: number;
+}
+
+export class ReportCategorySummaryResponseDto {
+  @ApiProperty({
+    description: 'Total number of reports included in the category summary.',
+    example: 120,
+  })
+  total: number;
+
+  @ApiProperty({
+    description: 'Report counts grouped by category.',
+    type: [ReportCategorySummaryItemResponseDto],
+  })
+  categories: ReportCategorySummaryItemResponseDto[];
+}
+
 export class ReportPaginatedResponseDto {
   @ApiProperty({
     description: 'Describes the data field.',

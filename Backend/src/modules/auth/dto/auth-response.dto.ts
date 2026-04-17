@@ -1,5 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { UserRole } from '../../../common/enums/user-role.enum';
+import { PrimaryLanguage } from '../../system-settings/enums/primary-language.enum';
 
 export class AuthUserResponseDto {
   @ApiProperty({
@@ -31,6 +32,13 @@ export class AuthUserResponseDto {
     example: 'Khaled'
   })
   lastname: string;
+
+  @ApiProperty({
+    description: 'User-specific application language preference.',
+    enum: PrimaryLanguage,
+    example: PrimaryLanguage.ENGLISH
+  })
+  language: PrimaryLanguage;
 }
 
 export class AuthTokenResponseDto {
@@ -50,6 +58,7 @@ export class AuthTokenResponseDto {
       role: 'admin',
       firstname: 'Ahmad',
       lastname: 'Khaled',
+      language: 'English',
     },
   })
   user: AuthUserResponseDto;
@@ -73,4 +82,11 @@ export class AuthProfileResponseDto {
     enum: UserRole, example: UserRole.ADMIN
   })
   role: UserRole;
+
+  @ApiProperty({
+    description: 'User-specific application language preference.',
+    enum: PrimaryLanguage,
+    example: PrimaryLanguage.ENGLISH
+  })
+  language: PrimaryLanguage;
 }

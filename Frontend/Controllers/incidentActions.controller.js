@@ -2,6 +2,7 @@ import {
   createIncident,
   updateIncident,
   deleteIncident,
+  getIncidentHistory,
 } from '/Services/incidentActions.service.js';
 
 export function createNewIncident(payload) {
@@ -14,4 +15,8 @@ export function updateExistingIncident(incidentId, payload) {
 
 export function deleteExistingIncident(incidentId) {
   return deleteIncident(incidentId);
+}
+
+export function getExistingIncidentHistory(incidentId) {
+  return getIncidentHistory(incidentId);
 }

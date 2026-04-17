@@ -1,3 +1,5 @@
+import { setCurrentUser } from "/Services/session.service.js";
+
 export class SocialAuthService {
   static googleTokenClient = null;
   static fallbackOrigin = "http://localhost:3000";
@@ -30,8 +32,7 @@ export class SocialAuthService {
             accessToken: response.access_token,
           });
 
-          localStorage.setItem("token", res.data.access_token);
-          localStorage.setItem("user", JSON.stringify(res.data.user));
+          setCurrentUser(res.data.user, res.data.access_token);
 
           window.location.href =
             `${this.getAppOrigin()}/views/citizen/header/header.html#home`;

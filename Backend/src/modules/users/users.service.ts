@@ -16,6 +16,15 @@ import { UserQueryDto } from './dto/user-query.dto';
 import { AlertsService } from '../alerts/alerts.service';
 import { UpdateProfileDto } from '../auth/dto/update-profile.dto';
 
+type SocialUserSeed = {
+  firstname: string;
+  lastname: string;
+  email: string;
+  provider: string;
+  providerId?: string;
+  profileImage?: string | null;
+};
+
 @Injectable()
 export class UsersService {
   constructor(
@@ -68,6 +77,7 @@ export class UsersService {
     lastname: string;
     email: string;
     googleId: string;
+    profileImage?: string | null;
   }): Promise<User> {
     return this.createSocialUser({
       firstname: data.firstname,
@@ -75,6 +85,7 @@ export class UsersService {
       email: data.email,
       provider: 'google',
       providerId: data.googleId,
+      profileImage: data.profileImage,
     });
   }
 
@@ -83,6 +94,7 @@ export class UsersService {
     lastname: string;
     email: string;
     linkedinId: string;
+    profileImage?: string | null;
   }): Promise<User> {
     return this.createSocialUser({
       firstname: data.firstname,
@@ -90,16 +102,11 @@ export class UsersService {
       email: data.email,
       provider: 'linkedin',
       providerId: data.linkedinId,
+      profileImage: data.profileImage,
     });
   }
 
-  async createSocialUser(data: {
-    firstname: string;
-    lastname: string;
-    email: string;
-    provider: string;
-    providerId?: string;
-  }): Promise<User> {
+  async createSocialUser(data: SocialUserSeed): Promise<User> {
     const normalizedEmail = this.normalizeEmail(data.email);
     const user = await this.usersRepository.findOne({
       where: { email: normalizedEmail },
@@ -109,35 +116,31 @@ export class UsersService {
       return user;
     }
 
+    const providerName = data.provider.trim().toLowerCase();
+    const providerId = data.providerId?.trim() || undefined;
+    const providerImage = this.normalizeNullableString(data.profileImage);
     const newUser = this.usersRepository.create({
-      firstname: data.firstname,
-      lastname: data.lastname,
+      firstname: data.firstname.trim(),
+      lastname: data.lastname.trim(),
       email: normalizedEmail,
       passwordHash: null,
       role: UserRole.CITIZEN,
-      googleId: data.provider === 'google' ? data.providerId : undefined,
-      linkedinId: data.provider === 'linkedin' ? data.providerId : undefined,
-      provider: data.provider,
-      // Do NOT store provider images automatically
-      // Only user-uploaded images (via Profile page) are stored
-      profileImage: null,
+      googleId: providerName === 'google' ? providerId : undefined,
+      linkedinId: providerName === 'linkedin' ? providerId : undefined,
+      provider: providerName,
+      profileImage: providerImage ?? null,
+      profileImageUpdatedAt: providerImage ? new Date() : undefined,
       isVerified: true,
     });
 
     return this.usersRepository.save(newUser);
   }
 
-  async resolveSocialLoginUser(data: {
-    firstname: string;
-    lastname: string;
-    email: string;
-    provider: string;
-    providerId?: string;
-  }): Promise<User> {
+  async resolveSocialLoginUser(data: SocialUserSeed): Promise<User> {
     const normalizedEmail = this.normalizeEmail(data.email);
     const providerName = data.provider.trim().toLowerCase();
     const providerId = data.providerId?.trim() || undefined;
-    let user = await this.usersRepository.findOne({
+    const user = await this.usersRepository.findOne({
       where: { email: normalizedEmail },
     });
 
@@ -148,51 +151,8 @@ export class UsersService {
         email: normalizedEmail,
         provider: providerName,
         providerId,
+        profileImage: data.profileImage,
       });
-    }
-
-    let shouldPersist = false;
-
-    if (!user.firstname?.trim() && data.firstname.trim()) {
-      user.firstname = data.firstname.trim();
-      shouldPersist = true;
-    }
-
-    if (!user.lastname?.trim() && data.lastname.trim()) {
-      user.lastname = data.lastname.trim();
-      shouldPersist = true;
-    }
-
-    // DO NOT update profile image from provider
-    // Profile images are ONLY managed through manual user updates (Profile page)
-    // Provider images (Google/LinkedIn) are never saved to database
-
-    if (!user.provider?.trim()) {
-      user.provider = providerName;
-      shouldPersist = true;
-    }
-
-    if (providerName === 'google' && providerId && user.googleId !== providerId) {
-      user.googleId = providerId;
-      shouldPersist = true;
-    }
-
-    if (
-      providerName === 'linkedin' &&
-      providerId &&
-      user.linkedinId !== providerId
-    ) {
-      user.linkedinId = providerId;
-      shouldPersist = true;
-    }
-
-    if (!user.isVerified) {
-      user.isVerified = true;
-      shouldPersist = true;
-    }
-
-    if (shouldPersist) {
-      user = await this.usersRepository.save(user);
     }
 
     return user;
@@ -280,7 +240,6 @@ export class UsersService {
     id: number,
     updateProfileDto: UpdateProfileDto,
   ): Promise<User> {
-    console.log('📥 updateCurrentUser - ID:', id, 'DTO:', JSON.stringify(updateProfileDto));
     const user = await this.findOneOrFail(id);
     const firstname =
       updateProfileDto.firstname !== undefined
@@ -290,14 +249,12 @@ export class UsersService {
       updateProfileDto.lastname !== undefined
         ? updateProfileDto.lastname.trim()
         : user.lastname;
-    console.log('📝 Setting user data - firstname:', firstname, 'lastname:', lastname);
 
     if (!firstname && !lastname) {
       throw new BadRequestException('A profile name is required');
     }
 
     const requestedPasswordChange =
-      updateProfileDto.currentPassword !== undefined ||
       updateProfileDto.newPassword !== undefined;
 
     if (requestedPasswordChange) {
@@ -338,6 +295,10 @@ export class UsersService {
       user.address = this.normalizeNullableString(updateProfileDto.address);
     }
 
+    if (updateProfileDto.language !== undefined) {
+      user.language = updateProfileDto.language;
+    }
+
     if (updateProfileDto.profileImage !== undefined) {
       user.profileImage = this.normalizeNullableString(
         updateProfileDto.profileImage,
@@ -350,10 +311,8 @@ export class UsersService {
       // Only modified through explicit Profile page updates
     }
 
-    console.log('💾 Saving user - firstname:', user.firstname, 'lastname:', user.lastname, 'profileImage exists:', !!user.profileImage);
     const savedUser = await this.usersRepository.save(user);
-    console.log('✅ User saved successfully - ID:', savedUser.id, 'firstname:', savedUser.firstname, 'lastname:', savedUser.lastname);
-    return savedUser;
+    return this.findOneOrFail(savedUser.id);
   }
 
   /**

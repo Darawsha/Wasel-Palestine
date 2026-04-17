@@ -1,3 +1,5 @@
+import { apiGet, apiPatch } from '/Services/api-client.js';
+
 const DRAFT_STORAGE_KEY = 'wasel.admin.system-settings.draft';
 const APPLIED_STORAGE_KEY = 'wasel.admin.system-settings.applied';
 
@@ -18,6 +20,7 @@ const DEFAULT_ENV = {
 const WEATHER_API_FALLBACK_KEY = '51e8b6c810274f0296602528261803';
 const DEFAULT_PLATFORM_NAME = 'Wasel Palestine';
 const DEFAULT_PRIMARY_LANGUAGE = 'English';
+const ALLOWED_PRIMARY_LANGUAGES = new Set(['English', 'Arabic']);
 
 let cachedEnv = null;
 
@@ -34,6 +37,46 @@ function readJsonStorage(key) {
 function writeJsonStorage(key, value) {
   window.localStorage?.setItem(key, JSON.stringify(value));
   return value;
+}
+
+function normalizePrimaryLanguage(value) {
+  const normalizedValue = String(value || '').trim();
+  return ALLOWED_PRIMARY_LANGUAGES.has(normalizedValue)
+    ? normalizedValue
+    : DEFAULT_PRIMARY_LANGUAGE;
+}
+
+function normalizePersistedGeneralSettings(settings) {
+  if (!settings || typeof settings !== 'object') {
+    return null;
+  }
+
+  return {
+    platformName:
+      String(settings.platformName || '').trim() || DEFAULT_PLATFORM_NAME,
+    primaryLanguage: normalizePrimaryLanguage(settings.primaryLanguage),
+  };
+}
+
+async function loadPersistedGeneralSettings() {
+  try {
+    return normalizePersistedGeneralSettings(await apiGet('/system-settings'));
+  } catch (error) {
+    console.warn('Could not load persisted system settings.', error);
+    return null;
+  }
+}
+
+async function persistGeneralSettings(snapshot) {
+  const platformName = String(snapshot?.platformName || '').trim();
+  const primaryLanguage = normalizePrimaryLanguage(snapshot?.primaryLanguage);
+
+  const response = await apiPatch('/system-settings', {
+    platformName,
+    primaryLanguage,
+  });
+
+  return normalizePersistedGeneralSettings(response);
 }
 
 function mapTimezoneToOptionLabel(timezone) {
@@ -258,6 +301,7 @@ function applyApiBaseUrl(apiBaseUrl) {
 export async function loadSystemSettingsSnapshot() {
   const env = await loadEnv();
   const defaults = buildDefaults(env);
+  const persistedGeneralSettings = await loadPersistedGeneralSettings();
   const appliedConfig = readJsonStorage(APPLIED_STORAGE_KEY);
   const draft = readJsonStorage(DRAFT_STORAGE_KEY);
 
@@ -265,10 +309,14 @@ export async function loadSystemSettingsSnapshot() {
     ? {
       ...defaults,
       ...appliedConfig,
+      ...(persistedGeneralSettings || {}),
       configSource: 'Saved Runtime Override',
       environment: inferEnvironment(appliedConfig.apiBaseUrl || defaults.apiBaseUrl),
     }
-    : defaults;
+    : {
+      ...defaults,
+      ...(persistedGeneralSettings || {}),
+    };
 
   const snapshot = draft
     ? {
@@ -301,9 +349,11 @@ export function saveSystemSettingsDraft(draft) {
   return writeJsonStorage(DRAFT_STORAGE_KEY, draft);
 }
 
-export function applySystemSettings(snapshot) {
+export async function applySystemSettings(snapshot) {
+  const persistedGeneralSettings = await persistGeneralSettings(snapshot);
   const appliedSnapshot = {
     ...snapshot,
+    ...(persistedGeneralSettings || {}),
     environment: inferEnvironment(snapshot.apiBaseUrl),
     configSource: 'Saved Runtime Override',
     linkedApis: buildLinkedApis(snapshot.apiBaseUrl, snapshot),
@@ -314,6 +364,11 @@ export function applySystemSettings(snapshot) {
   applyApiBaseUrl(appliedSnapshot.apiBaseUrl);
   writeJsonStorage(APPLIED_STORAGE_KEY, appliedSnapshot);
   window.localStorage?.removeItem(DRAFT_STORAGE_KEY);
+  window.dispatchEvent(
+    new CustomEvent('admin:system-settings-updated', {
+      detail: appliedSnapshot,
+    }),
+  );
 
   return appliedSnapshot;
 }

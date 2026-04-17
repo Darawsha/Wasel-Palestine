@@ -123,8 +123,8 @@ export class IncidentsController {
     description: 'Unexpected server error',
     type: ErrorResponseDto,
   })
-  verifyIncident(@Param('id', ParseIntPipe) id: number) {
-    return this.incidentsService.verifyIncident(id);
+  verifyIncident(@Param('id', ParseIntPipe) id: number, @Request() req) {
+    return this.incidentsService.verifyIncident(id, req.user.userId);
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)
@@ -196,8 +196,10 @@ export class IncidentsController {
     description: 'Unexpected server error',
     type: ErrorResponseDto,
   })
-  getAllIncidents(@Query() paginationQuery: PaginationQueryDto) {
-    return this.incidentsService.findAllPaginated(paginationQuery);
+  getAllIncidents(@Query() paginationQuery: PaginationQueryDto, @Request() req) {
+    return this.incidentsService.findAllPaginated(paginationQuery, {
+      includeUnpublished: req.user.role === UserRole.ADMIN,
+    });
   }
 
   @UseGuards(JwtAuthGuard)
@@ -232,8 +234,10 @@ export class IncidentsController {
     description: 'Unexpected server error',
     type: ErrorResponseDto,
   })
-  findAll(@Query() incidentQueryDto: IncidentQueryDto) {
-    return this.incidentsService.findAll(incidentQueryDto);
+  findAll(@Query() incidentQueryDto: IncidentQueryDto, @Request() req) {
+    return this.incidentsService.findAll(incidentQueryDto, {
+      includeUnpublished: req.user.role === UserRole.ADMIN,
+    });
   }
 
   @UseGuards(JwtAuthGuard)
@@ -268,9 +272,11 @@ export class IncidentsController {
     description: 'Unexpected server error',
     type: ErrorResponseDto,
   })
-  async findAllIncidents(@Query() incidentQueryDto: IncidentQueryDto) {
+  async findAllIncidents(@Query() incidentQueryDto: IncidentQueryDto, @Request() req) {
     const result =
-      await this.incidentsService.findAllIncidents(incidentQueryDto);
+      await this.incidentsService.findAllIncidents(incidentQueryDto, {
+        includeUnpublished: req.user.role === UserRole.ADMIN,
+      });
     return {
       data: result.data,
       meta: result.meta,
@@ -458,8 +464,10 @@ export class IncidentsController {
     description: 'Unexpected server error',
     type: ErrorResponseDto,
   })
-  findOne(@Param('id', ParseIntPipe) id: number) {
-    return this.incidentsService.findOne(id);
+  findOne(@Param('id', ParseIntPipe) id: number, @Request() req) {
+    return this.incidentsService.findOne(id, {
+      includeUnpublished: req.user.role === UserRole.ADMIN,
+    });
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)

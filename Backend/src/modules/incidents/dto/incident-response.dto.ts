@@ -4,6 +4,7 @@ import {
   PaginationMetaResponseDto,
 } from '../../../common/dto/common-response.dto';
 import { CheckpointStatus } from '../../checkpoints/enums/checkpoint-status.enum';
+import { ModerationStatus } from '../../../common/enums/moderation-status.enum';
 import { IncidentSeverity } from '../enums/incident-severity.enum';
 import { IncidentStatus } from '../enums/incident-status.enum';
 import { IncidentType } from '../enums/incident-type.enum';
@@ -29,7 +30,7 @@ export class IncidentCheckpointResponseDto {
 
   @ApiProperty({
     description: 'Describes the current status field.',
-    enum: CheckpointStatus, example: CheckpointStatus.ACTIVE
+    enum: CheckpointStatus, example: CheckpointStatus.OPEN
   })
   currentStatus: CheckpointStatus;
 }
@@ -99,6 +100,21 @@ export class IncidentResponseDto {
   status: IncidentStatus;
 
   @ApiProperty({
+    description: 'Incident moderation workflow status.',
+    enum: ModerationStatus,
+    example: ModerationStatus.PENDING_CREATE,
+  })
+  moderationStatus: ModerationStatus;
+
+  @ApiProperty({
+    required: false,
+    description: 'Pending update changes waiting for approval.',
+    example: { status: 'CLOSED' },
+    nullable: true,
+  })
+  pendingChanges?: Record<string, unknown> | null;
+
+  @ApiProperty({
     required: false,
     description: 'Describes the impact status field.',
     enum: CheckpointStatus,
@@ -125,7 +141,7 @@ export class IncidentResponseDto {
       id: 12,
       name: 'Huwara Checkpoint',
       location: 'South Nablus, Route 60',
-      currentStatus: 'active',
+      currentStatus: 'OPEN',
     },
   })
   checkpoint?: object | null;
@@ -169,6 +185,62 @@ export class IncidentResponseDto {
     example: '2026-04-13T11:00:00.000Z', nullable: true
   })
   closedAt?: string | null;
+
+  @ApiProperty({
+    required: false,
+    description: 'Admin user id that created the incident.',
+    example: 7,
+    nullable: true,
+  })
+  createdByUserId?: number | null;
+
+  @ApiProperty({
+    required: false,
+    description: 'Admin user id that last submitted an update.',
+    example: 8,
+    nullable: true,
+  })
+  updatedByUserId?: number | null;
+
+  @ApiProperty({
+    required: false,
+    description: 'Admin user id that last approved the incident workflow.',
+    example: 7,
+    nullable: true,
+  })
+  approvedByUserId?: number | null;
+
+  @ApiProperty({
+    required: false,
+    description: 'Timestamp of the last approval decision.',
+    example: '2026-04-13T09:20:00.000Z',
+    nullable: true,
+  })
+  approvedAt?: string | null;
+
+  @ApiProperty({
+    required: false,
+    description: 'Admin user id that last rejected the incident workflow.',
+    example: 9,
+    nullable: true,
+  })
+  rejectedByUserId?: number | null;
+
+  @ApiProperty({
+    required: false,
+    description: 'Timestamp of the last rejection decision.',
+    example: '2026-04-13T09:20:00.000Z',
+    nullable: true,
+  })
+  rejectedAt?: string | null;
+
+  @ApiProperty({
+    required: false,
+    description: 'Optional reason recorded for the last rejection.',
+    example: 'Duplicate incident entry.',
+    nullable: true,
+  })
+  rejectionReason?: string | null;
 }
 
 export class IncidentStatusHistoryResponseDto {
@@ -242,7 +314,7 @@ export class IncidentPaginatedResponseDto {
           id: 12,
           name: 'Huwara Checkpoint',
           location: 'South Nablus, Route 60',
-          currentStatus: 'active',
+          currentStatus: 'OPEN',
         },
         createdAt: '2026-04-13T07:15:00.000Z',
         updatedAt: '2026-04-13T09:20:00.000Z',

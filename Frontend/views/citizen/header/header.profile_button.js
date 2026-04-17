@@ -31,6 +31,7 @@ function updateActiveLink() {
 updateActiveLink();
 window.addEventListener("hashchange", updateActiveLink);
 window.updateActiveLink = updateActiveLink;
+window.CitizenPreview?.applyShellState?.();
 
 function setupAvatarMenu() {
   const actions = document.querySelector(".header-component__actions");

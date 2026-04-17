@@ -51,6 +51,14 @@ export class AlertsService {
     return this.alertMatchesService.getUserAlertOverview(userId);
   }
 
+  async getUnreadMatchesCount(userId: number) {
+    return this.alertMatchesService.getUnreadMatchesCount(userId);
+  }
+
+  async markAllMatchesViewed(userId: number) {
+    return this.alertMatchesService.markAllMatchesViewed(userId);
+  }
+
   async unsubscribe(userId: number, preferenceId: string) {
     return this.alertPreferencesService.unsubscribe(userId, preferenceId);
   }

@@ -3,7 +3,6 @@ export const CHECKPOINT_STATUS_COLORS = {
   DELAYED: '#eab308',
   RESTRICTED: '#f97316',
   CLOSED: '#ef4444',
-  ACTIVE: '#22c55e',
 };
 
 export const INCIDENT_TYPE_COLORS = {
@@ -28,9 +27,6 @@ function normalizeUpper(value) {
 
 export function toCheckpointStatusKey(status) {
   const normalized = normalizeUpper(status);
-  if (normalized === 'ACTIVE') {
-    return 'OPEN';
-  }
   return normalized || 'OPEN';
 }
 

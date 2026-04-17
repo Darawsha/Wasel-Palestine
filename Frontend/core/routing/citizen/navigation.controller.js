@@ -13,6 +13,7 @@
     global.updateActiveLink?.();
     runtime.applyPageChrome(path);
     runtime.cleanupMapRuntime();
+    global.CitizenPreview?.applyShellState?.();
 
     try {
       const res = await fetch(routePath);
@@ -36,6 +37,8 @@
       } else if (path === "route-planner") {
         await runtime.initRoutePlannerRuntime?.();
       }
+
+      global.WaselUserLanguage?.refreshLanguage?.();
     } catch (err) {
       console.error(err);
       flexibleMain.innerHTML = "<h1>Error loading page</h1>";

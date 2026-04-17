@@ -1,8 +1,18 @@
 import { apiGet, apiPatch } from '/Services/api-client.js';
 import { getCurrentUser, setCurrentUser } from '/Services/session.service.js';
 
+const DEFAULT_LANGUAGE = 'English';
+const ALLOWED_LANGUAGES = new Set(['English', 'Arabic']);
+
 function normalizeText(value) {
   return typeof value === 'string' ? value.trim() : '';
+}
+
+function normalizeLanguage(value) {
+  const normalizedValue = normalizeText(value);
+  return ALLOWED_LANGUAGES.has(normalizedValue)
+    ? normalizedValue
+    : DEFAULT_LANGUAGE;
 }
 
 function splitFullName(fullName) {
@@ -63,6 +73,7 @@ function normalizeProfile(user) {
     email,
     phone: normalizeText(user?.phone),
     address: normalizeText(user?.address),
+    language: normalizeLanguage(user?.language || user?.preferredLanguage),
     role: normalizeText(user?.role),
     profileImage: user?.profileImage || null,  // ← Do NOT truncate Base64
     provider: normalizeText(user?.provider),
@@ -87,11 +98,20 @@ function buildUpdatePayload(profileDraft = {}) {
     payload.profileImage = (typeof image === 'string' && image) ? image : null;
   }
 
-  if (normalizeText(profileDraft.currentPassword)) {
-    payload.currentPassword = profileDraft.currentPassword;
+  if (Object.prototype.hasOwnProperty.call(profileDraft, 'language')) {
+    const language = normalizeText(profileDraft.language);
+    if (!ALLOWED_LANGUAGES.has(language)) {
+      throw new Error('Language must be English or Arabic.');
+    }
+
+    payload.language = language;
   }
 
   if (normalizeText(profileDraft.newPassword)) {
+    if (normalizeText(profileDraft.currentPassword)) {
+      payload.currentPassword = profileDraft.currentPassword;
+    }
+
     payload.newPassword = profileDraft.newPassword;
   }
 
@@ -106,18 +126,16 @@ export async function loadCurrentProfile() {
 
 export async function saveCurrentProfile(profileDraft) {
   const updatePayload = buildUpdatePayload(profileDraft);
-  console.log('🔵 Sending to DB:', updatePayload);
-  
+  const profile = await apiPatch('/auth/profile', updatePayload);
+
   try {
-    const profile = await apiPatch('/auth/profile', updatePayload);
-    console.log('✅ Received from DB:', profile);
-    
-    setCurrentUser(profile);
-    return normalizeProfile(profile);
+    return await loadCurrentProfile();
   } catch (error) {
-    console.error('❌ Save failed:', error);
-    throw error;
+    console.warn('Profile saved, but database reload failed', error);
   }
+
+  setCurrentUser(profile);
+  return normalizeProfile(profile);
 }
 
 export function getCachedProfile() {

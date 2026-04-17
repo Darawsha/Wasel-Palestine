@@ -92,6 +92,13 @@ export async function getCheckpointById(id) {
 }
 
 /**
+ * Fetches status history for a checkpoint.
+ */
+export async function getCheckpointHistory(id) {
+  return apiGet(`/checkpoints/${id}/history`);
+}
+
+/**
  * Deletes a checkpoint.
  */
 export async function deleteExistingCheckpoint(id) {

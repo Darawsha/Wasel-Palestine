@@ -5,10 +5,12 @@ import { CheckpointsService } from './checkpoints.service';
 import { Checkpoint } from './entities/checkpoint.entity';
 import { CheckpointStatusHistory } from './entities/status-history.entity';
 import { Incident } from '../incidents/entities/incident.entity';
+import { AuditLogModule } from '../audit-log/audit-log.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([Checkpoint, CheckpointStatusHistory, Incident]),
+    AuditLogModule,
   ],
   controllers: [CheckpointsController],
   providers: [CheckpointsService],

@@ -63,6 +63,14 @@
         <input type="text" id="address" value="" autocomplete="street-address" />
       </div>
 
+      <div class="form-group">
+        <label for="language">Application Language</label>
+        <select id="language" class="profile-select" autocomplete="off">
+          <option value="English">English</option>
+          <option value="Arabic">Arabic</option>
+        </select>
+      </div>
+
       <div class="section-divider">
         <div class="section-title">
           <span class="material-symbols-outlined">update</span>
@@ -157,9 +165,10 @@
     </form>
   </div>
 </body>
-<script src="/features/citizen/profile/Profile.js"></script>
-<script src="/features/citizen/profile/ApplyHeaderAvatar.js"></script>
-<script src="/features/citizen/profile/AvatarUpload.js"></script>
+<script src="/core/i18n/user-language.js?v=profile-language-layout-20260417-1"></script>
+<script src="/features/citizen/profile/Profile.js?v=profile-language-20260417-1"></script>
+<script src="/features/citizen/profile/ApplyHeaderAvatar.js?v=profile-db-save-20260417-2"></script>
+<script src="/features/citizen/profile/AvatarUpload.js?v=profile-db-save-20260417-2"></script>
 <script>
   window.addEventListener('DOMContentLoaded', function () {
     if (window.initProfilePage) {
