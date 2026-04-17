@@ -1,5 +1,8 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
+import { plainToInstance } from 'class-transformer';
+import { validateSync } from 'class-validator';
+import { ReportQueryDto } from '../dto/report-query.dto';
 import { Report } from '../entities/report.entity';
 import { ReportConfirmation } from '../entities/report-confirmation.entity';
 import { ReportModerationAudit } from '../entities/report-moderation-audit.entity';
@@ -73,6 +76,23 @@ describe('ReportsService', () => {
     expect(queryBuilder.andWhere).toHaveBeenCalledWith(
       'report.duplicateOf IS NOT NULL',
     );
+  });
+
+  it('parses duplicateOnly string booleans without treating arbitrary values as false', () => {
+    const validDto = plainToInstance(ReportQueryDto, {
+      duplicateOnly: 'false',
+    });
+    const invalidDto = plainToInstance(ReportQueryDto, {
+      duplicateOnly: 'sometimes',
+    });
+
+    expect(validateSync(validDto)).toHaveLength(0);
+    expect(validDto.duplicateOnly).toBe(false);
+    expect(
+      validateSync(invalidDto).some(
+        (error) => error.property === 'duplicateOnly',
+      ),
+    ).toBe(true);
   });
 
   it('defaults the community feed to all public non-rejected statuses', async () => {

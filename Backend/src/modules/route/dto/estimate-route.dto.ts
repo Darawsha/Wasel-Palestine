@@ -5,7 +5,30 @@ import {
   Max,
   Min,
 } from 'class-validator';
+import { Transform } from 'class-transformer';
 import { ApiProperty } from '@nestjs/swagger';
+
+function toOptionalBoolean(value: unknown): unknown {
+  if (value === undefined || value === null || value === '') {
+    return undefined;
+  }
+
+  if (typeof value === 'boolean') {
+    return value;
+  }
+
+  const normalized = String(value).trim().toLowerCase();
+
+  if (normalized === 'true') {
+    return true;
+  }
+
+  if (normalized === 'false') {
+    return false;
+  }
+
+  return value;
+}
 
 export class EstimateRouteDto {
   @ApiProperty({ example: 32.2211, description: 'Start latitude' })
@@ -38,6 +61,7 @@ export class EstimateRouteDto {
     description: 'Whether the route should avoid checkpoints',
   })
   @IsOptional()
+  @Transform(({ value }) => toOptionalBoolean(value))
   @IsBoolean()
   avoidCheckpoints?: boolean;
 
@@ -47,6 +71,7 @@ export class EstimateRouteDto {
     description: 'Whether the route should avoid incidents',
   })
   @IsOptional()
+  @Transform(({ value }) => toOptionalBoolean(value))
   @IsBoolean()
   avoidIncidents?: boolean;
 }
