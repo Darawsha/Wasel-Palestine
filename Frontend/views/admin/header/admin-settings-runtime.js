@@ -170,7 +170,6 @@ const TRANSLATIONS = {
     'Timestamp': 'الوقت',
     'Time': 'الوقت',
     'Created': 'تم الإنشاء',
-    'Updated': 'تم التحديث',
     'Last Updated': 'آخر تحديث',
     'Submitted By': 'مقدم الطلب',
     'Performed By': 'نفذ بواسطة',
