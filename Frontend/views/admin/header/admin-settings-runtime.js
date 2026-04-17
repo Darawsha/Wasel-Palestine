@@ -169,7 +169,6 @@ const TRANSLATIONS = {
     'Target': 'الهدف',
     'Timestamp': 'الوقت',
     'Time': 'الوقت',
-    'Created': 'تم الإنشاء',
     'Last Updated': 'آخر تحديث',
     'Submitted By': 'مقدم الطلب',
     'Performed By': 'نفذ بواسطة',
