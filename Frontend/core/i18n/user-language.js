@@ -204,7 +204,6 @@
       'Use a real, specific location, just like when submitting a new report.':
         'استخدم موقعا حقيقيا ومحددا، كما تفعل عند إرسال بلاغ جديد.',
       'Incident Categories': 'فئات الحوادث',
-      'Profile': 'الملف الشخصي',
       'Loading profile': 'جاري تحميل الملف الشخصي',
       'Checking authenticated session': 'جاري التحقق من الجلسة',
       'Change photo': 'تغيير الصورة',
