@@ -17,7 +17,6 @@
       'Route Planner': 'مخطط المسار',
       'Alerts': 'التنبيهات',
       'Profile': 'الملف الشخصي',
-      'Logout': 'تسجيل الخروج',
       'User menu': 'قائمة المستخدم',
       'Toggle navigation': 'تبديل التنقل',
       'Main navigation': 'التنقل الرئيسي',
