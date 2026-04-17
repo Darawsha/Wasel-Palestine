@@ -357,13 +357,14 @@ export function saveSystemSettingsDraft(draft) {
 
 export async function applySystemSettings(snapshot) {
   const persistedGeneralSettings = await persistGeneralSettings(snapshot);
-  const appliedSnapshot = {
+  const baseAppliedSnapshot = {
     ...snapshot,
     ...(persistedGeneralSettings || {}),
     environment: inferEnvironment(snapshot.apiBaseUrl),
     configSource: 'Saved Runtime Override',
-  });
+  };
 
+  const hydratedSnapshot = applyRuntimeSecretOverrides(baseAppliedSnapshot);
   const appliedSnapshot = {
     ...hydratedSnapshot,
     linkedApis: buildLinkedApis(hydratedSnapshot.apiBaseUrl, hydratedSnapshot),
