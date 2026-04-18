@@ -1,8 +1,10 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Optional } from '@nestjs/common';
 import { IncidentType } from '../../incidents/enums/incident-type.enum';
 import { IncidentsService } from '../../incidents/incidents.service';
 import { IncidentSeverity } from '../../incidents/enums/incident-severity.enum';
 import { IncidentStatus } from '../../incidents/enums/incident-status.enum';
+import { ReportCategory } from '../../reports/enums/report-category.enum';
+import { ReportsService } from '../../reports/services/reports.service';
 import { RouteConstraintType } from '../enums/route-constraint-type.enum';
 import { RouteFactorType } from '../enums/route-factor-type.enum';
 import { RouteAdjustmentContext } from '../interfaces/route-adjustment-context.interface';
@@ -14,7 +16,10 @@ import {
 
 @Injectable()
 export class IncidentAvoidanceStrategy {
-  constructor(private readonly incidentsService: IncidentsService) {}
+  constructor(
+    private readonly incidentsService: IncidentsService,
+    @Optional() private readonly reportsService?: ReportsService,
+  ) {}
 
   async build(
     context: RouteAdjustmentContext,
@@ -27,15 +32,28 @@ export class IncidentAvoidanceStrategy {
       };
     }
 
-    const incidents = await this.incidentsService.getFilteredIncidents({});
+    const [incidents, incidentReports] = await Promise.all([
+      this.incidentsService.getFilteredIncidents({}),
+      this.reportsService?.getApprovedReportsByCategories([
+        ReportCategory.ROAD_CLOSURE,
+        ReportCategory.DELAY,
+        ReportCategory.ACCIDENT,
+        ReportCategory.HAZARD,
+      ]) ?? Promise.resolve([]),
+    ]);
     const routeRelevantIncidents = incidents.filter(
       (incident) =>
         incident.status === IncidentStatus.ACTIVE &&
         Number.isFinite(Number(incident?.latitude)) &&
         Number.isFinite(Number(incident?.longitude)),
     );
+    const routeRelevantReports = incidentReports.filter(
+      (report) =>
+        Number.isFinite(Number(report?.latitude)) &&
+        Number.isFinite(Number(report?.longitude)),
+    );
 
-    if (!routeRelevantIncidents.length) {
+    if (!routeRelevantIncidents.length && !routeRelevantReports.length) {
       return {
         constraint: RouteConstraintType.AVOID_INCIDENTS,
         groups: [],
@@ -44,7 +62,7 @@ export class IncidentAvoidanceStrategy {
     }
 
     const axis = getRouteCorridorAxis(context);
-    const groups = routeRelevantIncidents
+    const incidentGroups = routeRelevantIncidents
       .map((incident) => {
         const latitude = Number(incident.latitude);
         const longitude = Number(incident.longitude);
@@ -75,6 +93,41 @@ export class IncidentAvoidanceStrategy {
         };
       })
       .filter((value): value is NonNullable<typeof value> => value !== null);
+    const reportGroups = routeRelevantReports
+      .map((report) => {
+        const latitude = Number(report.latitude);
+        const longitude = Number(report.longitude);
+        const reportProfile = this.resolveReportProfile(report.category);
+        const profile = this.resolveProfile(
+          reportProfile.type,
+          reportProfile.severity,
+        );
+        const zones = [
+          buildCorridorAvoidanceZone(
+            latitude,
+            longitude,
+            axis,
+            profile.halfLengthMeters,
+            profile.halfWidthMeters,
+          ),
+        ];
+
+        if (!zones.length) {
+          return null;
+        }
+
+        return {
+          constraint: RouteConstraintType.AVOID_INCIDENTS,
+          sourceKey: `incident-report:${report.reportId}`,
+          sourceLabel: report.location || report.description || 'incident report',
+          latitude,
+          longitude,
+          zones,
+          escalationPaddingMeters: profile.escalationPaddingMeters,
+        };
+      })
+      .filter((value): value is NonNullable<typeof value> => value !== null);
+    const groups = [...incidentGroups, ...reportGroups];
 
     if (!groups.length) {
       return {
@@ -92,7 +145,8 @@ export class IncidentAvoidanceStrategy {
           type: RouteFactorType.INCIDENT_AVOIDANCE,
           description:
             `Built ${groups.length} narrow incident road-avoidance corridor(s) ` +
-            `for ${routeRelevantIncidents.length} active incident(s).`,
+            `for ${routeRelevantIncidents.length} active incident(s) and ` +
+            `${routeRelevantReports.length} approved incident report(s).`,
         },
       ],
     };
@@ -116,6 +170,39 @@ export class IncidentAvoidanceStrategy {
         baseProfile.escalationPaddingMeters * adjustments.escalationPadding,
       ),
     };
+  }
+
+  private resolveReportProfile(category?: ReportCategory): {
+    type: IncidentType;
+    severity: IncidentSeverity;
+  } {
+    switch (category) {
+      case ReportCategory.ROAD_CLOSURE:
+        return {
+          type: IncidentType.CLOSURE,
+          severity: IncidentSeverity.HIGH,
+        };
+      case ReportCategory.DELAY:
+        return {
+          type: IncidentType.DELAY,
+          severity: IncidentSeverity.MEDIUM,
+        };
+      case ReportCategory.ACCIDENT:
+        return {
+          type: IncidentType.ACCIDENT,
+          severity: IncidentSeverity.HIGH,
+        };
+      case ReportCategory.HAZARD:
+        return {
+          type: IncidentType.WEATHER_HAZARD,
+          severity: IncidentSeverity.MEDIUM,
+        };
+      default:
+        return {
+          type: IncidentType.ACCIDENT,
+          severity: IncidentSeverity.MEDIUM,
+        };
+    }
   }
 
   private resolveSeverityProfile(severity?: IncidentSeverity) {

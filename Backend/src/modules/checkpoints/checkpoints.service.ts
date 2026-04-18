@@ -222,6 +222,32 @@ export class CheckpointsService {
         checkpointsById.set(checkpoint.id, checkpoint);
       });
 
+      const directlyChangedCheckpoints = await this.checkpointsRepository
+        .createQueryBuilder('checkpoint')
+        .where(
+          '(checkpoint.createdAt BETWEEN :startDate AND :endDate OR checkpoint.updatedAt BETWEEN :startDate AND :endDate)',
+          {
+            startDate,
+            endDate,
+          },
+        )
+        .andWhere(
+          'checkpoint.moderationStatus IN (:...publicModerationStatuses)',
+          {
+            publicModerationStatuses: PUBLIC_MODERATION_STATUSES,
+          },
+        )
+        .orderBy('checkpoint.updatedAt', 'DESC')
+        .getMany();
+
+      directlyChangedCheckpoints.forEach((checkpoint) => {
+        if (!checkpoint || checkpointsById.has(checkpoint.id)) {
+          return;
+        }
+
+        checkpointsById.set(checkpoint.id, checkpoint);
+      });
+
       return Array.from(checkpointsById.values()).map((checkpoint) =>
         this.applyCheckpointPendingChangesForPublicRead(checkpoint),
       );

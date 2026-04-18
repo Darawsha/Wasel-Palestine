@@ -3,6 +3,13 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { MoreThan, Repository } from 'typeorm';
 import { CreateReportDto } from '../dto/create-report.dto';
 import { Report } from '../entities/report.entity';
+import {
+  getRecentOwnDuplicateReportThreshold,
+  getRecentSimilarReportThreshold,
+  haveSameEffectiveReportMeaning,
+  OWN_DUPLICATE_REPORT_MESSAGE,
+  SIMILAR_REPORT_LOCATION_RADIUS_METERS,
+} from '../utils/report-similarity.util';
 
 type CreateReportValidationInput = CreateReportDto & {
   submittedByUserId: number;
@@ -28,27 +35,45 @@ export class ReportValidationService {
     }
   }
 
-  async detectSpam(dto: CreateReportValidationInput) {
-    const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000);
-    const spam = await this.reportRepo.findOne({
-      where: {
+  async rejectRecentOwnDuplicate(dto: CreateReportValidationInput) {
+    const timeWindow = getRecentOwnDuplicateReportThreshold();
+    const candidates = await this.reportRepo
+      .createQueryBuilder('report')
+      .where('report.submittedByUserId = :submittedByUserId', {
         submittedByUserId: dto.submittedByUserId,
-        category: dto.category,
-        latitude: dto.latitude,
-        longitude: dto.longitude,
-        createdAt: MoreThan(thirtyMinutesAgo),
-      },
-    });
+      })
+      .andWhere('report.category = :category', { category: dto.category })
+      .andWhere('report.createdAt >= :timeWindow', { timeWindow })
+      .andWhere(
+        `
+  (6371000 * acos(
+    cos(radians(:lat)) *
+    cos(radians(report.latitude)) *
+    cos(radians(report.longitude) - radians(:lng)) +
+    sin(radians(:lat)) *
+    sin(radians(report.latitude))
+  )) <= :radiusMeters
+`,
+        {
+          lat: dto.latitude,
+          lng: dto.longitude,
+          radiusMeters: SIMILAR_REPORT_LOCATION_RADIUS_METERS,
+        },
+      )
+      .orderBy('report.createdAt', 'DESC')
+      .getMany();
 
-    if (spam) {
-      throw new BadRequestException(
-        'Duplicate or near-duplicate report detected. Please avoid spamming.',
-      );
+    const duplicate = candidates.find((candidate) =>
+      haveSameEffectiveReportMeaning(dto, candidate),
+    );
+
+    if (duplicate) {
+      throw new BadRequestException(OWN_DUPLICATE_REPORT_MESSAGE);
     }
   }
 
   async findDuplicate(reportDto: CreateReportDto, excludeReportId?: number) {
-    const timeWindow = new Date(Date.now() - 30 * 60 * 1000);
+    const timeWindow = getRecentSimilarReportThreshold();
     const queryBuilder = this.reportRepo
       .createQueryBuilder('report')
       .where('report.category = :category', { category: reportDto.category })
@@ -61,11 +86,12 @@ export class ReportValidationService {
     cos(radians(report.longitude) - radians(:lng)) +
     sin(radians(:lat)) *
     sin(radians(report.latitude))
-  )) < 50
+  )) <= :radiusMeters
 `,
         {
           lat: reportDto.latitude,
           lng: reportDto.longitude,
+          radiusMeters: SIMILAR_REPORT_LOCATION_RADIUS_METERS,
         },
       );
 
@@ -75,6 +101,14 @@ export class ReportValidationService {
       });
     }
 
-    return queryBuilder.getOne();
+    const candidates = await queryBuilder
+      .orderBy('report.createdAt', 'DESC')
+      .getMany();
+
+    return (
+      candidates.find((candidate) =>
+        haveSameEffectiveReportMeaning(reportDto, candidate),
+      ) ?? null
+    );
   }
 }

@@ -1,19 +1,26 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, Repository } from 'typeorm';
+import { In, IsNull, Repository } from 'typeorm';
 
-import { CheckpointStatus } from '../../checkpoints/enums/checkpoint-status.enum';
 import { Checkpoint } from '../../checkpoints/entities/checkpoint.entity';
 import { Incident } from '../../incidents/entities/incident.entity';
 import { IncidentStatus } from '../../incidents/enums/incident-status.enum';
 import { IncidentType } from '../../incidents/enums/incident-type.enum';
 import { Report } from '../../reports/entities/report.entity';
-import { ReportCategory } from '../../reports/enums/report-category.enum';
 import { ReportStatus } from '../../reports/enums/report-status.enum';
 import { AlertPreference } from '../entities/alert-preference.entity';
 import { AlertsValidationService } from './alerts-validation.service';
 import { PUBLIC_MODERATION_STATUSES } from '../../../common/enums/moderation-status.enum';
 import { User } from '../../users/entities/user.entity';
+import {
+  formatCheckpointStatusLabel,
+  formatIncidentCategoryLabel,
+  getCheckpointStatusesForIncidentTypes,
+  getReportCategoriesForIncidentTypes,
+  matchesCheckpointCategory,
+  matchesReportCategory,
+  normalizeIncidentCategory,
+} from '../utils/alert-category.util';
 
 type AlertPreferenceGroup = {
   key: string;
@@ -38,26 +45,10 @@ type AlertMatchRecord = {
   createdAt: Date | null;
 };
 
-const REPORT_CATEGORIES_BY_INCIDENT_TYPE: Partial<
-  Record<IncidentType, ReportCategory[]>
-> = {
-  [IncidentType.CLOSURE]: [
-    ReportCategory.ROAD_CLOSURE,
-    ReportCategory.CHECKPOINT_ISSUE,
-  ],
-  [IncidentType.DELAY]: [
-    ReportCategory.DELAY,
-    ReportCategory.CHECKPOINT_ISSUE,
-  ],
-  [IncidentType.ACCIDENT]: [ReportCategory.ACCIDENT],
-  [IncidentType.WEATHER_HAZARD]: [ReportCategory.HAZARD],
-};
-
-const CHECKPOINT_STATUSES_BY_INCIDENT_TYPE: Partial<
-  Record<IncidentType, CheckpointStatus[]>
-> = {
-  [IncidentType.CLOSURE]: [CheckpointStatus.CLOSED],
-  [IncidentType.DELAY]: [CheckpointStatus.DELAYED],
+type AlertUnreadMatchSummary = {
+  unreadCount: number;
+  lastAlertsViewedAt: Date | null;
+  unreadMatchIds: string[];
 };
 
 @Injectable()
@@ -115,17 +106,17 @@ export class AlertMatchesService {
     });
   }
 
-  async getUnreadMatchesCount(userId: number) {
+  async getUnreadMatchesCount(userId: number): Promise<AlertUnreadMatchSummary> {
     const user = await this.findUserForAlertState(userId);
     const lastViewedAt = user.lastAlertsViewedAt ?? null;
     const lastViewedTime = this.toTimeValue(lastViewedAt, 0);
     const overview = await this.getUserAlertOverview(user.id);
     const seenMatchIds = new Set<string>();
+    const unreadMatchIds = new Set<string>();
     let unreadCount = 0;
 
     overview.forEach((subscription) => {
       subscription.currentMatches
-        .filter((match) => match.sourceType === 'incident' || match.sourceType === 'checkpoint')
         .forEach((match) => {
           if (seenMatchIds.has(match.id)) {
             return;
@@ -135,6 +126,7 @@ export class AlertMatchesService {
 
           if (this.toTimeValue(match.createdAt, 0) > lastViewedTime) {
             unreadCount += 1;
+            unreadMatchIds.add(match.id);
           }
         });
     });
@@ -142,6 +134,7 @@ export class AlertMatchesService {
     return {
       unreadCount,
       lastAlertsViewedAt: lastViewedAt,
+      unreadMatchIds: Array.from(unreadMatchIds),
     };
   }
 
@@ -182,7 +175,7 @@ export class AlertMatchesService {
           key,
           location: preference.geographicArea,
           preferenceIds: [preference.id],
-          categories: [{ key: this.normalizeIncidentCategory(preference.incidentCategory) }],
+          categories: [{ key: normalizeIncidentCategory(preference.incidentCategory) }],
           subscribedSince: preference.createdAt ?? null,
           lastCreatedAt: preference.createdAt ?? null,
         });
@@ -191,7 +184,7 @@ export class AlertMatchesService {
 
       existingGroup.preferenceIds.push(preference.id);
 
-      const categoryKey = this.normalizeIncidentCategory(preference.incidentCategory);
+      const categoryKey = normalizeIncidentCategory(preference.incidentCategory);
       if (!existingGroup.categories.some((category) => category.key === categoryKey)) {
         existingGroup.categories.push({ key: categoryKey });
       }
@@ -223,7 +216,7 @@ export class AlertMatchesService {
       new Set(
         groups.flatMap((group) =>
           group.categories.map((category) =>
-            this.normalizeIncidentCategory(category.key),
+            normalizeIncidentCategory(category.key),
           ),
         ),
       ),
@@ -254,13 +247,7 @@ export class AlertMatchesService {
   }
 
   private async loadCandidateCheckpoints(categories: IncidentType[]) {
-    const statuses = Array.from(
-      new Set(
-        categories.flatMap(
-          (category) => CHECKPOINT_STATUSES_BY_INCIDENT_TYPE[category] ?? [],
-        ),
-      ),
-    );
+    const statuses = getCheckpointStatusesForIncidentTypes(categories);
 
     if (statuses.length === 0) {
       return [];
@@ -278,13 +265,7 @@ export class AlertMatchesService {
   }
 
   private async loadCandidateReports(categories: IncidentType[]) {
-    const reportCategories = Array.from(
-      new Set(
-        categories.flatMap(
-          (category) => REPORT_CATEGORIES_BY_INCIDENT_TYPE[category] ?? [],
-        ),
-      ),
-    );
+    const reportCategories = getReportCategoriesForIncidentTypes(categories);
 
     if (reportCategories.length === 0) {
       return [];
@@ -294,6 +275,7 @@ export class AlertMatchesService {
       where: {
         status: ReportStatus.APPROVED,
         category: In(reportCategories),
+        duplicateOf: IsNull(),
       },
       order: {
         updatedAt: 'DESC',
@@ -310,13 +292,13 @@ export class AlertMatchesService {
     },
   ): AlertMatchRecord[] {
     const categoryKeys = group.categories.map((category) =>
-      this.normalizeIncidentCategory(category.key),
+      normalizeIncidentCategory(category.key),
     );
 
     const incidentMatches = candidates.incidents
       .filter(
         (incident) =>
-          categoryKeys.includes(this.normalizeIncidentCategory(incident.type)) &&
+          categoryKeys.includes(normalizeIncidentCategory(incident.type)) &&
           this.isLocationMatch(group.location, [
             incident.location,
             incident.checkpoint?.name,
@@ -329,7 +311,7 @@ export class AlertMatchesService {
       .filter(
         (checkpoint) =>
           categoryKeys.some((category) =>
-            this.matchesCheckpointCategory(category, checkpoint.currentStatus),
+            matchesCheckpointCategory(category, checkpoint.currentStatus),
           ) &&
           this.isLocationMatch(group.location, [
             checkpoint.name,
@@ -340,7 +322,7 @@ export class AlertMatchesService {
         this.mapCheckpointMatch(
           checkpoint,
           categoryKeys.find((category) =>
-            this.matchesCheckpointCategory(category, checkpoint.currentStatus),
+            matchesCheckpointCategory(category, checkpoint.currentStatus),
           ) || IncidentType.CLOSURE,
         ),
       );
@@ -349,7 +331,7 @@ export class AlertMatchesService {
       .filter(
         (report) =>
           categoryKeys.some((category) =>
-            this.matchesReportCategory(category, report.category),
+            matchesReportCategory(category, report.category),
           ) &&
           this.isLocationMatch(group.location, [report.location]),
       )
@@ -357,7 +339,7 @@ export class AlertMatchesService {
         this.mapReportMatch(
           report,
           categoryKeys.find((category) =>
-            this.matchesReportCategory(category, report.category),
+            matchesReportCategory(category, report.category),
           ) || IncidentType.CLOSURE,
         ),
       );
@@ -369,27 +351,27 @@ export class AlertMatchesService {
   }
 
   private mapIncidentMatch(incident: Incident): AlertMatchRecord {
-    const categoryKey = this.normalizeIncidentCategory(incident.type);
+    const categoryKey = normalizeIncidentCategory(incident.type);
     const location =
       String(incident.location || incident.checkpoint?.location || '').trim() ||
       'Unknown location';
     const subject =
       String(incident.checkpoint?.name || incident.location || incident.title).trim() ||
       'This location';
-    const label = this.formatIncidentCategoryLabel(categoryKey).toLowerCase();
+    const label = formatIncidentCategoryLabel(categoryKey).toLowerCase();
 
     return {
       id: `incident:${incident.id}`,
       sourceRecordId: String(incident.id),
       sourceType: 'incident',
-      title: incident.title || `${this.formatIncidentCategoryLabel(categoryKey)} Incident`,
+      title: incident.title || `${formatIncidentCategoryLabel(categoryKey)} Incident`,
       summary: `${subject} currently has a verified ${label} incident.`,
       location,
       categoryKey,
       statusKey: String(incident.status || '').trim() || null,
       severityKey: String(incident.severity || '').trim().toUpperCase() || null,
       isVerified: Boolean(incident.isVerified),
-      createdAt: incident.createdAt ?? null,
+      createdAt: incident.updatedAt ?? incident.createdAt ?? null,
     };
   }
 
@@ -397,7 +379,7 @@ export class AlertMatchesService {
     checkpoint: Checkpoint,
     categoryKey: IncidentType,
   ): AlertMatchRecord {
-    const statusLabel = this.formatCheckpointStatusLabel(checkpoint.currentStatus);
+    const statusLabel = formatCheckpointStatusLabel(checkpoint.currentStatus);
 
     return {
       id: `checkpoint:${checkpoint.id}`,
@@ -412,12 +394,12 @@ export class AlertMatchesService {
       statusKey: String(checkpoint.currentStatus || '').trim() || null,
       severityKey: null,
       isVerified: null,
-      createdAt: checkpoint.createdAt ?? null,
+      createdAt: checkpoint.updatedAt ?? checkpoint.createdAt ?? null,
     };
   }
 
   private mapReportMatch(report: Report, categoryKey: IncidentType): AlertMatchRecord {
-    const label = this.formatIncidentCategoryLabel(categoryKey).toLowerCase();
+    const label = formatIncidentCategoryLabel(categoryKey).toLowerCase();
 
     return {
       id: `report:${report.reportId}`,
@@ -432,30 +414,6 @@ export class AlertMatchesService {
       isVerified: null,
       createdAt: report.updatedAt ?? report.createdAt ?? null,
     };
-  }
-
-  private matchesCheckpointCategory(
-    category: IncidentType,
-    checkpointStatus: CheckpointStatus,
-  ): boolean {
-    return (
-      CHECKPOINT_STATUSES_BY_INCIDENT_TYPE[category]?.includes(checkpointStatus) ??
-      false
-    );
-  }
-
-  private matchesReportCategory(
-    category: IncidentType,
-    reportCategory: ReportCategory,
-  ): boolean {
-    return REPORT_CATEGORIES_BY_INCIDENT_TYPE[category]?.includes(reportCategory) ?? false;
-  }
-
-  private normalizeIncidentCategory(value: string): IncidentType {
-    return String(value || '')
-      .trim()
-      .replace(/\s+/g, '_')
-      .toUpperCase() as IncidentType;
   }
 
   private normalizeLocationText(value: string): string {
@@ -485,36 +443,6 @@ export class AlertMatchesService {
         normalizedLocation.includes(normalizedCandidate)
       );
     });
-  }
-
-  private formatIncidentCategoryLabel(category: IncidentType): string {
-    switch (category) {
-      case IncidentType.CLOSURE:
-        return 'Road Closure';
-      case IncidentType.DELAY:
-        return 'Delay';
-      case IncidentType.ACCIDENT:
-        return 'Accident';
-      case IncidentType.WEATHER_HAZARD:
-        return 'Weather Hazard';
-      default:
-        return String(category || '').trim();
-    }
-  }
-
-  private formatCheckpointStatusLabel(status: CheckpointStatus): string {
-    switch (status) {
-      case CheckpointStatus.OPEN:
-        return 'Open';
-      case CheckpointStatus.CLOSED:
-        return 'Closed';
-      case CheckpointStatus.DELAYED:
-        return 'Delayed';
-      case CheckpointStatus.RESTRICTED:
-        return 'Restricted';
-      default:
-        return String(status || '').trim();
-    }
   }
 
   private toTimeValue(dateValue: Date | null | undefined, fallback: number): number {

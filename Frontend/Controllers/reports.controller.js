@@ -80,6 +80,9 @@ const CATEGORY_PRESENTATION = {
   },
 };
 
+const DEFAULT_DUPLICATE_MESSAGE =
+  'A similar report was added recently with the same information. Your report was recorded in My Reports but was not published as a separate community report.';
+
 function escapeFallback(value, fallback = '') {
   return String(value ?? fallback).trim();
 }
@@ -210,6 +213,8 @@ function normalizeReport(report = {}) {
     typeof report.canManage === 'boolean'
       ? report.canManage
       : isOwnReport && !['approved', 'resolved'].includes(normalizedStatus);
+  const duplicateOf = report.duplicateOf ? Number(report.duplicateOf) : null;
+  const isDuplicate = Boolean(duplicateOf);
 
   return {
     id: Number(report.reportId),
@@ -234,8 +239,11 @@ function normalizeReport(report = {}) {
     isOwnReport,
     canManage,
     canVote: Boolean(report.canVote),
-    duplicateOf: report.duplicateOf ? Number(report.duplicateOf) : null,
-    isDuplicate: Boolean(report.duplicateOf),
+    duplicateOf,
+    isDuplicate,
+    duplicateMessage:
+      escapeFallback(report.duplicateMessage) ||
+      (isDuplicate ? DEFAULT_DUPLICATE_MESSAGE : ''),
     relativeTime: formatRelativeTime(report.createdAt),
     createdAtLabel: formatAbsoluteDate(report.createdAt),
     updatedAtLabel: formatAbsoluteDate(report.updatedAt),

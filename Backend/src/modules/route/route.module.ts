@@ -9,9 +9,10 @@ import { RouteMetadataService } from './services/route-metadata.service';
 import { RouteRecommendationService } from './services/route-recommendation.service';
 import { CheckpointsModule } from '../checkpoints/checkpoints.module';
 import { IncidentsModule } from '../incidents/incidents.module';
+import { ReportsModule } from '../reports/reports.module';
 
 @Module({
-  imports: [CheckpointsModule, IncidentsModule],
+  imports: [CheckpointsModule, IncidentsModule, ReportsModule],
   controllers: [RouteController],
   providers: [
     RouteService,
