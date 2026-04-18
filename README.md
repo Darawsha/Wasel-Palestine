@@ -1,11 +1,23 @@
 <p align="center">
-  <img src="docs/assets/wasel-palestine-logo.svg" width="150" alt="Wasel Palestine logo" />
+  <img src="wasel-logo (2).png" width="320"/>
 </p>
-
-<h1 align="center">Wasel Palestine</h1>
+<h1 align="center">🚀 Wasel-Palestine</h2>
 
 <p align="center">
-  <strong>Traffic awareness, civic reporting, alerts, and route assistance for Palestine.</strong>
+  Smart Route Optimization & Checkpoint Awareness System
+</p>
+<p align="center">
+  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
+</p>
+
+[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
+[circleci-url]: https://circleci.com/gh/nestjs/nest
+
+  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
+<p align="center">
+  <img src="https://img.shields.io/badge/status-active-success"/>
+  <img src="https://img.shields.io/badge/backend-NestJS-red"/>
+  <img src="https://img.shields.io/badge/frontend-Next.js-blue"/>
 </p>
 
 <p align="center">
@@ -628,10 +640,27 @@ These limitations are visible in the current codebase:
 - Consolidate frontend token storage keys.
 - Add integration tests for auth middleware, public routes, and role-protected routes.
 
-## License
+## 👥 Team
 
-The package is currently marked as:
+- **Mohammad Awwad**
+- **Montaser Abdat**
 
-```text
-UNLICENSED
-```
+---
+
+## 📌 Notes
+
+This project is intentionally built as a **learning-focused MVP**:
+
+- Clean architecture without over-engineering
+- Refactoring is expected and accepted
+- Each sprint delivers **user-visible value**
+
+---
+
+## 📄 License
+
+**All rights reserved © 2026.**  
+This project is for **educational purposes** and is **not open source**.  
+Unauthorized use, copying, modification, or distribution is not permitted.
+[LICENSE](./LICENSE)
+
