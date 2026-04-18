@@ -35,6 +35,13 @@
     CHECKPOINTS: 'AVOID_CHECKPOINTS',
     INCIDENTS: 'AVOID_INCIDENTS',
   };
+  const REPORT_CATEGORY = {
+    CHECKPOINT_ISSUE: 'checkpoint_issue',
+    ROAD_CLOSURE: 'road_closure',
+    DELAY: 'delay',
+    ACCIDENT: 'accident',
+    HAZARD: 'hazard',
+  };
   const LOGOUT_MODAL_CSS = '/features/citizen/logout/Logout.css';
   const CONFIRMATION_HOST_SELECTOR = '[data-route-confirmation-host]';
 
@@ -960,10 +967,24 @@
     return preferences?.mode === ROUTE_PREFERENCE_MODE.CHECKPOINTS_ONLY;
   }
 
+  function isIncidentOnlyPreference(preferences) {
+    return preferences?.mode === ROUTE_PREFERENCE_MODE.INCIDENTS_ONLY;
+  }
+
   function applyPreferenceAnalysis(analysis, preferences) {
     const normalizedAnalysis = normalizeRouteAnalysis(analysis);
 
     if (isCheckpointOnlyPreference(preferences)) {
+      return {
+        checkpoints: normalizedAnalysis.checkpoints,
+        incidents: [],
+        restrictions: normalizedAnalysis.restrictions.filter(
+          (restriction) => restriction?.source === 'checkpoint',
+        ),
+      };
+    }
+
+    if (isIncidentOnlyPreference(preferences)) {
       return {
         checkpoints: [],
         incidents: normalizedAnalysis.incidents,
@@ -1103,12 +1124,93 @@
     };
   }
 
+  function normalizeReportCategory(category) {
+    return normalizeText(category).toLowerCase().replace(/-/g, '_');
+  }
+
+  function isApprovedReport(report) {
+    return normalizeText(report?.status).toLowerCase() === 'approved';
+  }
+
+  function normalizeCheckpointReport(report) {
+    if (
+      !isApprovedReport(report) ||
+      normalizeReportCategory(report?.category) !==
+        REPORT_CATEGORY.CHECKPOINT_ISSUE
+    ) {
+      return null;
+    }
+
+    const latitude = Number(report?.latitude);
+    const longitude = Number(report?.longitude);
+
+    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+      return null;
+    }
+
+    return {
+      id: report?.reportId,
+      name: 'Reported checkpoint issue',
+      location: normalizeText(report?.location),
+      status: 'REPORTED',
+      latitude,
+      longitude,
+      reported: true,
+    };
+  }
+
+  function resolveReportIncidentType(category) {
+    const normalizedCategory = normalizeReportCategory(category);
+
+    if (normalizedCategory === REPORT_CATEGORY.ROAD_CLOSURE) return 'CLOSURE';
+    if (normalizedCategory === REPORT_CATEGORY.DELAY) return 'DELAY';
+    if (normalizedCategory === REPORT_CATEGORY.ACCIDENT) return 'ACCIDENT';
+    if (normalizedCategory === REPORT_CATEGORY.HAZARD) return 'WEATHER_HAZARD';
+    return '';
+  }
+
+  function normalizeIncidentReport(report) {
+    if (!isApprovedReport(report)) {
+      return null;
+    }
+
+    const type = resolveReportIncidentType(report?.category);
+
+    if (!type) {
+      return null;
+    }
+
+    const latitude = Number(report?.latitude);
+    const longitude = Number(report?.longitude);
+
+    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+      return null;
+    }
+
+    return {
+      id: report?.reportId,
+      title: 'Approved report',
+      location: normalizeText(report?.location),
+      type,
+      severity:
+        type === 'CLOSURE' || type === 'ACCIDENT' ? 'HIGH' : 'MEDIUM',
+      status: 'ACTIVE',
+      latitude,
+      longitude,
+      reported: true,
+    };
+  }
+
   function getCheckpointImpactRadiusMeters(checkpoint) {
     if (checkpoint.status === 'CLOSED' || checkpoint.status === 'RESTRICTED') {
       return 850;
     }
 
     if (checkpoint.status === 'DELAYED') {
+      return 650;
+    }
+
+    if (checkpoint.status === 'REPORTED') {
       return 650;
     }
 
@@ -1164,6 +1266,7 @@
     if (statusCounts.CLOSED) details.push(`${statusCounts.CLOSED} closed`);
     if (statusCounts.RESTRICTED) details.push(`${statusCounts.RESTRICTED} restricted`);
     if (statusCounts.DELAYED) details.push(`${statusCounts.DELAYED} delayed`);
+    if (statusCounts.REPORTED) details.push(`${statusCounts.REPORTED} reported`);
 
     if (details.length > 0) {
       return `${total} checkpoints ${total === 1 ? 'affects' : 'affect'} this route (${details.join(', ')})`;
@@ -1254,12 +1357,29 @@
       return buildEmptyRouteAnalysis();
     }
 
-    const checkpoints = (Array.isArray(contextData?.checkpoints)
+    const reports = Array.isArray(contextData?.reports)
+      ? contextData.reports
+      : [];
+    const checkpointReports = reports
+      .map(normalizeCheckpointReport)
+      .filter((checkpoint) => checkpoint !== null);
+    const incidentReports = reports
+      .map(normalizeIncidentReport)
+      .filter((incident) => incident !== null);
+
+    const checkpointData = Array.isArray(contextData?.checkpoints)
       ? contextData.checkpoints
-      : []
-    )
-      .map(normalizeCheckpoint)
-      .filter((checkpoint) => checkpoint !== null)
+      : [];
+    const incidentData = Array.isArray(contextData?.incidents)
+      ? contextData.incidents
+      : [];
+
+    const checkpoints = [
+      ...checkpointData
+        .map(normalizeCheckpoint)
+        .filter((checkpoint) => checkpoint !== null),
+      ...checkpointReports,
+    ]
       .map((checkpoint) => ({
         ...checkpoint,
         distanceMeters: distancePointToRouteMeters(
@@ -1274,12 +1394,12 @@
       )
       .sort((left, right) => left.distanceMeters - right.distanceMeters);
 
-    const incidents = (Array.isArray(contextData?.incidents)
-      ? contextData.incidents
-      : []
-    )
-      .map(normalizeIncident)
-      .filter((incident) => incident !== null && incident.status === 'ACTIVE')
+    const incidents = [
+      ...incidentData
+        .map(normalizeIncident)
+        .filter((incident) => incident !== null && incident.status === 'ACTIVE'),
+      ...incidentReports,
+    ]
       .map((incident) => ({
         ...incident,
         distanceMeters: distancePointToRouteMeters(
@@ -1479,28 +1599,6 @@
         routeResponse?.recommendation?.requiresUserApproval &&
         isRouteOption(routeResponse?.suggestedRoute)
       ) {
-        setStatus(
-          elements,
-          normalizeText(routeResponse?.recommendation?.message) ||
-            'An alternative route is available, but it adds significant travel time.',
-        );
-        setLoadingState(elements, false);
-
-        const confirmed = await promptAlternativeRouteConfirmation(routeResponse);
-
-        if (requestToken !== plannerState.requestToken) {
-          return;
-        }
-
-        if (!confirmed) {
-          clearRenderedRoute(elements);
-          setStatus(
-            elements,
-            'The long alternative route was not applied.',
-          );
-          return;
-        }
-
         selectedRoute = routeResponse.suggestedRoute;
       } else {
         selectedRoute = selectRouteOption(routeResponse);

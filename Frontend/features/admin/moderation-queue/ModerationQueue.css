@@ -347,6 +347,28 @@
     color: var(--text-orange, #f97316);
 }
 
+.flag-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.25rem;
+    border-radius: 0.25rem;
+    padding: 0.25rem 0.5rem;
+    font-size: 0.75rem;
+    font-weight: 700;
+    line-height: 1;
+    white-space: nowrap;
+}
+
+.flag-badge-duplicate {
+    background-color: #ffedd5;
+    color: #c2410c;
+}
+
+.flag-empty {
+    color: var(--text-muted, #64748b);
+}
+
 .icon-flag {
     vertical-align: middle;
     font-size: 1.125rem;

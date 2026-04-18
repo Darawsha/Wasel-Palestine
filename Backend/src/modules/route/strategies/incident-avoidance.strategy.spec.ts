@@ -2,6 +2,7 @@ import { IncidentAvoidanceStrategy } from './incident-avoidance.strategy';
 import { IncidentSeverity } from '../../incidents/enums/incident-severity.enum';
 import { IncidentStatus } from '../../incidents/enums/incident-status.enum';
 import { IncidentType } from '../../incidents/enums/incident-type.enum';
+import { ReportCategory } from '../../reports/enums/report-category.enum';
 
 describe('IncidentAvoidanceStrategy', () => {
   it('builds avoidance groups for active incidents only', async () => {
@@ -80,5 +81,44 @@ describe('IncidentAvoidanceStrategy', () => {
       'incident:1',
       'incident:2',
     ]);
+  });
+
+  it('treats approved incident reports as incident avoidance groups', async () => {
+    const incidentsService = {
+      getFilteredIncidents: jest.fn().mockResolvedValue([]),
+    };
+    const reportsService = {
+      getApprovedReportsByCategories: jest.fn().mockResolvedValue([
+        {
+          reportId: 9,
+          latitude: 32.1,
+          longitude: 35.1,
+          category: ReportCategory.ROAD_CLOSURE,
+          location: 'Reported closure',
+        },
+      ]),
+    };
+    const strategy = new IncidentAvoidanceStrategy(
+      incidentsService as never,
+      reportsService as never,
+    );
+
+    const result = await strategy.build({
+      startLatitude: 32,
+      startLongitude: 35,
+      endLatitude: 32.02,
+      endLongitude: 35.02,
+      avoidIncidents: true,
+    });
+
+    expect(reportsService.getApprovedReportsByCategories).toHaveBeenCalledWith([
+      ReportCategory.ROAD_CLOSURE,
+      ReportCategory.DELAY,
+      ReportCategory.ACCIDENT,
+      ReportCategory.HAZARD,
+    ]);
+    expect(result.groups).toHaveLength(1);
+    expect(result.groups[0].sourceKey).toBe('incident-report:9');
+    expect(result.groups[0].constraint).toBe('AVOID_INCIDENTS');
   });
 });

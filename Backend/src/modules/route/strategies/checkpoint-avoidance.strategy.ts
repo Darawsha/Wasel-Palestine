@@ -1,6 +1,8 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Optional } from '@nestjs/common';
 import { CheckpointsService } from '../../checkpoints/checkpoints.service';
 import { CheckpointStatus } from '../../checkpoints/enums/checkpoint-status.enum';
+import { ReportCategory } from '../../reports/enums/report-category.enum';
+import { ReportsService } from '../../reports/services/reports.service';
 import { RouteConstraintType } from '../enums/route-constraint-type.enum';
 import { RouteFactorType } from '../enums/route-factor-type.enum';
 import { RouteAdjustmentContext } from '../interfaces/route-adjustment-context.interface';
@@ -12,7 +14,10 @@ import {
 
 @Injectable()
 export class CheckpointAvoidanceStrategy {
-  constructor(private readonly checkpointsService: CheckpointsService) {}
+  constructor(
+    private readonly checkpointsService: CheckpointsService,
+    @Optional() private readonly reportsService?: ReportsService,
+  ) {}
 
   async build(
     context: RouteAdjustmentContext,
@@ -25,14 +30,24 @@ export class CheckpointAvoidanceStrategy {
       };
     }
 
-    const checkpoints = await this.checkpointsService.getFilteredCheckpoints({});
+    const [checkpoints, checkpointReports] = await Promise.all([
+      this.checkpointsService.getFilteredCheckpoints({}),
+      this.reportsService?.getApprovedReportsByCategories([
+        ReportCategory.CHECKPOINT_ISSUE,
+      ]) ?? Promise.resolve([]),
+    ]);
     const routeRelevantCheckpoints = checkpoints.filter(
       (checkpoint) =>
         Number.isFinite(Number(checkpoint?.latitude)) &&
         Number.isFinite(Number(checkpoint?.longitude)),
     );
+    const routeRelevantReports = checkpointReports.filter(
+      (report) =>
+        Number.isFinite(Number(report?.latitude)) &&
+        Number.isFinite(Number(report?.longitude)),
+    );
 
-    if (!routeRelevantCheckpoints.length) {
+    if (!routeRelevantCheckpoints.length && !routeRelevantReports.length) {
       return {
         constraint: RouteConstraintType.AVOID_CHECKPOINTS,
         groups: [],
@@ -41,7 +56,7 @@ export class CheckpointAvoidanceStrategy {
     }
 
     const axis = getRouteCorridorAxis(context);
-    const groups = routeRelevantCheckpoints
+    const checkpointGroups = routeRelevantCheckpoints
       .map((checkpoint) => {
         const latitude = Number(checkpoint.latitude);
         const longitude = Number(checkpoint.longitude);
@@ -71,6 +86,38 @@ export class CheckpointAvoidanceStrategy {
         };
       })
       .filter((value): value is NonNullable<typeof value> => value !== null);
+    const reportGroups = routeRelevantReports
+      .map((report) => {
+        const latitude = Number(report.latitude);
+        const longitude = Number(report.longitude);
+        const profile = this.resolveProfile(CheckpointStatus.RESTRICTED);
+        const zones = [
+          buildCorridorAvoidanceZone(
+            latitude,
+            longitude,
+            axis,
+            profile.halfLengthMeters,
+            profile.halfWidthMeters,
+          ),
+        ];
+
+        if (!zones.length) {
+          return null;
+        }
+
+        return {
+          constraint: RouteConstraintType.AVOID_CHECKPOINTS,
+          sourceKey: `checkpoint-report:${report.reportId}`,
+          sourceLabel:
+            report.location || report.description || 'checkpoint report',
+          latitude,
+          longitude,
+          zones,
+          escalationPaddingMeters: profile.escalationPaddingMeters,
+        };
+      })
+      .filter((value): value is NonNullable<typeof value> => value !== null);
+    const groups = [...checkpointGroups, ...reportGroups];
 
     if (!groups.length) {
       return {
@@ -88,7 +135,8 @@ export class CheckpointAvoidanceStrategy {
           type: RouteFactorType.CHECKPOINT_AVOIDANCE,
           description:
             `Built ${groups.length} narrow checkpoint road-avoidance corridor(s) ` +
-            `for ${routeRelevantCheckpoints.length} checkpoint(s).`,
+            `for ${routeRelevantCheckpoints.length} checkpoint(s) and ` +
+            `${routeRelevantReports.length} approved checkpoint report(s).`,
         },
       ],
     };
