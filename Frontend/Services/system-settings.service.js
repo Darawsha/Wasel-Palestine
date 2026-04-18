@@ -3,6 +3,25 @@ import { apiGet, apiPatch } from '/Services/api-client.js';
 const DRAFT_STORAGE_KEY = 'wasel.admin.system-settings.draft';
 const APPLIED_STORAGE_KEY = 'wasel.admin.system-settings.applied';
 const SECRET_FIELDS = ['routingApiKey', 'weatherApiKey'];
+const STORAGE_SAFE_FIELDS = [
+  'platformName',
+  'primaryLanguage',
+  'timezone',
+  'accessTokenExpiry',
+  'refreshTokenExpiry',
+  'minPasswordLength',
+  'requireMixedCase',
+  'requireNumeric',
+  'requireSpecialCharacters',
+  'apiBaseUrl',
+  'routingEndpointUrl',
+  'routingTimeout',
+  'routingCacheTtl',
+  'weatherEndpointUrl',
+  'weatherTimeout',
+  'weatherCacheTtl',
+  'weatherFallbackCoords',
+];
 
 const DEFAULT_ENV = {
   JWT_EXPIRES_IN: '1h',
@@ -102,20 +121,17 @@ function clearRuntimeSecretOverrides(scope) {
   }
 }
 
-function sanitizeSnapshotForStorage(snapshot) {
+function buildStorageSafeSnapshot(snapshot) {
   if (!snapshot || typeof snapshot !== 'object') {
     return snapshot;
   }
 
-  const sanitizedSnapshot = { ...snapshot };
-
-  SECRET_FIELDS.forEach((field) => {
-    if (hasOwn(sanitizedSnapshot, field)) {
-      sanitizedSnapshot[field] = '';
+  return STORAGE_SAFE_FIELDS.reduce((storageSnapshot, field) => {
+    if (hasOwn(snapshot, field)) {
+      storageSnapshot[field] = snapshot[field];
     }
-  });
-
-  return sanitizedSnapshot;
+    return storageSnapshot;
+  }, {});
 }
 
 function normalizePrimaryLanguage(value) {
@@ -429,7 +445,7 @@ export async function loadSystemSettingsSnapshot() {
 
 export function saveSystemSettingsDraft(draft) {
   captureRuntimeSecretOverrides(draft, 'draft');
-  return writeJsonStorage(DRAFT_STORAGE_KEY, sanitizeSnapshotForStorage(draft));
+  return writeJsonStorage(DRAFT_STORAGE_KEY, buildStorageSafeSnapshot(draft));
 }
 
 export async function applySystemSettings(snapshot) {
@@ -442,6 +458,7 @@ export async function applySystemSettings(snapshot) {
     environment: inferEnvironment(snapshot.apiBaseUrl),
     configSource: 'Saved Runtime Override',
   };
+  const storedAppliedSnapshot = buildStorageSafeSnapshot(baseAppliedSnapshot);
 
   const hydratedSnapshot = applyRuntimeSecretOverrides(
     baseAppliedSnapshot,
@@ -455,10 +472,7 @@ export async function applySystemSettings(snapshot) {
   };
 
   applyApiBaseUrl(appliedSnapshot.apiBaseUrl);
-  writeJsonStorage(
-    APPLIED_STORAGE_KEY,
-    sanitizeSnapshotForStorage(appliedSnapshot),
-  );
+  writeJsonStorage(APPLIED_STORAGE_KEY, storedAppliedSnapshot);
   window.localStorage?.removeItem(DRAFT_STORAGE_KEY);
   window.dispatchEvent(
     new CustomEvent('admin:system-settings-updated', {
