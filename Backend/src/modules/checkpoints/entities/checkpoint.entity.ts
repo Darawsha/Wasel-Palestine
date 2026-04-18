@@ -1,5 +1,12 @@
-import { Column, Entity, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn, OneToMany, Unique } from 'typeorm';
-import { Exclude } from 'class-transformer';
+import {
+  Column,
+  Entity,
+  PrimaryGeneratedColumn,
+  CreateDateColumn,
+  UpdateDateColumn,
+  OneToMany,
+  Unique,
+} from 'typeorm';
 import { CheckpointStatus } from '../enums/checkpoint-status.enum';
 import { CheckpointStatusHistory } from './status-history.entity';
 import { Incident } from '../../incidents/entities/incident.entity';
@@ -12,14 +19,13 @@ const decimalColumnTransformer = {
 };
 /**
  * Represents a checkpoint entity stored in the database.
- * 
+ *
  * This entity is used to store information about geographical checkpoints
  * including their name, location (latitude & longitude), status, and metadata.
  */
 @Entity('checkpoint')
 @Unique(['name'])
 export class Checkpoint {
-
   @PrimaryGeneratedColumn()
   id: number;
 
@@ -94,10 +100,9 @@ export class Checkpoint {
   rejectionReason?: string | null;
 
   /**
-    * Timestamp when the checkpoint was created.
-    * Automatically generated.
-    */
-
+   * Timestamp when the checkpoint was created.
+   * Automatically generated.
+   */
 
   @OneToMany(
     () => CheckpointStatusHistory,

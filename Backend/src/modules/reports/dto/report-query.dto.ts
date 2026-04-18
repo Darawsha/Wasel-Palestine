@@ -47,6 +47,28 @@ function toOptionalPositiveNumber(value: unknown): unknown {
   return parsed;
 }
 
+function toOptionalBoolean(value: unknown): unknown {
+  if (value === undefined || value === null || value === '') {
+    return undefined;
+  }
+
+  if (typeof value === 'boolean') {
+    return value;
+  }
+
+  const normalized = String(value).trim().toLowerCase();
+
+  if (normalized === 'true') {
+    return true;
+  }
+
+  if (normalized === 'false') {
+    return false;
+  }
+
+  return value;
+}
+
 export class ReportQueryDto {
   @ApiProperty({
     required: false,
@@ -198,10 +220,7 @@ export class ReportQueryDto {
     example: true,
   })
   @IsOptional()
-  @Transform(({ value }) => {
-    if (value === undefined || value === null || value === '') return undefined;
-    return String(value).toLowerCase() === 'true';
-  })
+  @Transform(({ value }) => toOptionalBoolean(value))
   @IsBoolean()
   duplicateOnly?: boolean;
 

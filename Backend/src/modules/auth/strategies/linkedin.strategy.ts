@@ -1,18 +1,28 @@
 import { Injectable } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
-import { Strategy } from 'passport-openidconnect';
 import { ConfigService } from '@nestjs/config';
 
+const OpenIdConnectStrategy = require('passport-openidconnect')
+  .Strategy as new (...args: any[]) => any;
+
+type LinkedinProfile = {
+  email?: string;
+  given_name?: string;
+  family_name?: string;
+  sub?: string;
+};
+
+type LinkedinValidateDone = (error: unknown, user?: unknown) => void;
+
 @Injectable()
-export class LinkedinStrategy extends PassportStrategy(Strategy, 'linkedin') {
+export class LinkedinStrategy extends PassportStrategy(
+  OpenIdConnectStrategy,
+  'linkedin',
+) {
   constructor(private readonly configService: ConfigService) {
     const clientID = configService.get<string>('LINKEDIN_CLIENT_ID');
     const clientSecret = configService.get<string>('LINKEDIN_CLIENT_SECRET');
     const callbackURL = configService.get<string>('LINKEDIN_CALLBACK_URL');
-
-    console.log('LINKEDIN_CLIENT_ID =', clientID);
-    console.log('LINKEDIN_CLIENT_SECRET =', clientSecret ? 'loaded' : 'missing');
-    console.log('LINKEDIN_CALLBACK_URL =', callbackURL);
 
     super({
       issuer: 'https://www.linkedin.com',
@@ -27,13 +37,11 @@ export class LinkedinStrategy extends PassportStrategy(Strategy, 'linkedin') {
   }
 
   async validate(
-    issuer: string,
-    profile: any,
-    done: (error: any, user?: any) => void,
+    _issuer: string,
+    profile: LinkedinProfile,
+    done: LinkedinValidateDone,
   ): Promise<void> {
     try {
-      console.log('LinkedIn profile =', profile);
-
       const user = {
         email: profile?.email,
         firstname: profile?.given_name || '',

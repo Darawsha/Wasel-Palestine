@@ -1,5 +1,5 @@
 import { Transform } from 'class-transformer';
-import { IsEnum, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
+import { IsEnum, IsInt, IsOptional, Max, Min } from 'class-validator';
 import { CheckpointStatus } from '../enums/checkpoint-status.enum';
 import { CheckpointSortBy } from '../enums/CheckpointSortBy.enums';
 import { SortOrder } from '../enums/SortOrder.enums';

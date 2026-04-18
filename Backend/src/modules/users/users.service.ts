@@ -13,7 +13,6 @@ import { User } from './entities/user.entity';
 import { PasswordService } from '../../core/services/password/password.service';
 import { UserRole } from '../../common/enums/user-role.enum';
 import { UserQueryDto } from './dto/user-query.dto';
-import { AlertsService } from '../alerts/alerts.service';
 import { UpdateProfileDto } from '../auth/dto/update-profile.dto';
 
 type SocialUserSeed = {
@@ -32,7 +31,6 @@ export class UsersService {
     private usersRepository: Repository<User>,
 
     private passwordService: PasswordService,
-    private readonly alertsService: AlertsService,
   ) {}
 
   /**
@@ -300,9 +298,11 @@ export class UsersService {
     }
 
     if (updateProfileDto.profileImage !== undefined) {
-      user.profileImage = this.normalizeNullableString(
+      const normalizedProfileImage = this.normalizeNullableString(
         updateProfileDto.profileImage,
-      ) || updateProfileDto.profileImage || null;
+      );
+
+      user.profileImage = normalizedProfileImage ?? null;
       // Record when the profile image was last updated
       if (user.profileImage) {
         user.profileImageUpdatedAt = new Date();

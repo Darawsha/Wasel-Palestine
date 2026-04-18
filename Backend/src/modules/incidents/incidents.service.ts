@@ -166,11 +166,14 @@ export class IncidentsService {
       incident.latitude = checkpoint.latitude;
       incident.longitude = checkpoint.longitude;
     } else {
-      this.incidentCheckpointSyncService.applyIncidentLocationSnapshot(incident, {
-        location: createIncidentDto.location,
-        latitude: createIncidentDto.latitude,
-        longitude: createIncidentDto.longitude,
-      });
+      this.incidentCheckpointSyncService.applyIncidentLocationSnapshot(
+        incident,
+        {
+          location: createIncidentDto.location,
+          latitude: createIncidentDto.latitude,
+          longitude: createIncidentDto.longitude,
+        },
+      );
     }
 
     this.incidentCheckpointSyncService.applyIncidentVerificationState(
@@ -180,10 +183,12 @@ export class IncidentsService {
       { defaultToFalse: true },
     );
 
-    const savedIncident = await this.incidentCheckpointSyncService.saveIncident({
-      incident,
-      changedByUserId,
-    });
+    const savedIncident = await this.incidentCheckpointSyncService.saveIncident(
+      {
+        incident,
+        changedByUserId,
+      },
+    );
     this.dispatchPostCommitAlerts(savedIncident);
 
     await this.auditLogService.record({
@@ -368,7 +373,9 @@ export class IncidentsService {
     };
   }
 
-  async getFilteredIncidents(filterDto: MapFilterQueryDto): Promise<Incident[]> {
+  async getFilteredIncidents(
+    filterDto: MapFilterQueryDto,
+  ): Promise<Incident[]> {
     const { types, severity, startDate, endDate } = filterDto;
     this.assertValidMapDateRange(startDate, endDate);
 
@@ -436,12 +443,9 @@ export class IncidentsService {
       .createQueryBuilder('incident')
       .leftJoinAndSelect('incident.checkpoint', 'checkpoint')
       .where('incident.status = :status', { status: IncidentStatus.ACTIVE })
-      .andWhere(
-        'incident.moderationStatus IN (:...publicModerationStatuses)',
-        {
-          publicModerationStatuses: PUBLIC_MODERATION_STATUSES,
-        },
-      );
+      .andWhere('incident.moderationStatus IN (:...publicModerationStatuses)', {
+        publicModerationStatuses: PUBLIC_MODERATION_STATUSES,
+      });
 
     if (types && types.length > 0) {
       queryBuilder.andWhere('incident.type IN (:...types)', { types });
@@ -516,7 +520,8 @@ export class IncidentsService {
     this.assertValidPendingIncidentChanges(incident, candidateChanges);
 
     const candidateStatus =
-      (candidateChanges.status as IncidentStatus | undefined) ?? incident.status;
+      (candidateChanges.status as IncidentStatus | undefined) ??
+      incident.status;
     const candidateTitle =
       (candidateChanges.title as string | undefined) ?? incident.title;
 
@@ -528,7 +533,6 @@ export class IncidentsService {
     }
 
     const previousAlertState = this.createIncidentAlertState(incident);
-    const previousStatus = incident.status;
     const previousSnapshot =
       this.incidentCheckpointSyncService.createCheckpointSnapshot(incident);
     const previousValues = this.snapshotIncidentFields(incident);
@@ -546,12 +550,13 @@ export class IncidentsService {
     incident.rejectedAt = null;
     incident.rejectionReason = null;
 
-    const savedIncident = await this.incidentCheckpointSyncService.saveIncident({
-      incident,
-      previousSnapshot,
-      previousStatus,
-      changedByUserId,
-    });
+    const savedIncident = await this.incidentCheckpointSyncService.saveIncident(
+      {
+        incident,
+        previousSnapshot,
+        changedByUserId,
+      },
+    );
     this.dispatchPostCommitAlerts(savedIncident, previousAlertState);
 
     await this.auditLogService.record({
@@ -594,7 +599,6 @@ export class IncidentsService {
       previousModerationStatus === ModerationStatus.PENDING_UPDATE
         ? this.createIncidentAlertState(incident)
         : undefined;
-    const previousStatus = incident.status;
     const previousSnapshot =
       previousModerationStatus === ModerationStatus.PENDING_UPDATE
         ? this.incidentCheckpointSyncService.createCheckpointSnapshot(incident)
@@ -642,7 +646,10 @@ export class IncidentsService {
     this.assertValidPendingIncidentChanges(incident, {});
 
     if (incident.status === IncidentStatus.ACTIVE) {
-      await this.ensureNoOtherActiveIncidentWithTitle(incident.title, incident.id);
+      await this.ensureNoOtherActiveIncidentWithTitle(
+        incident.title,
+        incident.id,
+      );
     }
 
     incident.moderationStatus = ModerationStatus.APPROVED;
@@ -653,12 +660,13 @@ export class IncidentsService {
     incident.rejectedAt = null;
     incident.rejectionReason = null;
 
-    const savedIncident = await this.incidentCheckpointSyncService.saveIncident({
-      incident,
-      previousSnapshot,
-      previousStatus,
-      changedByUserId: approvedByUserId,
-    });
+    const savedIncident = await this.incidentCheckpointSyncService.saveIncident(
+      {
+        incident,
+        previousSnapshot,
+        changedByUserId: approvedByUserId,
+      },
+    );
 
     this.dispatchPostCommitAlerts(savedIncident, previousAlertState);
 
@@ -748,11 +756,7 @@ export class IncidentsService {
       return incident;
     }
 
-    return this.update(
-      id,
-      { isVerified: true },
-      userId,
-    );
+    return this.update(id, { isVerified: true }, userId);
   }
 
   async close(id: number, userId?: number): Promise<Incident> {
@@ -762,17 +766,10 @@ export class IncidentsService {
       return incident;
     }
 
-    return this.update(
-      id,
-      { status: IncidentStatus.CLOSED },
-      userId,
-    );
+    return this.update(id, { status: IncidentStatus.CLOSED }, userId);
   }
 
-  async remove(
-    id: number,
-    changedByUserId?: number,
-  ): Promise<Incident | void> {
+  async remove(id: number, changedByUserId?: number): Promise<Incident | void> {
     const incident = await this.findOne(id);
     const deletedIncident = { ...incident } as Incident;
 
@@ -1037,12 +1034,16 @@ export class IncidentsService {
 
     this.incidentCheckpointSyncService.applyIncidentLocationSnapshot(incident, {
       location:
-        changes.location !== undefined ? changes.location ?? undefined : undefined,
+        changes.location !== undefined
+          ? (changes.location ?? undefined)
+          : undefined,
       latitude:
-        changes.latitude !== undefined ? changes.latitude ?? undefined : undefined,
+        changes.latitude !== undefined
+          ? (changes.latitude ?? undefined)
+          : undefined,
       longitude:
         changes.longitude !== undefined
-          ? changes.longitude ?? undefined
+          ? (changes.longitude ?? undefined)
           : undefined,
     });
 
@@ -1106,8 +1107,13 @@ export class IncidentsService {
       return;
     }
 
-    if (incidentType === undefined || !linkableIncidentTypes.has(incidentType)) {
-      throw new BadRequestException('Invalid incident type for checkpoint linking');
+    if (
+      incidentType === undefined ||
+      !linkableIncidentTypes.has(incidentType)
+    ) {
+      throw new BadRequestException(
+        'Invalid incident type for checkpoint linking',
+      );
     }
 
     if (
@@ -1115,7 +1121,9 @@ export class IncidentsService {
       impactStatus === null ||
       !impactStatuses.has(impactStatus)
     ) {
-      throw new BadRequestException('Invalid impact status for checkpoint linking');
+      throw new BadRequestException(
+        'Invalid impact status for checkpoint linking',
+      );
     }
   }
 
@@ -1131,7 +1139,9 @@ export class IncidentsService {
     });
 
     if (!checkpoint) {
-      throw new NotFoundException(`Checkpoint with id ${checkpointId} not found`);
+      throw new NotFoundException(
+        `Checkpoint with id ${checkpointId} not found`,
+      );
     }
 
     return checkpoint;
@@ -1157,7 +1167,9 @@ export class IncidentsService {
       : {};
   }
 
-  private applyIncidentPendingChangesForPublicRead(incident: Incident): Incident {
+  private applyIncidentPendingChangesForPublicRead(
+    incident: Incident,
+  ): Incident {
     if (incident.moderationStatus !== ModerationStatus.PENDING_UPDATE) {
       return incident;
     }
@@ -1379,12 +1391,9 @@ export class IncidentsService {
       .andWhere('incident.status = :status', {
         status: IncidentStatus.ACTIVE,
       })
-      .andWhere(
-        'incident.moderationStatus IN (:...publicModerationStatuses)',
-        {
-          publicModerationStatuses: PUBLIC_MODERATION_STATUSES,
-        },
-      );
+      .andWhere('incident.moderationStatus IN (:...publicModerationStatuses)', {
+        publicModerationStatuses: PUBLIC_MODERATION_STATUSES,
+      });
 
     if (currentIncidentId !== undefined) {
       queryBuilder.andWhere('incident.id != :currentIncidentId', {
@@ -1442,10 +1451,7 @@ export class IncidentsService {
     );
   }
 
-  private assertValidMapDateRange(
-    startDate?: Date,
-    endDate?: Date,
-  ): void {
+  private assertValidMapDateRange(startDate?: Date, endDate?: Date): void {
     const hasStartDate = Boolean(startDate);
     const hasEndDate = Boolean(endDate);
 
@@ -1478,11 +1484,17 @@ export class IncidentsService {
   }
 
   private normalizeIncidentForResponse(incident: Incident): Incident {
-    if ((incident as unknown as { checkpoint?: Checkpoint | null }).checkpoint === null) {
+    if (
+      (incident as unknown as { checkpoint?: Checkpoint | null }).checkpoint ===
+      null
+    ) {
       incident.checkpoint = undefined;
     }
 
-    if ((incident as unknown as { checkpointId?: number | null }).checkpointId === null) {
+    if (
+      (incident as unknown as { checkpointId?: number | null }).checkpointId ===
+      null
+    ) {
       incident.checkpointId = undefined;
     }
 
@@ -1490,6 +1502,8 @@ export class IncidentsService {
   }
 
   private normalizeIncidentsForResponse(incidents: Incident[]): Incident[] {
-    return incidents.map((incident) => this.normalizeIncidentForResponse(incident));
+    return incidents.map((incident) =>
+      this.normalizeIncidentForResponse(incident),
+    );
   }
 }

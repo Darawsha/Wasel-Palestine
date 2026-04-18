@@ -169,8 +169,6 @@ const TRANSLATIONS = {
     'Target': 'الهدف',
     'Timestamp': 'الوقت',
     'Time': 'الوقت',
-    'Created': 'تم الإنشاء',
-    'Updated': 'تم التحديث',
     'Last Updated': 'آخر تحديث',
     'Submitted By': 'مقدم الطلب',
     'Performed By': 'نفذ بواسطة',
@@ -194,7 +192,6 @@ const TRANSLATIONS = {
     'Weather': 'الطقس',
     'Routing': 'التوجيه',
     'Map Server': 'خادم الخريطة',
-    'Weather API': 'API الطقس',
     'Routing API': 'API التوجيه',
     'Endpoint': 'نقطة النهاية',
     'Response Code': 'رمز الاستجابة',
@@ -358,38 +355,6 @@ function setElementText(element, value) {
   if (element) {
     element.textContent = value;
   }
-}
-
-function getTranslatableElementText(element) {
-  if (element.dataset.i18nSourceText) {
-    return element.dataset.i18nSourceText;
-  }
-
-  const directText = Array.from(element.childNodes)
-    .filter((node) => node.nodeType === Node.TEXT_NODE)
-    .map((node) => node.textContent.trim())
-    .filter(Boolean)
-    .join(' ')
-    .trim();
-
-  return directText || element.textContent.trim();
-}
-
-function setTranslatableElementText(element, value) {
-  const textNodes = Array.from(element.childNodes).filter(
-    (node) => node.nodeType === Node.TEXT_NODE,
-  );
-
-  if (textNodes.length > 0) {
-    textNodes[textNodes.length - 1].textContent = element.children.length
-      ? ` ${value}`
-      : value;
-    return;
-  }
-
-  element.appendChild(
-    document.createTextNode(element.children.length ? ` ${value}` : value),
-  );
 }
 
 function shouldSkipElement(element) {
@@ -676,39 +641,6 @@ function applyChromeLanguage() {
   }
 
   updateDocumentTitle();
-}
-
-function applyPageLanguage() {
-  const pageRoot = document.getElementById('flexible_main');
-  if (!pageRoot || currentSettings.primaryLanguage !== 'Arabic') {
-    return;
-  }
-
-  pageRoot.querySelectorAll('h1, h2, h3, .title, .card-title, .form-label, .policy-title, .api-title, .btn-discard, .btn-save').forEach((element) => {
-    const originalText = getTranslatableElementText(element);
-    element.dataset.i18nSourceText = originalText;
-
-    const translatedText = translate(originalText);
-    if (translatedText && translatedText !== originalText) {
-      setTranslatableElementText(element, translatedText);
-    }
-  });
-
-  pageRoot.querySelectorAll('.subtitle').forEach((element) => {
-    const originalText =
-      element.dataset.i18nSourceText || element.textContent.trim();
-    element.dataset.i18nSourceText = originalText;
-    setTranslatableElementText(element, translate(originalText));
-  });
-}
-
-function restorePageLanguageSources() {
-  const pageRoot = document.getElementById('flexible_main');
-  if (!pageRoot) return;
-
-  pageRoot.querySelectorAll('[data-i18n-source-text]').forEach((element) => {
-    setTranslatableElementText(element, element.dataset.i18nSourceText);
-  });
 }
 
 function applyAdminSystemSettings(settings) {

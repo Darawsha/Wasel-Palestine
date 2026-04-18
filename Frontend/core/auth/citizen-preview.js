@@ -2,16 +2,6 @@
   const STORAGE_KEY = 'wasel.adminCitizenPreview';
   const PREVIEW_QUERY_KEY = 'adminPreview';
   const DASHBOARD_URL = '/views/admin/header/header.html#admin-dashboard';
-  const PERSONAL_ROUTES = new Set([
-    'alerts',
-    'logout',
-    'my-alerts',
-    'my-reports',
-    'my-routes',
-    'notifications',
-    'profile',
-    'saved-routes',
-  ]);
 
   function normalizeRoute(routeValue) {
     const route = String(routeValue || '')

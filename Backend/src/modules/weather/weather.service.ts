@@ -6,32 +6,22 @@ import { CurrentWeatherResponseDto } from './dto/current-weather-response.dto';
 export class WeatherService {
   private readonly weatherApiBaseUrl =
     'https://api.weatherapi.com/v1/current.json';
-  private readonly openMeteoBaseUrl =
-    'https://api.open-meteo.com/v1/forecast';
+  private readonly openMeteoBaseUrl = 'https://api.open-meteo.com/v1/forecast';
 
   async getCurrentWeather(
     query: CurrentWeatherQueryDto,
   ): Promise<CurrentWeatherResponseDto> {
     const apiKey = process.env.WEATHER_API_KEY?.trim();
-    let lastError: unknown = null;
 
-    if (apiKey) {
-      try {
-        return await this.fetchWeatherApiWeather(query, apiKey);
-      } catch (error) {
-        lastError = error;
-      }
+    if (!apiKey) {
+      return this.fetchOpenMeteoOrThrow(query);
     }
 
     try {
-      return await this.fetchOpenMeteoWeather(query);
+      return await this.fetchWeatherApiWeather(query, apiKey);
     } catch (error) {
-      lastError = error;
+      return this.fetchOpenMeteoOrThrow(query, error);
     }
-
-    throw new ServiceUnavailableException(
-      this.buildFailureMessage(lastError),
-    );
   }
 
   private async fetchWeatherApiWeather(
@@ -117,6 +107,19 @@ export class WeatherService {
       isDay: Number(current?.is_day ?? 1) === 1,
       observedAt: String(current?.time || '').trim(),
     };
+  }
+
+  private async fetchOpenMeteoOrThrow(
+    query: CurrentWeatherQueryDto,
+    previousError?: unknown,
+  ): Promise<CurrentWeatherResponseDto> {
+    try {
+      return await this.fetchOpenMeteoWeather(query);
+    } catch (error) {
+      throw new ServiceUnavailableException(
+        this.buildFailureMessage(error ?? previousError),
+      );
+    }
   }
 
   private formatCoordinateLabel(latitude: number, longitude: number): string {
