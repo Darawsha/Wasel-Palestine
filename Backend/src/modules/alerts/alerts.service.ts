@@ -52,11 +52,28 @@ export class AlertsService {
   }
 
   async getUnreadMatchesCount(userId: number) {
-    return this.alertMatchesService.getUnreadMatchesCount(userId);
+    const [matchesSummary, unreadRecords] = await Promise.all([
+      this.alertMatchesService.getUnreadMatchesCount(userId),
+      this.alertRecordsService.getUnreadRecordsForUser(userId),
+    ]);
+    const unreadMatchIds = new Set(matchesSummary.unreadMatchIds ?? []);
+    const additionalRecordCount = unreadRecords.filter(
+      (record) => !this.doesRecordRepresentUnreadMatch(record, unreadMatchIds),
+    ).length;
+
+    return {
+      ...matchesSummary,
+      unreadCount: matchesSummary.unreadCount + additionalRecordCount,
+    };
   }
 
   async markAllMatchesViewed(userId: number) {
-    return this.alertMatchesService.markAllMatchesViewed(userId);
+    const [result] = await Promise.all([
+      this.alertMatchesService.markAllMatchesViewed(userId),
+      this.alertRecordsService.markAllAsReadForUser(userId),
+    ]);
+
+    return result;
   }
 
   async unsubscribe(userId: number, preferenceId: string) {
@@ -69,5 +86,26 @@ export class AlertsService {
 
   async markAsRead(userId: number, recordId: string) {
     return this.alertRecordsService.markAsRead(userId, recordId);
+  }
+
+  private doesRecordRepresentUnreadMatch(
+    record: { message?: { incidentId?: string | null } | null },
+    unreadMatchIds: Set<string>,
+  ): boolean {
+    const incidentId = String(record?.message?.incidentId || '').trim();
+
+    if (!incidentId) {
+      return false;
+    }
+
+    if (unreadMatchIds.has(incidentId)) {
+      return true;
+    }
+
+    if (/^\d+$/.test(incidentId)) {
+      return unreadMatchIds.has(`incident:${incidentId}`);
+    }
+
+    return false;
   }
 }

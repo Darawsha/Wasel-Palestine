@@ -91,6 +91,14 @@ function buildLatestModerationNote(report) {
 function buildQueueRow(report) {
   const reviewLabel =
     report.status === 'under_review' ? 'Continue Review' : 'Review';
+  const flagsMarkup = report.isDuplicate
+    ? `
+        <span class="flag-badge flag-badge-duplicate">
+          <span class="material-symbols-outlined icon-flag">warning</span>
+          Similar report
+        </span>
+      `
+    : '<span class="flag-empty">-</span>';
 
   return `
     <tr class="${report.isDuplicate ? 'row-warning' : ''}">
@@ -104,7 +112,7 @@ function buildQueueRow(report) {
       <td class="cell-time">${escapeHtml(report.relativeTime)}</td>
       <td class="cell-score text-center">${escapeHtml(report.confidenceScore)}%</td>
       <td class="text-center ${report.isDuplicate ? 'text-orange' : ''}">
-        ${report.isDuplicate ? '<span class="material-symbols-outlined icon-flag">warning</span>' : ''}
+        ${flagsMarkup}
       </td>
       <td class="text-right">
         <button class="btn-review" type="button" data-moderation-review-report="${escapeHtml(report.id)}">
@@ -328,7 +336,7 @@ export function openModerationModal(root, report) {
     report.description;
   modal.querySelector('[data-moderation-modal-duplicate]').textContent =
     report.isDuplicate
-      ? `Duplicate of report #${report.duplicateOf}`
+      ? `Similar report: duplicate of report #${report.duplicateOf}`
       : 'No duplicate flag detected';
   modal.querySelector('[data-moderation-modal-latest-note]').textContent =
     buildLatestModerationNote(report);

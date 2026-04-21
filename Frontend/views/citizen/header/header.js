@@ -2,6 +2,8 @@ import { loadAlertsUnreadCount } from '/Controllers/alerts.controller.js';
 
 const BADGE_SELECTOR = '[data-alerts-unread-badge]';
 const REFRESH_EVENT = 'alerts:unread-refresh';
+const NOTIFICATION_REFRESH_EVENT = 'user-notifications:refresh';
+const REFRESH_INTERVAL_MS = 30000;
 
 function getBadge() {
   return document.querySelector(BADGE_SELECTOR);
@@ -49,6 +51,10 @@ window.addEventListener(REFRESH_EVENT, (event) => {
   void refreshAlertsBadge();
 });
 
+window.addEventListener(NOTIFICATION_REFRESH_EVENT, () => {
+  void refreshAlertsBadge();
+});
+
 window.addEventListener('focus', () => {
   void refreshAlertsBadge();
 });
@@ -58,3 +64,9 @@ if (document.readyState === 'loading') {
 } else {
   void refreshAlertsBadge();
 }
+
+window.setInterval(() => {
+  if (document.visibilityState === 'visible') {
+    void refreshAlertsBadge();
+  }
+}, REFRESH_INTERVAL_MS);

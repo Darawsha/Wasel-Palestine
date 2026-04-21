@@ -154,4 +154,59 @@ describe('AlertMatchesService', () => {
       ]),
     );
   });
+
+  it('counts updated incident, checkpoint, and report matches as unread', async () => {
+    usersRepository.findOne.mockResolvedValue({
+      id: 7,
+      lastAlertsViewedAt: new Date('2026-04-13T08:30:00.000Z'),
+    });
+    preferenceRepository.find.mockResolvedValue([
+      {
+        id: 'pref-1',
+        userId: 7,
+        geographicArea: 'Awarta checkpoint',
+        incidentCategory: IncidentType.CLOSURE,
+        createdAt: new Date('2026-04-13T08:00:00.000Z'),
+      },
+    ]);
+    incidentsRepository.find.mockResolvedValue([
+      {
+        id: 15,
+        title: 'Closure at Awarta',
+        location: 'Awarta checkpoint',
+        type: IncidentType.CLOSURE,
+        severity: IncidentSeverity.HIGH,
+        status: IncidentStatus.ACTIVE,
+        isVerified: true,
+        createdAt: new Date('2026-04-13T07:00:00.000Z'),
+        updatedAt: new Date('2026-04-13T09:00:00.000Z'),
+      },
+    ]);
+    checkpointsRepository.find.mockResolvedValue([
+      {
+        id: 22,
+        name: 'Awarta Checkpoint',
+        location: 'Awarta checkpoint',
+        currentStatus: CheckpointStatus.CLOSED,
+        createdAt: new Date('2026-04-13T07:30:00.000Z'),
+        updatedAt: new Date('2026-04-13T09:05:00.000Z'),
+      },
+    ]);
+    reportsRepository.find.mockResolvedValue([
+      {
+        reportId: 31,
+        location: 'Awarta checkpoint',
+        category: ReportCategory.ROAD_CLOSURE,
+        status: ReportStatus.APPROVED,
+        createdAt: new Date('2026-04-13T06:00:00.000Z'),
+        updatedAt: new Date('2026-04-13T09:10:00.000Z'),
+      },
+    ]);
+
+    await expect(service.getUnreadMatchesCount(7)).resolves.toEqual({
+      unreadCount: 3,
+      lastAlertsViewedAt: new Date('2026-04-13T08:30:00.000Z'),
+      unreadMatchIds: ['report:31', 'checkpoint:22', 'incident:15'],
+    });
+  });
 });

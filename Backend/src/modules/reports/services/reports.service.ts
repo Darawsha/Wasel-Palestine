@@ -28,6 +28,7 @@ import {
   ReportStatus,
 } from '../enums/report-status.enum';
 import { ReportValidationService } from './report-validation.service';
+import { SIMILAR_REPORT_MESSAGE } from '../utils/report-similarity.util';
 
 const MAP_VISIBLE_REPORT_STATUSES = [
   ReportStatus.PENDING,
@@ -75,6 +76,10 @@ type ReportCategoryCountRow = {
   count: string;
 };
 
+type ReportPageQuery = ReportQueryDto & {
+  excludeDuplicates?: boolean;
+};
+
 const REPORT_CATEGORY_LABELS: Record<ReportCategory, string> = {
   [ReportCategory.ROAD_CLOSURE]: 'Closure',
   [ReportCategory.DELAY]: 'Delay',
@@ -104,8 +109,8 @@ export class ReportsService {
       submittedByUserId: userId,
     };
 
+    await this.reportValidationService.rejectRecentOwnDuplicate(reportPayload);
     await this.reportValidationService.checkRateLimit(userId);
-    await this.reportValidationService.detectSpam(reportPayload);
 
     const duplicate = await this.reportValidationService.findDuplicate(
       reportPayload,
@@ -117,7 +122,7 @@ export class ReportsService {
     });
 
     if (duplicate) {
-      report.duplicateOf = duplicate.reportId;
+      report.duplicateOf = duplicate.duplicateOf ?? duplicate.reportId;
     }
 
     const saved = await this.reportRepo.save(report);
@@ -158,6 +163,7 @@ export class ReportsService {
         status: undefined,
         statuses: visibleStatuses,
         excludeSubmittedByUserId: userId,
+        excludeDuplicates: true,
       },
       userId,
     );
@@ -245,7 +251,8 @@ export class ReportsService {
       .createQueryBuilder('report')
       .where('report.status IN (:...statuses)', {
         statuses: MAP_VISIBLE_REPORT_STATUSES,
-      });
+      })
+      .andWhere('report.duplicateOf IS NULL');
     const reportCategories = this.resolveReportCategories(types);
 
     if (Array.isArray(types) && types.length > 0) {
@@ -269,6 +276,32 @@ export class ReportsService {
     }
 
     return queryBuilder.orderBy('report.updatedAt', 'DESC').getMany();
+  }
+
+  async getApprovedReportsByCategories(
+    categories: ReportCategory[],
+  ): Promise<Report[]> {
+    const normalizedCategories = Array.from(
+      new Set(
+        (Array.isArray(categories) ? categories : []).filter((category) =>
+          Object.values(ReportCategory).includes(category),
+        ),
+      ),
+    );
+
+    if (normalizedCategories.length === 0) {
+      return [];
+    }
+
+    return this.reportRepo
+      .createQueryBuilder('report')
+      .where('report.status = :status', { status: ReportStatus.APPROVED })
+      .andWhere('report.duplicateOf IS NULL')
+      .andWhere('report.category IN (:...categories)', {
+        categories: normalizedCategories,
+      })
+      .orderBy('report.updatedAt', 'DESC')
+      .getMany();
   }
 
   async getCategorySummary() {
@@ -315,7 +348,7 @@ export class ReportsService {
   }
 
   private async findReportsPage(
-    query: ReportQueryDto,
+    query: ReportPageQuery,
     currentUserId?: number,
   ) {
     const {
@@ -357,7 +390,7 @@ export class ReportsService {
 
   private applyQueryFilters(
     queryBuilder: SelectQueryBuilder<Report>,
-    query: ReportQueryDto,
+    query: ReportPageQuery,
     options: { includeDistanceSelect?: boolean } = {},
   ) {
     const {
@@ -373,6 +406,7 @@ export class ReportsService {
       longitude,
       radiusKm,
       duplicateOnly,
+      excludeDuplicates,
     } = query;
 
     if (submittedByUserId) {
@@ -416,6 +450,8 @@ export class ReportsService {
 
     if (duplicateOnly === true) {
       queryBuilder.andWhere('report.duplicateOf IS NOT NULL');
+    } else if (excludeDuplicates === true) {
+      queryBuilder.andWhere('report.duplicateOf IS NULL');
     }
 
     if (search && search.trim()) {
@@ -472,7 +508,7 @@ export class ReportsService {
     });
   }
 
-  private async getStatusCounts(query: ReportQueryDto) {
+  private async getStatusCounts(query: ReportPageQuery) {
     const countQueryBuilder = this.reportRepo
       .createQueryBuilder('report')
       .leftJoin('report.submittedByUser', 'submittedByUser')
@@ -597,7 +633,15 @@ export class ReportsService {
       return false;
     }
 
+    if (this.isDuplicateReport(report)) {
+      return false;
+    }
+
     return report.submittedByUserId !== currentUserId;
+  }
+
+  private isDuplicateReport(report: Report): boolean {
+    return Number(report.duplicateOf) > 0;
   }
 
   private serializeReport(
@@ -610,6 +654,8 @@ export class ReportsService {
       this.isAuthenticatedUserId(currentUserId) &&
       report.submittedByUserId === currentUserId;
     const canManage = isOwnReport && this.isOwnerEditableStatus(report.status);
+    const duplicateOf = report.duplicateOf ?? null;
+    const isDuplicate = this.isDuplicateReport(report);
 
     return {
       reportId: report.reportId,
@@ -623,9 +669,12 @@ export class ReportsService {
       submittedByUser: this.sanitizeSubmittedByUser(report.submittedByUser),
       createdAt: report.createdAt,
       updatedAt: report.updatedAt,
-      duplicateOf: report.duplicateOf ?? null,
+      duplicateOf,
+      isDuplicate,
+      duplicateMessage: isDuplicate ? SIMILAR_REPORT_MESSAGE : null,
       confidenceScore: report.confidenceScore,
-      isPubliclyVisible: this.isPubliclyVisibleStatus(report.status),
+      isPubliclyVisible:
+        this.isPubliclyVisibleStatus(report.status) && !isDuplicate,
       isOwnReport,
       canManage,
       canVote: this.canCurrentUserVote(report, currentUserId),

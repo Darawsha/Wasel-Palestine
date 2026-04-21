@@ -153,6 +153,20 @@ export class ReportResponseDto {
   duplicateOf: number | null;
 
   @ApiProperty({
+    description: 'Whether this report was recognized as a recent similar report.',
+    example: false,
+  })
+  isDuplicate: boolean;
+
+  @ApiProperty({
+    description:
+      'User-facing explanation shown when a report was saved as similar to a recent report.',
+    example: null,
+    nullable: true,
+  })
+  duplicateMessage: string | null;
+
+  @ApiProperty({
     description: 'Describes the confidence score field.',
     example: 76
   })

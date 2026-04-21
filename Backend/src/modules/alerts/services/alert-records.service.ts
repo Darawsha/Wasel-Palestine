@@ -108,6 +108,35 @@ export class AlertRecordsService {
     });
   }
 
+  async getUnreadRecordsForUser(userId: number): Promise<AlertRecord[]> {
+    const validatedUserId = this.alertsValidationService.ensureValidUserId(userId);
+
+    return this.recordRepository
+      .createQueryBuilder('record')
+      .leftJoinAndSelect('record.message', 'message')
+      .where('record.userId = :userId', { userId: validatedUserId })
+      .andWhere('UPPER(record.status) <> :readStatus', {
+        readStatus: 'READ',
+      })
+      .orderBy('record.createdAt', 'DESC')
+      .getMany();
+  }
+
+  async markAllAsReadForUser(userId: number): Promise<number> {
+    const unreadRecords = await this.getUnreadRecordsForUser(userId);
+
+    if (unreadRecords.length === 0) {
+      return 0;
+    }
+
+    unreadRecords.forEach((record) => {
+      record.status = 'READ';
+    });
+
+    await this.recordRepository.save(unreadRecords);
+    return unreadRecords.length;
+  }
+
   async markAsRead(userId: number, recordId: string) {
     const validatedUserId = this.alertsValidationService.ensureValidUserId(userId);
 

@@ -1,0 +1,11 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">Wasel Palestine logo</title>
+  <desc id="desc">A route pin and road mark for the Wasel Palestine mobility platform.</desc>
+  <rect width="512" height="512" rx="96" fill="#0F172A"/>
+  <circle cx="256" cy="208" r="118" fill="#16A34A"/>
+  <path d="M256 88C189.7 88 136 141.7 136 208C136 298 256 424 256 424C256 424 376 298 376 208C376 141.7 322.3 88 256 88ZM256 264C225.1 264 200 238.9 200 208C200 177.1 225.1 152 256 152C286.9 152 312 177.1 312 208C312 238.9 286.9 264 256 264Z" fill="#F8FAFC"/>
+  <path d="M188 384C213 365 238 352 256 352C274 352 299 365 324 384" stroke="#22C55E" stroke-width="24" stroke-linecap="round"/>
+  <path d="M148 424C185 391 225 374 256 374C287 374 327 391 364 424" stroke="#EF4444" stroke-width="24" stroke-linecap="round"/>
+  <path d="M220 208H292" stroke="#0F172A" stroke-width="24" stroke-linecap="round"/>
+  <path d="M256 172V244" stroke="#0F172A" stroke-width="24" stroke-linecap="round"/>
+</svg>
