@@ -6,3 +6,11 @@ export enum ReportCategory {
   HAZARD = 'hazard',
   OTHER = 'other',
 }
+
+export const EFFECTIVE_REPORT_CATEGORIES: ReadonlyArray<ReportCategory> = [
+  ReportCategory.ROAD_CLOSURE,
+  ReportCategory.DELAY,
+  ReportCategory.ACCIDENT,
+  ReportCategory.HAZARD,
+  ReportCategory.OTHER,
+];

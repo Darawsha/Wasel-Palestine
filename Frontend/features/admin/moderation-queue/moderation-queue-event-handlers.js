@@ -4,6 +4,7 @@ const SORT_SELECTOR = '[data-moderation-sort]';
 const DUPLICATE_TOGGLE_SELECTOR = '[data-moderation-duplicates-toggle]';
 const CLEAR_FILTERS_SELECTOR = '[data-moderation-clear-filters]';
 const MODAL_SELECTOR = '[data-moderation-modal]';
+const SIMILAR_MODAL_SELECTOR = '[data-similar-reports-modal]';
 const NOTES_SELECTOR = '[data-moderation-notes]';
 
 export function bindModerationQueueEvents(root, handlers = {}) {
@@ -13,6 +14,7 @@ export function bindModerationQueueEvents(root, handlers = {}) {
 
   root.dataset.moderationEventsBound = 'true';
   root.dataset.moderationModalOpen = 'false';
+  root.dataset.similarReportsModalOpen = 'false';
 
   let searchDebounceTimer = null;
 
@@ -65,6 +67,18 @@ export function bindModerationQueueEvents(root, handlers = {}) {
   }
 
   root.addEventListener('click', async (event) => {
+    const similarButton = event.target.closest('[data-moderation-similar-report]');
+    if (similarButton && root.contains(similarButton)) {
+      const reportId = Number(similarButton.dataset.moderationSimilarReport);
+      if (
+        Number.isFinite(reportId) &&
+        typeof handlers.onOpenSimilarReports === 'function'
+      ) {
+        await handlers.onOpenSimilarReports(reportId);
+      }
+      return;
+    }
+
     const reviewButton = event.target.closest('[data-moderation-review-report]');
     if (reviewButton && root.contains(reviewButton)) {
       const reportId = Number(reviewButton.dataset.moderationReviewReport);
@@ -97,6 +111,14 @@ export function bindModerationQueueEvents(root, handlers = {}) {
       return;
     }
 
+    const similarCloseButton = event.target.closest('[data-similar-close]');
+    if (similarCloseButton && root.contains(similarCloseButton)) {
+      if (typeof handlers.onCloseSimilarReports === 'function') {
+        handlers.onCloseSimilarReports();
+      }
+      return;
+    }
+
     const decisionButton = event.target.closest('[data-moderation-decision]');
     if (decisionButton && root.contains(decisionButton)) {
       const modal = root.querySelector(MODAL_SELECTOR);
@@ -121,10 +143,29 @@ export function bindModerationQueueEvents(root, handlers = {}) {
     const modal = root.querySelector(MODAL_SELECTOR);
     if (modal && event.target === modal && typeof handlers.onCloseReview === 'function') {
       handlers.onCloseReview();
+      return;
+    }
+
+    const similarModal = root.querySelector(SIMILAR_MODAL_SELECTOR);
+    if (
+      similarModal &&
+      event.target === similarModal &&
+      typeof handlers.onCloseSimilarReports === 'function'
+    ) {
+      handlers.onCloseSimilarReports();
     }
   });
 
   document.addEventListener('keydown', (event) => {
+    if (
+      event.key === 'Escape' &&
+      root.dataset.similarReportsModalOpen === 'true' &&
+      typeof handlers.onCloseSimilarReports === 'function'
+    ) {
+      handlers.onCloseSimilarReports();
+      return;
+    }
+
     if (
       event.key === 'Escape' &&
       root.dataset.moderationModalOpen === 'true' &&

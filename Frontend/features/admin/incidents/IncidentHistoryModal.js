@@ -1,5 +1,6 @@
 const OVERLAY_ID = 'incidentHistoryOverlay';
 const ALLOWED_STATUSES = new Set(['ACTIVE', 'CLOSED']);
+const ALLOWED_TYPES = new Set(['CLOSURE', 'DELAY', 'ACCIDENT', 'WEATHER_HAZARD']);
 
 let overlayElement = null;
 let activeRequestId = 0;
@@ -24,6 +25,70 @@ function getStatusBadgeClass(status) {
       return 'badge-active';
     case 'CLOSED':
       return 'badge-closed';
+    default:
+      return '';
+  }
+}
+
+function normalizeType(type) {
+  const normalized = String(type || '').trim().toUpperCase().replace(/\s+/g, '_');
+  if (normalized === 'ROAD_CLOSURE') {
+    return 'CLOSURE';
+  }
+  return ALLOWED_TYPES.has(normalized) ? normalized : 'N/A';
+}
+
+function formatStatusLabel(status) {
+  switch (normalizeStatus(status)) {
+    case 'ACTIVE':
+      return 'Active';
+    case 'CLOSED':
+      return 'Closed';
+    default:
+      return 'N/A';
+  }
+}
+
+function formatStatusTransitionLabel(status) {
+  switch (normalizeStatus(status)) {
+    case 'ACTIVE':
+      return 'ACTIVE';
+    case 'CLOSED':
+      return 'NOT ACTIVE';
+    default:
+      return 'N/A';
+  }
+}
+
+function formatTypeLabel(type) {
+  switch (normalizeType(type)) {
+    case 'CLOSURE':
+      return 'Road Closure';
+    case 'DELAY':
+      return 'Delay';
+    case 'ACCIDENT':
+      return 'Accident';
+    case 'WEATHER_HAZARD':
+      return 'Weather Hazard';
+    default:
+      return 'N/A';
+  }
+}
+
+function formatTypeTransitionLabel(type) {
+  return formatTypeLabel(type).toUpperCase();
+}
+
+function getTypeBadgeClass(type) {
+  switch (normalizeType(type)) {
+    case 'CLOSURE':
+      return 'badge-closure';
+    case 'DELAY':
+      return 'badge-delay';
+    case 'ACCIDENT':
+      return 'badge-accident';
+    case 'WEATHER_HAZARD':
+      return 'badge-weather';
     default:
       return '';
   }
@@ -95,6 +160,10 @@ function ensureOverlay() {
           <span class="incident-history-label">Current status</span>
           <span class="status-badge" data-history-current-status>N/A</span>
         </div>
+        <div data-history-type-wrap hidden>
+          <span class="incident-history-label">Current type</span>
+          <span class="type-badge" data-history-current-type>N/A</span>
+        </div>
         <div data-history-location-wrap hidden>
           <span class="incident-history-label">Location</span>
           <span class="incident-history-location" data-history-location></span>
@@ -133,11 +202,14 @@ function setHeader(overlay, incident, response = {}) {
     incident?.title ||
     `Incident #${incident?.id ?? response.incidentId ?? '--'}`;
   const status = normalizeStatus(response.currentStatus || incident?.status);
+  const type = normalizeType(response.currentType || incident?.type);
   const location = String(response.location || incident?.location || '').trim();
   const checkpointName = String(
     response.checkpointName || incident?.checkpoint?.name || '',
   ).trim();
   const statusElement = overlay.querySelector('[data-history-current-status]');
+  const typeWrap = overlay.querySelector('[data-history-type-wrap]');
+  const typeElement = overlay.querySelector('[data-history-current-type]');
   const locationWrap = overlay.querySelector('[data-history-location-wrap]');
   const locationElement = overlay.querySelector('[data-history-location]');
   const checkpointWrap = overlay.querySelector('[data-history-checkpoint-wrap]');
@@ -146,8 +218,14 @@ function setHeader(overlay, incident, response = {}) {
   overlay.querySelector('[data-history-incident-title]').textContent = title;
 
   if (statusElement) {
-    statusElement.textContent = status;
+    statusElement.textContent = formatStatusLabel(status);
     statusElement.className = `status-badge ${getStatusBadgeClass(status)}`.trim();
+  }
+
+  if (typeWrap && typeElement) {
+    typeWrap.hidden = type === 'N/A';
+    typeElement.textContent = formatTypeLabel(type);
+    typeElement.className = `type-badge ${getTypeBadgeClass(type)}`.trim();
   }
 
   if (locationWrap && locationElement) {
@@ -174,6 +252,109 @@ function renderMessage(overlay, message, className = '') {
   `;
 }
 
+function getHistoryOldType(record) {
+  return normalizeType(record?.oldType);
+}
+
+function getHistoryNewType(record) {
+  return normalizeType(record?.newType ?? record?.typeAtTime);
+}
+
+function getHistoryOldStatus(record) {
+  return normalizeStatus(record?.oldStatus);
+}
+
+function getHistoryNewStatus(record) {
+  return normalizeStatus(record?.newStatus ?? record?.statusAtTime);
+}
+
+function getHistoryDescriptionText(value) {
+  return String(value ?? '').trim();
+}
+
+function buildTransitionMarkup({
+  title,
+  oldValue,
+  newValue,
+  badgeBaseClass,
+  badgeClassGetter,
+  labelFormatter,
+}) {
+  return `
+    <div class="incident-history-change">
+      <p class="incident-history-item-title">${escapeHtml(title)}</p>
+      <p class="incident-history-transition">
+        <span class="${badgeBaseClass} ${badgeClassGetter(oldValue)}">${escapeHtml(labelFormatter(oldValue))}</span>
+        <span class="incident-history-arrow">&rarr;</span>
+        <span class="${badgeBaseClass} ${badgeClassGetter(newValue)}">${escapeHtml(labelFormatter(newValue))}</span>
+      </p>
+    </div>
+  `;
+}
+
+function buildHistoryTypeTransitionMarkup(record) {
+  const oldType = getHistoryOldType(record);
+  const newType = getHistoryNewType(record);
+
+  return buildTransitionMarkup({
+    title: 'Type changed',
+    oldValue: oldType,
+    newValue: newType,
+    badgeBaseClass: 'type-badge',
+    badgeClassGetter: getTypeBadgeClass,
+    labelFormatter: formatTypeTransitionLabel,
+  });
+}
+
+function buildHistoryStatusTransitionMarkup(record) {
+  const oldStatus = getHistoryOldStatus(record);
+  const newStatus = getHistoryNewStatus(record);
+
+  return buildTransitionMarkup({
+    title: 'Status changed',
+    oldValue: oldStatus,
+    newValue: newStatus,
+    badgeBaseClass: 'status-badge',
+    badgeClassGetter: getStatusBadgeClass,
+    labelFormatter: formatStatusTransitionLabel,
+  });
+}
+
+function buildHistoryDescriptionChangeMarkup(record) {
+  const oldDescription = getHistoryDescriptionText(record?.oldDescription);
+  const newDescription = getHistoryDescriptionText(record?.newDescription);
+
+  if (!oldDescription || !newDescription || oldDescription === newDescription) {
+    return '';
+  }
+
+  return `
+    <div class="incident-history-description-change">
+      <p class="incident-history-item-title">Description changed</p>
+      <div class="incident-history-description-grid">
+        <div class="incident-history-description-panel">
+          <span class="incident-history-description-label">Before</span>
+          <p>${escapeHtml(oldDescription)}</p>
+        </div>
+        <div class="incident-history-description-panel">
+          <span class="incident-history-description-label">After</span>
+          <p>${escapeHtml(newDescription)}</p>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function buildHistoryChangesMarkup(record) {
+  return `
+    <div class="incident-history-change-stack">
+      ${buildHistoryTypeTransitionMarkup(record)}
+      ${buildHistoryStatusTransitionMarkup(record)}
+      ${buildHistoryDescriptionChangeMarkup(record)}
+    </div>
+  `;
+}
+
 function renderHistory(overlay, history) {
   const body = overlay.querySelector('[data-history-body]');
   if (!body) {
@@ -191,18 +372,10 @@ function renderHistory(overlay, history) {
 
   body.innerHTML = history
     .map((record) => {
-      const oldStatus = normalizeStatus(record?.oldStatus);
-      const newStatus = normalizeStatus(record?.newStatus);
-
       return `
         <article class="incident-history-item">
-          <div>
-            <p class="incident-history-item-title">Status changed</p>
-            <p class="incident-history-transition">
-              <span class="status-badge ${getStatusBadgeClass(oldStatus)}">${escapeHtml(oldStatus)}</span>
-              <span class="incident-history-arrow">&rarr;</span>
-              <span class="status-badge ${getStatusBadgeClass(newStatus)}">${escapeHtml(newStatus)}</span>
-            </p>
+          <div class="incident-history-item-content">
+            ${buildHistoryChangesMarkup(record)}
           </div>
           <time class="incident-history-time">${escapeHtml(formatDateTime(record?.changedAt))}</time>
         </article>
@@ -222,6 +395,7 @@ function normalizeHistoryResponse(response, incident) {
       incidentTitle: incident?.title,
       location: incident?.location,
       currentStatus: incident?.status,
+      currentType: incident?.type,
       checkpointName: incident?.checkpoint?.name,
       history: response.data,
     };
@@ -232,6 +406,7 @@ function normalizeHistoryResponse(response, incident) {
     incidentTitle: incident?.title,
     location: incident?.location,
     currentStatus: incident?.status,
+    currentType: incident?.type,
     checkpointName: incident?.checkpoint?.name,
     history: [],
   };

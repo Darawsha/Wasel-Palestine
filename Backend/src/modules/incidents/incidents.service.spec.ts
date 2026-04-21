@@ -535,6 +535,8 @@ describe('IncidentsService', () => {
       expect.objectContaining({
         oldStatus: IncidentStatus.ACTIVE,
         newStatus: IncidentStatus.ACTIVE,
+        oldType: IncidentType.CLOSURE,
+        newType: IncidentType.CLOSURE,
         changedByUserId: 15,
       }),
     );
@@ -670,6 +672,8 @@ describe('IncidentsService', () => {
       expect.objectContaining({
         oldStatus: IncidentStatus.ACTIVE,
         newStatus: IncidentStatus.ACTIVE,
+        oldType: IncidentType.CLOSURE,
+        newType: IncidentType.DELAY,
         changedByUserId: 19,
       }),
     );
@@ -846,6 +850,8 @@ describe('IncidentsService', () => {
       expect.objectContaining({
         oldStatus: IncidentStatus.ACTIVE,
         newStatus: IncidentStatus.CLOSED,
+        oldType: IncidentType.DELAY,
+        newType: IncidentType.DELAY,
         changedByUserId: 77,
       }),
     );

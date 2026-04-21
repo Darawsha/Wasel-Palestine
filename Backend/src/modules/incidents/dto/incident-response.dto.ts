@@ -263,6 +263,56 @@ export class IncidentStatusHistoryResponseDto {
   newStatus: IncidentStatus;
 
   @ApiProperty({
+    description: 'Incident status at the time this history entry was recorded.',
+    enum: IncidentStatus,
+    example: IncidentStatus.CLOSED,
+  })
+  statusAtTime: IncidentStatus;
+
+  @ApiProperty({
+    required: false,
+    description: 'Incident type before this history entry was recorded.',
+    enum: IncidentType,
+    example: IncidentType.DELAY,
+    nullable: true,
+  })
+  oldType?: IncidentType | null;
+
+  @ApiProperty({
+    required: false,
+    description: 'Incident type after this history entry was recorded.',
+    enum: IncidentType,
+    example: IncidentType.CLOSURE,
+    nullable: true,
+  })
+  newType?: IncidentType | null;
+
+  @ApiProperty({
+    required: false,
+    description: 'Incident type at the time this history entry was recorded.',
+    enum: IncidentType,
+    example: IncidentType.CLOSURE,
+    nullable: true,
+  })
+  typeAtTime?: IncidentType | null;
+
+  @ApiProperty({
+    required: false,
+    description: 'Incident description before this history entry was recorded.',
+    example: 'Road is blocked near the checkpoint entrance.',
+    nullable: true,
+  })
+  oldDescription?: string | null;
+
+  @ApiProperty({
+    required: false,
+    description: 'Incident description after this history entry was recorded.',
+    example: 'Road reopened partially with heavy delays.',
+    nullable: true,
+  })
+  newDescription?: string | null;
+
+  @ApiProperty({
     description: 'Describes the changed by user id field.',
     example: 7, nullable: true
   })
@@ -284,6 +334,12 @@ export class IncidentHistoryEnvelopeResponseDto {
         id: 101,
         oldStatus: 'active',
         newStatus: 'closed',
+        statusAtTime: 'closed',
+        oldType: 'DELAY',
+        newType: 'CLOSURE',
+        typeAtTime: 'CLOSURE',
+        oldDescription: 'Road is blocked near the checkpoint entrance.',
+        newDescription: 'Road reopened partially with heavy delays.',
         changedByUserId: 7,
         changedAt: '2026-04-13T10:00:00.000Z',
       },

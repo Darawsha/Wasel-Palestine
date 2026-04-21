@@ -56,6 +56,11 @@ type IncidentChangeSet = Partial<{
   impactStatus: CheckpointStatus | null;
 }>;
 
+type IncidentHistorySnapshot = IncidentStatusHistory & {
+  statusAtTime: IncidentStatus;
+  typeAtTime: IncidentType | null;
+};
+
 @Injectable()
 export class IncidentsService {
   constructor(
@@ -878,18 +883,23 @@ export class IncidentsService {
     };
   }
 
-  async getHistory(id: number): Promise<IncidentStatusHistory[]> {
+  async getHistory(id: number): Promise<IncidentHistorySnapshot[]> {
     await this.findOne(id);
 
-    return this.incidentStatusHistoryRepository.find({
+    const history = await this.incidentStatusHistoryRepository.find({
       where: {
         incident: {
           id,
         },
       },
-      relations: ['incident'],
       order: { changedAt: 'DESC' },
     });
+
+    return history.map((record) => ({
+      ...record,
+      statusAtTime: record.statusAtTime ?? record.newStatus,
+      typeAtTime: record.typeAtTime ?? record.newType ?? null,
+    }));
   }
 
   async findAllIncidents(

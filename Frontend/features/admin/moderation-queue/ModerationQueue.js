@@ -208,6 +208,26 @@
         dependencies.state.setModerationPage(pageState, page);
         await loadModerationQueue();
       },
+      onOpenSimilarReports: async (reportId) => {
+        const normalizedReportId = Number(reportId);
+        const report = getReportById(normalizedReportId);
+
+        if (!report) {
+          return;
+        }
+
+        try {
+          const payload = await dependencies.controller.loadSimilarReports(
+            normalizedReportId,
+          );
+          dependencies.renderer.openSimilarReportsModal(root, report, payload);
+        } catch (error) {
+          notify('error', readErrorMessage(error));
+        }
+      },
+      onCloseSimilarReports: () => {
+        dependencies.renderer.closeSimilarReportsModal(root);
+      },
       onOpenReview: async (reportId) => {
         const normalizedReportId = Number(reportId);
         let report = getReportById(normalizedReportId);

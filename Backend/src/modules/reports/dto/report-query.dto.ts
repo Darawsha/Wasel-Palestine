@@ -226,6 +226,20 @@ export class ReportQueryDto {
 
   @ApiProperty({
     required: false,
+    description:
+      'Group admin queue results by effective location and return the latest report per location.',
+    example: true,
+  })
+  @IsOptional()
+  @Transform(({ value }) => {
+    if (value === undefined || value === null || value === '') return undefined;
+    return String(value).toLowerCase() === 'true';
+  })
+  @IsBoolean()
+  groupByLocation?: boolean;
+
+  @ApiProperty({
+    required: false,
     description: 'Sort field',
     enum: ['createdAt', 'updatedAt', 'status', 'category', 'confidenceScore'],
     example: 'createdAt',

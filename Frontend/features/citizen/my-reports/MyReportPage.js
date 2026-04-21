@@ -70,6 +70,16 @@
       .replaceAll("'", '&#39;');
   }
 
+  function buildHistoryStateMarkup(historyReport) {
+    return `
+      <div class="report-history-state-line">
+        <span class="report-history-state-badge report-state-pill ${escapeHtml(historyReport.stateClass)}">
+          ${escapeHtml(historyReport.stateLabel)}
+        </span>
+      </div>
+    `;
+  }
+
   function getModalElements() {
     const modal = global.document.getElementById('modalOverlay');
     const modalContent = modal?.querySelector('.modalContent');
@@ -153,6 +163,88 @@
               <h4>Description</h4>
               <p>${escapeHtml(report.description)}</p>
             </article>
+          </div>
+        </div>
+      `,
+      (modalContent) => {
+        modalContent
+          .querySelector('[data-report-modal-close]')
+          ?.addEventListener('click', () => {
+            global.closeMyReportModal?.();
+          });
+      },
+    );
+  }
+
+  function buildHistoryItemsMarkup(historyReports = []) {
+    if (!Array.isArray(historyReports) || historyReports.length === 0) {
+      return `
+        <div class="report-history-empty">
+          No previous state updates are available for this location.
+        </div>
+      `;
+    }
+
+    return historyReports
+      .map(
+        (historyReport) => `
+          <article class="report-history-item">
+            <div class="report-history-item-header">
+              <div>
+                <p class="report-history-time">${escapeHtml(historyReport.createdAtLabel)}</p>
+                ${buildHistoryStateMarkup(historyReport)}
+              </div>
+              <div class="report-history-badges">
+                <span class="status-pill ${escapeHtml(historyReport.statusClass)}">${escapeHtml(historyReport.statusLabel)}</span>
+              </div>
+            </div>
+            <p class="report-history-description">${escapeHtml(historyReport.description)}</p>
+            <div class="report-history-meta">
+              <span>
+                <span class="material-symbols-outlined">schedule</span>
+                ${escapeHtml(historyReport.relativeTime)}
+              </span>
+              <span>
+                <span class="material-symbols-outlined">person</span>
+                ${escapeHtml(historyReport.reporterName)}
+              </span>
+              <span>
+                <span class="material-symbols-outlined">verified_user</span>
+                ${escapeHtml(historyReport.confidenceLabel)}
+              </span>
+            </div>
+          </article>
+        `,
+      )
+      .join('');
+  }
+
+  function openReportHistoryModal(report, historyPayload = {}) {
+    const historyReports = Array.isArray(historyPayload?.data)
+      ? historyPayload.data
+      : [];
+
+    showModalMarkup(
+      `
+        <div class="report-modal-scope report-history-modal">
+          <div class="report-history-card">
+            <div class="report-details-header">
+              <div>
+                <p class="report-details-kicker">History</p>
+                <h3 class="report-details-title">Location History: ${escapeHtml(report.location)}</h3>
+              </div>
+              <button type="button" class="report-details-close" data-report-modal-close>
+                <span class="material-symbols-outlined">close</span>
+              </button>
+            </div>
+            <div class="report-details-chip-row">
+              <span class="report-state-pill ${escapeHtml(report.stateClass)}">${escapeHtml(report.stateLabel)}</span>
+              <span class="report-details-chip">${escapeHtml(report.location)}</span>
+              <span class="report-details-chip">${escapeHtml(historyReports.length)} previous updates</span>
+            </div>
+            <div class="report-history-list">
+              ${buildHistoryItemsMarkup(historyReports)}
+            </div>
           </div>
         </div>
       `,
@@ -509,6 +601,15 @@
           if (action === 'view-details') {
             const report = await dependencies.controller.loadReportDetails(reportId);
             openReportDetailsModal(report);
+            return;
+          }
+
+          if (action === 'view-history') {
+            const [report, historyPayload] = await Promise.all([
+              dependencies.controller.loadReportDetails(reportId),
+              dependencies.controller.loadCommunityReportHistory(reportId),
+            ]);
+            openReportHistoryModal(report, historyPayload);
             return;
           }
 

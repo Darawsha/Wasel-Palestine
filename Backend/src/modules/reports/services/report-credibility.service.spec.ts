@@ -1,8 +1,10 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { ForbiddenException } from '@nestjs/common';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { ReportConfirmation } from '../entities/report-confirmation.entity';
 import { Report } from '../entities/report.entity';
 import { ReportVote } from '../entities/vote.entity';
+import { ReportStatus } from '../enums/report-status.enum';
 import { ReportCredibilityService } from './report-credibility.service';
 
 describe('ReportCredibilityService', () => {
@@ -48,5 +50,22 @@ describe('ReportCredibilityService', () => {
 
   it('calculates 20 confidence for 2 up and 8 down votes', () => {
     expect(service.calculateScore(2, 8)).toBe(20);
+  });
+
+  it('blocks users from voting on their own reports', async () => {
+    const reportRepo = (service as any).reportRepo;
+    const voteRepo = (service as any).voteRepo;
+
+    reportRepo.findOne = jest.fn().mockResolvedValue({
+      reportId: 42,
+      submittedByUserId: 7,
+      status: ReportStatus.PENDING,
+    });
+    voteRepo.findOne = jest.fn();
+    voteRepo.save = jest.fn();
+
+    await expect(service.vote(42, 7, 'UP')).rejects.toThrow(ForbiddenException);
+    expect(voteRepo.findOne).not.toHaveBeenCalled();
+    expect(voteRepo.save).not.toHaveBeenCalled();
   });
 });

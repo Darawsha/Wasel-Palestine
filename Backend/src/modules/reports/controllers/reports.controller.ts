@@ -36,9 +36,11 @@ import {
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
 import {
+  ReportHistoryEnvelopeResponseDto,
   ReportCategorySummaryResponseDto,
   ReportPaginatedResponseDto,
   ReportResponseDto,
+  ReportSimilarReportsEnvelopeResponseDto,
 } from '../dto/report-response.dto';
 import {
   ErrorResponseDto,
@@ -52,6 +54,14 @@ type AuthenticatedRequest = Request & {
     sub?: number | string;
   };
 };
+
+const EFFECTIVE_REPORT_CATEGORY_VALUES = [
+  'road_closure',
+  'delay',
+  'accident',
+  'hazard',
+  'other',
+];
 
 @ApiTags('Reports')
 @Controller({ path: 'reports', version: '1' })
@@ -77,7 +87,7 @@ export class ReportsController {
   @ApiOperation({
     summary: 'Create a new report',
     description:
-      'Creates a new user-submitted report after validation, spam checks, and duplicate detection.',
+      'Creates a new user-submitted report after validation and spam checks.',
   })
   @ApiCreatedResponse({
     description: 'Report created successfully',
@@ -109,7 +119,7 @@ export class ReportsController {
       'Returns a paginated list of reports submitted by the current user with optional filtering and sorting.',
   })
   @ApiQuery({ name: 'status', required: false, enum: ['pending', 'under_review', 'approved', 'rejected', 'resolved'], example: 'pending' })
-  @ApiQuery({ name: 'category', required: false, enum: ['checkpoint_issue', 'road_closure', 'delay', 'accident', 'hazard', 'other'], example: 'road_closure' })
+  @ApiQuery({ name: 'category', required: false, enum: EFFECTIVE_REPORT_CATEGORY_VALUES, example: 'road_closure' })
   @ApiQuery({ name: 'search', required: false, type: String, example: 'closure' })
   @ApiQuery({ name: 'page', required: false, type: Number, example: 1 })
   @ApiQuery({ name: 'limit', required: false, type: Number, example: 10 })
@@ -146,7 +156,7 @@ export class ReportsController {
       'Returns a paginated community feed of reports visible to the current user with filtering and sorting options.',
   })
   @ApiQuery({ name: 'status', required: false, enum: ['pending', 'under_review', 'approved', 'rejected', 'resolved'], example: 'pending' })
-  @ApiQuery({ name: 'category', required: false, enum: ['checkpoint_issue', 'road_closure', 'delay', 'accident', 'hazard', 'other'], example: 'road_closure' })
+  @ApiQuery({ name: 'category', required: false, enum: EFFECTIVE_REPORT_CATEGORY_VALUES, example: 'road_closure' })
   @ApiQuery({ name: 'search', required: false, type: String, example: 'checkpoint' })
   @ApiQuery({ name: 'page', required: false, type: Number, example: 1 })
   @ApiQuery({ name: 'limit', required: false, type: Number, example: 10 })
@@ -172,6 +182,44 @@ export class ReportsController {
   ) {
     const userId = this.getAuthenticatedUserId(req);
     return this.reportsService.findCommunityReports(query, userId);
+  }
+
+  @Get('community/:id/history')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('token')
+  @ApiOperation({
+    summary: 'Get previous community reports for the same location',
+    description:
+      'Returns older reports that share the selected community report location. This history is ordered newest to oldest and may include category/state changes over time.',
+  })
+  @ApiParam({
+    name: 'id',
+    type: Number,
+    description: 'Visible community report identifier',
+    example: 42,
+  })
+  @ApiOkResponse({
+    description: 'Community report history returned',
+    type: ReportHistoryEnvelopeResponseDto,
+  })
+  @ApiUnauthorizedResponse({
+    description: 'Authentication required',
+    type: ErrorResponseDto,
+  })
+  @ApiNotFoundResponse({
+    description: 'Report not found',
+    type: ErrorResponseDto,
+  })
+  @ApiInternalServerErrorResponse({
+    description: 'Unexpected server error',
+    type: ErrorResponseDto,
+  })
+  findCommunityReportHistory(
+    @Param('id', ParseIntPipe) id: number,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    const userId = this.getAuthenticatedUserId(req);
+    return this.reportsService.findCommunityReportHistory(id, userId);
   }
 
   @Get('category-summary')
@@ -239,6 +287,45 @@ export class ReportsController {
   })
   findAll(@Query() query: ReportQueryDto) {
     return this.reportsService.findAll(query);
+  }
+
+  @Get(':id/similar')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  @ApiBearerAuth('token')
+  @ApiOperation({
+    summary: 'Get similar reports for the same location (admin only)',
+    description:
+      'Returns all reports submitted for the same effective location as the selected report, ordered newest to oldest for moderation review.',
+  })
+  @ApiParam({
+    name: 'id',
+    type: Number,
+    description: 'Report identifier used as the similar-location anchor',
+    example: 42,
+  })
+  @ApiOkResponse({
+    description: 'Similar reports returned',
+    type: ReportSimilarReportsEnvelopeResponseDto,
+  })
+  @ApiUnauthorizedResponse({
+    description: 'Authentication required',
+    type: ErrorResponseDto,
+  })
+  @ApiForbiddenResponse({
+    description: 'Admin role required',
+    type: ErrorResponseDto,
+  })
+  @ApiNotFoundResponse({
+    description: 'Report not found',
+    type: ErrorResponseDto,
+  })
+  @ApiInternalServerErrorResponse({
+    description: 'Unexpected server error',
+    type: ErrorResponseDto,
+  })
+  findSimilarReports(@Param('id', ParseIntPipe) id: number) {
+    return this.reportsService.findSimilarReportsForAdmin(id);
   }
 
   @Get(':id')

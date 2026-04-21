@@ -21,14 +21,16 @@ import { ReportModerationAudit } from '../entities/report-moderation-audit.entit
 import { Report } from '../entities/report.entity';
 import { ReportVote } from '../entities/vote.entity';
 import { VoteType } from '../enums/VoteType.enum';
-import { ReportCategory } from '../enums/report-category.enum';
+import {
+  EFFECTIVE_REPORT_CATEGORIES,
+  ReportCategory,
+} from '../enums/report-category.enum';
 import {
   COMMUNITY_INTERACTIVE_REPORT_STATUSES,
   PUBLIC_COMMUNITY_REPORT_STATUSES,
   ReportStatus,
 } from '../enums/report-status.enum';
 import { ReportValidationService } from './report-validation.service';
-import { SIMILAR_REPORT_MESSAGE } from '../utils/report-similarity.util';
 
 const MAP_VISIBLE_REPORT_STATUSES = [
   ReportStatus.PENDING,
@@ -40,6 +42,8 @@ const MODERATION_QUEUE_VISIBLE_STATUSES = [
   ReportStatus.PENDING,
   ReportStatus.UNDER_REVIEW,
 ];
+
+const COMMUNITY_LOCATION_GROUP_RADIUS_METERS = 50;
 
 const REPORT_CATEGORIES_BY_INCIDENT_TYPE: Partial<
   Record<IncidentType, ReportCategory[]>
@@ -80,11 +84,17 @@ type ReportPageQuery = ReportQueryDto & {
   excludeDuplicates?: boolean;
 };
 
+type ReportSerializationOptions = {
+  treatDuplicateAsVisible?: boolean;
+  similarReportCounts?: Map<number, number>;
+  latestLocationReportIds?: Set<number>;
+};
+
 const REPORT_CATEGORY_LABELS: Record<ReportCategory, string> = {
-  [ReportCategory.ROAD_CLOSURE]: 'Closure',
+  [ReportCategory.ROAD_CLOSURE]: 'Road Closure',
   [ReportCategory.DELAY]: 'Delay',
   [ReportCategory.ACCIDENT]: 'Accident',
-  [ReportCategory.HAZARD]: 'Weather',
+  [ReportCategory.HAZARD]: 'Weather Hazard',
   [ReportCategory.CHECKPOINT_ISSUE]: 'Checkpoint Issue',
   [ReportCategory.OTHER]: 'Other',
 };
@@ -109,21 +119,13 @@ export class ReportsService {
       submittedByUserId: userId,
     };
 
-    await this.reportValidationService.rejectRecentOwnDuplicate(reportPayload);
     await this.reportValidationService.checkRateLimit(userId);
-
-    const duplicate = await this.reportValidationService.findDuplicate(
-      reportPayload,
-    );
 
     const report = this.reportRepo.create({
       ...reportPayload,
+      duplicateOf: null,
       confidenceScore: 0,
     });
-
-    if (duplicate) {
-      report.duplicateOf = duplicate.duplicateOf ?? duplicate.reportId;
-    }
 
     const saved = await this.reportRepo.save(report);
     return this.findOne(saved.reportId, userId);
@@ -134,14 +136,18 @@ export class ReportsService {
       Boolean(query.status) ||
       (Array.isArray(query.statuses) && query.statuses.length > 0);
 
-    if (hasExplicitStatusFilter) {
-      return this.findReportsPage(query);
+    const resolvedQuery = hasExplicitStatusFilter
+      ? query
+      : {
+          ...query,
+          statuses: MODERATION_QUEUE_VISIBLE_STATUSES,
+        };
+
+    if (resolvedQuery.groupByLocation === true) {
+      return this.findLocationGroupedReportsPage(resolvedQuery);
     }
 
-    return this.findReportsPage({
-      ...query,
-      statuses: MODERATION_QUEUE_VISIBLE_STATUSES,
-    });
+    return this.findReportsPage(resolvedQuery);
   }
 
   async findMyReports(query: ReportQueryDto, userId: number) {
@@ -157,16 +163,142 @@ export class ReportsService {
   async findCommunityReports(query: ReportQueryDto, userId: number) {
     const visibleStatuses = this.resolveCommunityStatuses(query);
 
-    return this.findReportsPage(
+    return this.findCommunityReportsPage(
       {
         ...query,
         status: undefined,
-        statuses: visibleStatuses,
-        excludeSubmittedByUserId: userId,
-        excludeDuplicates: true,
+        statuses:
+          visibleStatuses.length > 0
+            ? visibleStatuses
+            : [...PUBLIC_COMMUNITY_REPORT_STATUSES],
+        excludeSubmittedByUserId: undefined,
+        duplicateOnly: undefined,
+        excludeDuplicates: undefined,
       },
       userId,
     );
+  }
+
+  async findCommunityReportHistory(reportId: number, userId: number) {
+    const anchorReport = await this.reportRepo.findOne({
+      where: { reportId },
+    });
+
+    if (!anchorReport) {
+      throw new NotFoundException('Report not found');
+    }
+
+    if (
+      !PUBLIC_COMMUNITY_REPORT_STATUSES.includes(anchorReport.status) ||
+      !EFFECTIVE_REPORT_CATEGORIES.includes(anchorReport.category)
+    ) {
+      return {
+        data: [],
+        meta: this.buildHistoryMeta(anchorReport, 0),
+      };
+    }
+
+    const historyQueryBuilder = this.reportRepo
+      .createQueryBuilder('report')
+      .leftJoinAndSelect('report.submittedByUser', 'submittedByUser')
+      .where('report.reportId <> :reportId', {
+        reportId: anchorReport.reportId,
+      })
+      .andWhere('report.category IN (:...effectiveReportCategories)', {
+        effectiveReportCategories: EFFECTIVE_REPORT_CATEGORIES,
+      })
+      .andWhere('report.status IN (:...statuses)', {
+        statuses: PUBLIC_COMMUNITY_REPORT_STATUSES,
+      })
+      .andWhere(
+        `${this.buildPointDistanceSql(
+          'report',
+          'historyLatitude',
+          'historyLongitude',
+        )} <= :historyGroupRadiusMeters`,
+        {
+          historyLatitude: Number(anchorReport.latitude),
+          historyLongitude: Number(anchorReport.longitude),
+          historyGroupRadiusMeters: COMMUNITY_LOCATION_GROUP_RADIUS_METERS,
+        },
+      )
+      .andWhere(
+        new Brackets((dateBuilder) => {
+          dateBuilder
+            .where('report.createdAt < :anchorCreatedAt', {
+              anchorCreatedAt: anchorReport.createdAt,
+            })
+            .orWhere(
+              'report.createdAt = :anchorCreatedAt AND report.reportId < :anchorReportId',
+              {
+                anchorCreatedAt: anchorReport.createdAt,
+                anchorReportId: anchorReport.reportId,
+              },
+            );
+        }),
+      );
+
+    const historyReports = await historyQueryBuilder
+      .orderBy('report.createdAt', 'DESC')
+      .addOrderBy('report.reportId', 'DESC')
+      .getMany();
+
+    const data = await this.attachInteractionSummary(historyReports, userId, {
+      treatDuplicateAsVisible: true,
+    });
+
+    return {
+      data,
+      meta: this.buildHistoryMeta(anchorReport, data.length),
+    };
+  }
+
+  async findSimilarReportsForAdmin(reportId: number) {
+    const anchorReport = await this.reportRepo.findOne({
+      where: { reportId },
+    });
+
+    if (!anchorReport) {
+      throw new NotFoundException('Report not found');
+    }
+
+    const similarReports = await this.reportRepo
+      .createQueryBuilder('report')
+      .leftJoinAndSelect('report.submittedByUser', 'submittedByUser')
+      .where(
+        `${this.buildPointDistanceSql(
+          'report',
+          'similarLatitude',
+          'similarLongitude',
+        )} <= :similarGroupRadiusMeters`,
+        {
+          similarLatitude: Number(anchorReport.latitude),
+          similarLongitude: Number(anchorReport.longitude),
+          similarGroupRadiusMeters: COMMUNITY_LOCATION_GROUP_RADIUS_METERS,
+        },
+      )
+      .orderBy('report.createdAt', 'DESC')
+      .addOrderBy('report.reportId', 'DESC')
+      .getMany();
+
+    const latestReport = similarReports[0] ?? anchorReport;
+    const latestLocationReportIds = new Set<number>([latestReport.reportId]);
+    const data = await this.attachInteractionSummary(similarReports, undefined, {
+      treatDuplicateAsVisible: true,
+      latestLocationReportIds,
+    });
+
+    return {
+      data,
+      meta: {
+        reportId: anchorReport.reportId,
+        location: anchorReport.location,
+        category: anchorReport.category,
+        total: data.length,
+        similarReportsCount: Math.max(data.length - 1, 0),
+        latestReportId: latestReport.reportId,
+      },
+    };
   }
 
   async findOne(id: number, currentUserId?: number) {
@@ -204,13 +336,8 @@ export class ReportsService {
           : Number(report.longitude),
     };
 
-    const duplicate = await this.reportValidationService.findDuplicate(
-      nextPayload as CreateReportDto,
-      report.reportId,
-    );
-
     Object.assign(report, nextPayload, {
-      duplicateOf: duplicate?.reportId ?? null,
+      duplicateOf: null,
     });
 
     const saved = await this.reportRepo.save(report);
@@ -388,6 +515,131 @@ export class ReportsService {
     };
   }
 
+  private async findLocationGroupedReportsPage(
+    query: ReportPageQuery,
+    currentUserId?: number,
+  ) {
+    const { page = 1, limit = 10, sort, sortOrder } = query;
+
+    const queryBuilder = this.reportRepo
+      .createQueryBuilder('report')
+      .leftJoinAndSelect('report.submittedByUser', 'submittedByUser');
+
+    this.applyQueryFilters(queryBuilder, query, {
+      includeDistanceSelect: false,
+    });
+
+    const candidateReports = await queryBuilder
+      .orderBy('report.createdAt', 'DESC')
+      .addOrderBy('report.reportId', 'DESC')
+      .getMany();
+    const { reports: groupedReports } =
+      this.buildLatestLocationReportGroups(candidateReports);
+    const orderedReports = this.sortReportsForPage(
+      groupedReports,
+      sort,
+      sortOrder,
+    );
+    const total = orderedReports.length;
+    const pageReports = orderedReports.slice((page - 1) * limit, page * limit);
+    const pageSimilarReportCounts =
+      await this.getSimilarReportCountsForReports(pageReports);
+    const latestLocationReportIds = new Set<number>();
+
+    pageReports.forEach((report) => {
+      latestLocationReportIds.add(report.reportId);
+    });
+
+    const data = await this.attachInteractionSummary(
+      pageReports,
+      currentUserId,
+      {
+        similarReportCounts: pageSimilarReportCounts,
+        latestLocationReportIds,
+      },
+    );
+    const counts = await this.getStatusCounts(query);
+
+    return {
+      data,
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages: total > 0 ? Math.ceil(total / limit) : 0,
+      },
+      counts,
+    };
+  }
+
+  private async findCommunityReportsPage(
+    query: ReportPageQuery,
+    currentUserId?: number,
+  ) {
+    const { page = 1, limit = 10, sort, sortOrder } = query;
+
+    const idQueryBuilder = this.reportRepo.createQueryBuilder('report');
+    if (query.search?.trim()) {
+      idQueryBuilder.leftJoin('report.submittedByUser', 'submittedByUser');
+    }
+
+    this.applyQueryFilters(idQueryBuilder, query, {
+      includeDistanceSelect: false,
+    });
+    this.applyEffectiveReportCategoryFilter(idQueryBuilder);
+    this.applyLatestCommunityGroupFilter(idQueryBuilder, query);
+
+    if (sort) {
+      idQueryBuilder.orderBy(`report.${sort}`, sortOrder || 'DESC');
+    } else {
+      idQueryBuilder.orderBy('report.createdAt', 'DESC');
+    }
+
+    const total = await idQueryBuilder.clone().getCount();
+    const idRows = await idQueryBuilder
+      .select('report.reportId', 'reportId')
+      .addOrderBy('report.reportId', 'DESC')
+      .skip((page - 1) * limit)
+      .take(limit)
+      .getRawMany<{ reportId: string | number }>();
+    const reportIds = idRows
+      .map((row) => Number(row.reportId))
+      .filter((reportId) => Number.isInteger(reportId) && reportId > 0);
+    const reports =
+      reportIds.length > 0
+        ? await this.reportRepo
+            .createQueryBuilder('report')
+            .leftJoinAndSelect('report.submittedByUser', 'submittedByUser')
+            .where('report.reportId IN (:...reportIds)', { reportIds })
+            .getMany()
+        : [];
+    const reportsById = new Map(
+      reports.map((report) => [report.reportId, report]),
+    );
+    const orderedReports = reportIds
+      .map((reportId) => reportsById.get(reportId))
+      .filter((report): report is Report => Boolean(report));
+
+    const data = await this.attachInteractionSummary(
+      orderedReports,
+      currentUserId,
+      {
+        treatDuplicateAsVisible: true,
+      },
+    );
+
+    return {
+      data,
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages: total > 0 ? Math.ceil(total / limit) : 0,
+      },
+      counts: {},
+    };
+  }
+
   private applyQueryFilters(
     queryBuilder: SelectQueryBuilder<Report>,
     query: ReportPageQuery,
@@ -508,6 +760,63 @@ export class ReportsService {
     });
   }
 
+  private applyEffectiveReportCategoryFilter(
+    queryBuilder: SelectQueryBuilder<Report>,
+  ) {
+    queryBuilder.andWhere('report.category IN (:...effectiveReportCategories)', {
+      effectiveReportCategories: EFFECTIVE_REPORT_CATEGORIES,
+    });
+  }
+
+  private applyLatestCommunityGroupFilter(
+    queryBuilder: SelectQueryBuilder<Report>,
+    query: ReportPageQuery,
+  ) {
+    const statuses = [...PUBLIC_COMMUNITY_REPORT_STATUSES];
+    const newerReportConditions = [
+      'newerReport.category IN (:...communityEffectiveReportCategories)',
+      'newerReport.status IN (:...communityGroupStatuses)',
+      `${this.buildReportPairDistanceSql(
+        'report',
+        'newerReport',
+      )} <= :communityGroupRadiusMeters`,
+      `(
+        newerReport.createdAt > report.createdAt OR
+        (
+          newerReport.createdAt = report.createdAt AND
+          newerReport.reportId > report.reportId
+        )
+      )`,
+    ];
+
+    if (query.submittedByUserId) {
+      newerReportConditions.push(
+        'newerReport.submittedByUserId = :submittedByUserId',
+      );
+    }
+
+    if (query.excludeSubmittedByUserId) {
+      newerReportConditions.push(
+        'newerReport.submittedByUserId <> :excludeSubmittedByUserId',
+      );
+    }
+
+    queryBuilder.andWhere(
+      `
+        NOT EXISTS (
+          SELECT 1
+          FROM report newerReport
+          WHERE ${newerReportConditions.join('\n            AND ')}
+        )
+      `,
+      {
+        communityEffectiveReportCategories: EFFECTIVE_REPORT_CATEGORIES,
+        communityGroupStatuses: statuses,
+        communityGroupRadiusMeters: COMMUNITY_LOCATION_GROUP_RADIUS_METERS,
+      },
+    );
+  }
+
   private async getStatusCounts(query: ReportPageQuery) {
     const countQueryBuilder = this.reportRepo
       .createQueryBuilder('report')
@@ -565,13 +874,196 @@ export class ReportsService {
   private buildDistanceSql() {
     return `
       6371 * acos(
-        cos(radians(:latitude)) *
-        cos(radians(report.latitude)) *
-        cos(radians(report.longitude) - radians(:longitude)) +
-        sin(radians(:latitude)) *
-        sin(radians(report.latitude))
+        LEAST(1, GREATEST(-1,
+          cos(radians(:latitude)) *
+          cos(radians(report.latitude)) *
+          cos(radians(report.longitude) - radians(:longitude)) +
+          sin(radians(:latitude)) *
+          sin(radians(report.latitude))
+        ))
       )
     `;
+  }
+
+  private buildPointDistanceSql(
+    reportAlias: string,
+    latitudeParam: string,
+    longitudeParam: string,
+  ) {
+    return `
+      6371000 * acos(
+        LEAST(1, GREATEST(-1,
+          cos(radians(:${latitudeParam})) *
+          cos(radians(${reportAlias}.latitude)) *
+          cos(radians(${reportAlias}.longitude) - radians(:${longitudeParam})) +
+          sin(radians(:${latitudeParam})) *
+          sin(radians(${reportAlias}.latitude))
+        ))
+      )
+    `;
+  }
+
+  private buildReportPairDistanceSql(leftAlias: string, rightAlias: string) {
+    return `
+      6371000 * acos(
+        LEAST(1, GREATEST(-1,
+          cos(radians(${leftAlias}.latitude)) *
+          cos(radians(${rightAlias}.latitude)) *
+          cos(radians(${rightAlias}.longitude) - radians(${leftAlias}.longitude)) +
+          sin(radians(${leftAlias}.latitude)) *
+          sin(radians(${rightAlias}.latitude))
+        ))
+      )
+    `;
+  }
+
+  private getReportDistanceMeters(leftReport: Report, rightReport: Report) {
+    const leftLatitude = Number(leftReport.latitude);
+    const leftLongitude = Number(leftReport.longitude);
+    const rightLatitude = Number(rightReport.latitude);
+    const rightLongitude = Number(rightReport.longitude);
+
+    if (
+      !Number.isFinite(leftLatitude) ||
+      !Number.isFinite(leftLongitude) ||
+      !Number.isFinite(rightLatitude) ||
+      !Number.isFinite(rightLongitude)
+    ) {
+      return Number.POSITIVE_INFINITY;
+    }
+
+    const toRadians = (value: number) => (value * Math.PI) / 180;
+    const deltaLatitude = toRadians(rightLatitude - leftLatitude);
+    const deltaLongitude = toRadians(rightLongitude - leftLongitude);
+    const haversine =
+      Math.sin(deltaLatitude / 2) * Math.sin(deltaLatitude / 2) +
+      Math.cos(toRadians(leftLatitude)) *
+        Math.cos(toRadians(rightLatitude)) *
+        Math.sin(deltaLongitude / 2) *
+        Math.sin(deltaLongitude / 2);
+    const centralAngle =
+      2 * Math.atan2(Math.sqrt(haversine), Math.sqrt(1 - haversine));
+
+    return 6371000 * centralAngle;
+  }
+
+  private buildLatestLocationReportGroups(reports: Report[]) {
+    const groups: { anchor: Report; reports: Report[] }[] = [];
+
+    reports.forEach((report) => {
+      const existingGroup = groups.find(
+        (group) =>
+          this.getReportDistanceMeters(report, group.anchor) <=
+          COMMUNITY_LOCATION_GROUP_RADIUS_METERS,
+      );
+
+      if (existingGroup) {
+        existingGroup.reports.push(report);
+        return;
+      }
+
+      groups.push({
+        anchor: report,
+        reports: [report],
+      });
+    });
+
+    const similarReportCounts = new Map<number, number>();
+    const groupedReports = groups.map((group) => {
+      similarReportCounts.set(
+        group.anchor.reportId,
+        Math.max(group.reports.length - 1, 0),
+      );
+      return group.anchor;
+    });
+
+    return {
+      reports: groupedReports,
+      similarReportCounts,
+    };
+  }
+
+  private async getSimilarReportCountsForReports(reports: Report[]) {
+    const entries = await Promise.all(
+      reports.map(async (report) => {
+        const count = await this.reportRepo
+          .createQueryBuilder('report')
+          .where('report.reportId <> :reportId', {
+            reportId: report.reportId,
+          })
+          .andWhere(
+            `${this.buildPointDistanceSql(
+              'report',
+              'similarCountLatitude',
+              'similarCountLongitude',
+            )} <= :similarCountRadiusMeters`,
+            {
+              similarCountLatitude: Number(report.latitude),
+              similarCountLongitude: Number(report.longitude),
+              similarCountRadiusMeters: COMMUNITY_LOCATION_GROUP_RADIUS_METERS,
+            },
+          )
+          .getCount();
+
+        return [report.reportId, count] as const;
+      }),
+    );
+
+    return new Map<number, number>(entries);
+  }
+
+  private sortReportsForPage(
+    reports: Report[],
+    sort?: string,
+    sortOrder: 'ASC' | 'DESC' = 'DESC',
+  ) {
+    const direction = sortOrder === 'ASC' ? 1 : -1;
+    const sortField = sort || 'createdAt';
+
+    return [...reports].sort((leftReport, rightReport) => {
+      let comparison = 0;
+
+      if (sortField === 'confidenceScore') {
+        comparison =
+          (Number(leftReport.confidenceScore) || 0) -
+          (Number(rightReport.confidenceScore) || 0);
+      } else if (sortField === 'status' || sortField === 'category') {
+        const leftValue =
+          sortField === 'status' ? leftReport.status : leftReport.category;
+        const rightValue =
+          sortField === 'status' ? rightReport.status : rightReport.category;
+        comparison = String(leftValue || '').localeCompare(
+          String(rightValue || ''),
+        );
+      } else {
+        const leftTime = new Date(
+          sortField === 'updatedAt' ? leftReport.updatedAt : leftReport.createdAt,
+        ).getTime();
+        const rightTime = new Date(
+          sortField === 'updatedAt'
+            ? rightReport.updatedAt
+            : rightReport.createdAt,
+        ).getTime();
+        comparison = leftTime - rightTime;
+      }
+
+      if (comparison !== 0) {
+        return comparison * direction;
+      }
+
+      return sortOrder === 'ASC'
+        ? leftReport.reportId - rightReport.reportId
+        : rightReport.reportId - leftReport.reportId;
+    });
+  }
+
+  private buildHistoryMeta(report: Report, historyCount: number) {
+    return {
+      reportId: report.reportId,
+      location: report.location,
+      category: report.category,
+      historyCount,
+    };
   }
 
   private sanitizeSubmittedByUser(user?: User | null) {
@@ -624,8 +1116,12 @@ export class ReportsService {
     }
   }
 
-  private canCurrentUserVote(report: Report, currentUserId?: number): boolean {
-    if (!this.isAuthenticatedUserId(currentUserId)) {
+  private canCurrentUserVote(
+    report: Report,
+    currentUserId?: number,
+    options: ReportSerializationOptions = {},
+  ): boolean {
+    if (!Number.isInteger(currentUserId) || Number(currentUserId) <= 0) {
       return false;
     }
 
@@ -633,7 +1129,7 @@ export class ReportsService {
       return false;
     }
 
-    if (this.isDuplicateReport(report)) {
+    if (!options.treatDuplicateAsVisible && this.isDuplicateReport(report)) {
       return false;
     }
 
@@ -649,6 +1145,7 @@ export class ReportsService {
     interactionSummary?: ReportInteractionSummary,
     moderationSummary?: ReportModerationSummary,
     currentUserId?: number,
+    options: ReportSerializationOptions = {},
   ) {
     const isOwnReport =
       this.isAuthenticatedUserId(currentUserId) &&
@@ -656,6 +1153,10 @@ export class ReportsService {
     const canManage = isOwnReport && this.isOwnerEditableStatus(report.status);
     const duplicateOf = report.duplicateOf ?? null;
     const isDuplicate = this.isDuplicateReport(report);
+    const similarReportsCount =
+      options.similarReportCounts?.get(report.reportId) ?? 0;
+    const isLatestLocationReport =
+      options.latestLocationReportIds?.has(report.reportId) ?? false;
 
     return {
       reportId: report.reportId,
@@ -671,21 +1172,38 @@ export class ReportsService {
       updatedAt: report.updatedAt,
       duplicateOf,
       isDuplicate,
-      duplicateMessage: isDuplicate ? SIMILAR_REPORT_MESSAGE : null,
+      duplicateMessage: isDuplicate
+        ? 'This report is linked to a related report.'
+        : null,
+      similarReportsCount,
+      isLatestLocationReport,
       confidenceScore: report.confidenceScore,
       isPubliclyVisible:
-        this.isPubliclyVisibleStatus(report.status) && !isDuplicate,
+        this.isPubliclyVisibleStatus(report.status) &&
+        (options.treatDuplicateAsVisible || !isDuplicate),
       isOwnReport,
       canManage,
-      canVote: this.canCurrentUserVote(report, currentUserId),
-      interactionSummary: interactionSummary ?? this.createEmptyInteractionSummary(),
-      moderationSummary: moderationSummary ?? this.createEmptyModerationSummary(),
+      canVote: this.canCurrentUserVote(report, currentUserId, options),
+      interactionSummary: interactionSummary ?? {
+        upVotes: 0,
+        downVotes: 0,
+        totalVotes: 0,
+        confirmations: 0,
+        userVoteType: null,
+        isConfirmedByCurrentUser: false,
+      },
+      moderationSummary: moderationSummary ?? {
+        latestAction: null,
+        latestNotes: null,
+        latestActionAt: null,
+      },
     };
   }
 
   private async attachInteractionSummary(
     reports: Report[],
     currentUserId?: number,
+    options: ReportSerializationOptions = {},
   ) {
     if (reports.length === 0) {
       return [];
@@ -838,6 +1356,7 @@ export class ReportsService {
         summaries.get(report.reportId),
         moderationSummaries.get(report.reportId),
         currentUserId,
+        options,
       ),
     );
   }

@@ -2,12 +2,16 @@ import {
   IsEnum,
   IsNumber,
   IsString,
+  IsIn,
   Min,
   Max,
   MinLength,
   ValidateIf,
 } from 'class-validator';
-import { ReportCategory } from '../enums/report-category.enum';
+import {
+  EFFECTIVE_REPORT_CATEGORIES,
+  ReportCategory,
+} from '../enums/report-category.enum';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class CreateReportDto {
@@ -50,10 +54,14 @@ export class CreateReportDto {
 
   @ApiProperty({
     description: 'Report category',
-    enum: ReportCategory,
+    enum: EFFECTIVE_REPORT_CATEGORIES,
     example: ReportCategory.ROAD_CLOSURE,
   })
   @IsEnum(ReportCategory)
+  @IsIn(EFFECTIVE_REPORT_CATEGORIES, {
+    message:
+      'Category must be one of: Road Closure, Delay, Accident, Weather Hazard, Other.',
+  })
   category: ReportCategory;
 
   @ApiProperty({

@@ -399,7 +399,7 @@ export class IncidentsController {
   @ApiOperation({
     summary: 'Get history entries for an incident',
     description:
-      'Returns status history records for the selected incident ordered from newest to oldest.',
+      'Returns status and type history records for the selected incident ordered from newest to oldest.',
   })
   @ApiParam({
     name: 'id',

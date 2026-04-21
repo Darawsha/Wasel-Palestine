@@ -64,6 +64,38 @@ function normalizePreviewStatuses(params = {}) {
   return [];
 }
 
+function toRadians(value) {
+  return (Number(value) * Math.PI) / 180;
+}
+
+function getDistanceMeters(left = {}, right = {}) {
+  const leftLat = Number(left.latitude);
+  const leftLng = Number(left.longitude);
+  const rightLat = Number(right.latitude);
+  const rightLng = Number(right.longitude);
+
+  if (
+    !Number.isFinite(leftLat) ||
+    !Number.isFinite(leftLng) ||
+    !Number.isFinite(rightLat) ||
+    !Number.isFinite(rightLng)
+  ) {
+    return Number.POSITIVE_INFINITY;
+  }
+
+  const deltaLat = toRadians(rightLat - leftLat);
+  const deltaLng = toRadians(rightLng - leftLng);
+  const a =
+    Math.sin(deltaLat / 2) * Math.sin(deltaLat / 2) +
+    Math.cos(toRadians(leftLat)) *
+      Math.cos(toRadians(rightLat)) *
+      Math.sin(deltaLng / 2) *
+      Math.sin(deltaLng / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+  return 6371000 * c;
+}
+
 function buildPreviewCounts(reports = []) {
   return reports.reduce(
     (counts, report) => {
@@ -120,6 +152,25 @@ function buildPreviewInteractionSummary(reportId) {
     userVoteType: voteType,
     isConfirmedByCurrentUser: false,
   };
+}
+
+function getLatestPreviewLocationThreads(reports = []) {
+  return [...reports]
+    .sort((left, right) => {
+      const rightTime = new Date(right.createdAt).getTime();
+      const leftTime = new Date(left.createdAt).getTime();
+
+      if (rightTime !== leftTime) {
+        return rightTime - leftTime;
+      }
+
+      return Number(right.reportId) - Number(left.reportId);
+    })
+    .filter((report, index, sortedReports) => {
+      return !sortedReports
+        .slice(0, index)
+        .some((newerReport) => getDistanceMeters(report, newerReport) <= 50);
+    });
 }
 
 function buildPreviewReport(payload = {}, overrides = {}) {
@@ -215,7 +266,71 @@ async function getPreviewCommunityReportsPage(params = {}) {
     ? response.data.map(normalizePreviewCommunityReport)
     : [];
 
-  return paginatePreviewReports(reports, params);
+  return paginatePreviewReports(getLatestPreviewLocationThreads(reports), params);
+}
+
+async function getPreviewCommunityReportHistory(reportId) {
+  const response = await apiGet('/map/reports');
+  const reports = Array.isArray(response?.data)
+    ? response.data.map(normalizePreviewCommunityReport)
+    : [];
+  const anchor = reports.find(
+    (report) => Number(report.reportId) === Number(reportId),
+  );
+
+  if (!anchor) {
+    return {
+      data: [],
+      meta: {
+        reportId: Number(reportId),
+        location: '',
+        category: '',
+        historyCount: 0,
+      },
+    };
+  }
+
+  const anchorCreatedAt = new Date(anchor.createdAt).getTime();
+  const history = reports
+    .filter((report) => {
+      if (Number(report.reportId) === Number(anchor.reportId)) {
+        return false;
+      }
+
+      if (getDistanceMeters(report, anchor) > 50) {
+        return false;
+      }
+
+      const reportCreatedAt = new Date(report.createdAt).getTime();
+      if (Number.isNaN(reportCreatedAt) || Number.isNaN(anchorCreatedAt)) {
+        return Number(report.reportId) < Number(anchor.reportId);
+      }
+
+      return (
+        reportCreatedAt < anchorCreatedAt ||
+        (reportCreatedAt === anchorCreatedAt &&
+          Number(report.reportId) < Number(anchor.reportId))
+      );
+    })
+    .sort((left, right) => {
+      const rightTime = new Date(right.createdAt).getTime();
+      const leftTime = new Date(left.createdAt).getTime();
+      if (rightTime !== leftTime) {
+        return rightTime - leftTime;
+      }
+
+      return Number(right.reportId) - Number(left.reportId);
+    });
+
+  return {
+    data: history,
+    meta: {
+      reportId: Number(anchor.reportId),
+      location: anchor.location,
+      category: anchor.category,
+      historyCount: history.length,
+    },
+  };
 }
 
 async function loadReportsPage(path, params = {}) {
@@ -246,6 +361,10 @@ async function loadReportsPage(path, params = {}) {
         duplicateOnly:
           params.duplicateOnly !== undefined && params.duplicateOnly !== null
             ? String(params.duplicateOnly)
+            : undefined,
+        groupByLocation:
+          params.groupByLocation !== undefined && params.groupByLocation !== null
+            ? String(params.groupByLocation)
             : undefined,
         latitude:
           typeof params.latitude === 'number' ? params.latitude : undefined,
@@ -281,6 +400,18 @@ export function getCommunityReportsPage(params = {}) {
   }
 
   return loadReportsPage('/reports/community', params);
+}
+
+export function getCommunityReportHistory(reportId) {
+  if (isCitizenPreviewActive()) {
+    return getPreviewCommunityReportHistory(reportId);
+  }
+
+  return apiGet(`/reports/community/${reportId}/history`);
+}
+
+export function getReportSimilarReports(reportId) {
+  return apiGet(`/reports/${reportId}/similar`);
 }
 
 export function getReportDetails(reportId) {

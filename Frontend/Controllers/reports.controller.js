@@ -2,7 +2,9 @@ import {
   approveReport,
   createReport,
   deleteMyReport,
+  getCommunityReportHistory,
   getCommunityReportsPage,
+  getReportSimilarReports,
   getReportDetails,
   getMyReportsPage,
   getReportsPage,
@@ -45,6 +47,31 @@ const STATUS_PRESENTATION = {
     className: 'rejected',
     group: 'rejected',
   },
+  open: {
+    label: 'Open',
+    className: 'open',
+    group: 'verified',
+  },
+  delayed: {
+    label: 'Delayed',
+    className: 'delay',
+    group: 'pending',
+  },
+  delay: {
+    label: 'Delay',
+    className: 'delay',
+    group: 'pending',
+  },
+  closed: {
+    label: 'Closed',
+    className: 'closed',
+    group: 'verified',
+  },
+  restricted: {
+    label: 'Restricted',
+    className: 'restricted',
+    group: 'pending',
+  },
 };
 
 const CATEGORY_PRESENTATION = {
@@ -52,36 +79,72 @@ const CATEGORY_PRESENTATION = {
     label: 'Checkpoint Issue',
     icon: 'flag',
     badgeClass: 'category-badge-yellow',
+    stateClass: 'state-restricted',
   },
   road_closure: {
     label: 'Road Closure',
     icon: 'block',
     badgeClass: 'category-badge-red',
+    stateClass: 'state-closed',
   },
   delay: {
     label: 'Delay',
     icon: 'schedule',
-    badgeClass: 'category-badge-amber',
+    badgeClass: 'category-badge-yellow',
+    stateClass: 'state-delay',
   },
   accident: {
     label: 'Accident',
     icon: 'car_crash',
     badgeClass: 'category-badge-orange',
+    stateClass: 'state-restricted',
   },
   hazard: {
-    label: 'Hazard',
+    label: 'Weather Hazard',
     icon: 'warning',
     badgeClass: 'category-badge-blue',
+    stateClass: 'state-neutral',
   },
   other: {
     label: 'Other',
     icon: 'report',
     badgeClass: 'category-badge-slate',
+    stateClass: 'state-neutral',
+  },
+  open: {
+    label: 'Open',
+    icon: 'check_circle',
+    badgeClass: 'category-badge-green',
+    stateClass: 'state-open',
+  },
+  closed: {
+    label: 'Closed',
+    icon: 'block',
+    badgeClass: 'category-badge-red',
+    stateClass: 'state-closed',
+  },
+  restricted: {
+    label: 'Restricted',
+    icon: 'rule',
+    badgeClass: 'category-badge-amber',
+    stateClass: 'state-restricted',
   },
 };
 
+const STATE_PRESENTATION = {
+  open: { label: 'Open', className: 'state-open' },
+  opened: { label: 'Open', className: 'state-open' },
+  clear: { label: 'Open', className: 'state-open' },
+  road_closure: { label: 'Road Closure', className: 'state-closed' },
+  closure: { label: 'Closed', className: 'state-closed' },
+  closed: { label: 'Closed', className: 'state-closed' },
+  delay: { label: 'Delay', className: 'state-delay' },
+  delayed: { label: 'Delayed', className: 'state-delay' },
+  restricted: { label: 'Restricted', className: 'state-restricted' },
+};
+
 const DEFAULT_DUPLICATE_MESSAGE =
-  'A similar report was added recently with the same information. Your report was recorded in My Reports but was not published as a separate community report.';
+  'This report is linked to a related report.';
 
 function escapeFallback(value, fallback = '') {
   return String(value ?? fallback).trim();
@@ -134,6 +197,29 @@ function getStatusPresentation(status) {
     label: 'Unknown',
     className: 'pending',
     group: 'pending',
+  };
+}
+
+function getStatePresentation(report, category) {
+  const stateKeys = [
+    report?.state,
+    report?.impactStatus,
+    report?.category,
+    report?.status,
+  ]
+    .map((value) => String(value || '').trim().toLowerCase())
+    .filter(Boolean);
+  const matchedState = stateKeys
+    .map((stateKey) => STATE_PRESENTATION[stateKey])
+    .find(Boolean);
+
+  if (matchedState) {
+    return matchedState;
+  }
+
+  return {
+    label: category.label,
+    className: category.stateClass || 'state-neutral',
   };
 }
 
@@ -201,6 +287,7 @@ function normalizeModerationSummary(summary = {}) {
 function normalizeReport(report = {}) {
   const category = getCategoryPresentation(report.category);
   const status = getStatusPresentation(report.status);
+  const state = getStatePresentation(report, category);
   const confidenceScore = Math.max(Number(report.confidenceScore) || 0, 0);
   const reporterName = getReporterName(
     report.submittedByUser,
@@ -224,6 +311,8 @@ function normalizeReport(report = {}) {
     categoryIcon: category.icon,
     categoryBadgeClass: category.badgeClass,
     title: category.label,
+    stateLabel: state.label,
+    stateClass: state.className,
     description: escapeFallback(report.description, 'No description provided.'),
     location: escapeFallback(report.location, 'Unknown location'),
     latitude: Number(report.latitude),
@@ -244,6 +333,8 @@ function normalizeReport(report = {}) {
     duplicateMessage:
       escapeFallback(report.duplicateMessage) ||
       (isDuplicate ? DEFAULT_DUPLICATE_MESSAGE : ''),
+    similarReportsCount: Math.max(Number(report.similarReportsCount) || 0, 0),
+    isLatestLocationReport: Boolean(report.isLatestLocationReport),
     relativeTime: formatRelativeTime(report.createdAt),
     createdAtLabel: formatAbsoluteDate(report.createdAt),
     updatedAtLabel: formatAbsoluteDate(report.updatedAt),
@@ -358,6 +449,26 @@ export async function loadCommunityReportsPage(params = {}) {
   };
 }
 
+export async function loadCommunityReportHistory(reportId) {
+  const response = await getCommunityReportHistory(reportId);
+  const history = Array.isArray(response?.data)
+    ? response.data
+    : Array.isArray(response)
+      ? response
+      : [];
+
+  return {
+    data: history.map(normalizeReport),
+    meta:
+      response && typeof response.meta === 'object' && response.meta !== null
+        ? response.meta
+        : {
+            reportId: Number(reportId),
+            historyCount: history.length,
+          },
+  };
+}
+
 export async function loadModerationQueuePage(params = {}) {
   const moderationStatuses =
     Array.isArray(params.statuses) && params.statuses.length > 0
@@ -374,6 +485,7 @@ export async function loadModerationQueuePage(params = {}) {
     search: params.search || undefined,
     duplicateOnly:
       params.duplicateOnly === true ? true : undefined,
+    groupByLocation: true,
     sort: params.sort || 'createdAt',
     sortOrder: params.sortOrder || 'DESC',
   });
@@ -382,6 +494,27 @@ export async function loadModerationQueuePage(params = {}) {
     data: response.data.map(normalizeReport),
     meta: response.meta,
     counts: normalizeTabCounts(response.counts),
+  };
+}
+
+export async function loadSimilarReports(reportId) {
+  const response = await getReportSimilarReports(reportId);
+  const reports = Array.isArray(response?.data)
+    ? response.data
+    : Array.isArray(response)
+      ? response
+      : [];
+
+  return {
+    data: reports.map(normalizeReport),
+    meta:
+      response && typeof response.meta === 'object' && response.meta !== null
+        ? response.meta
+        : {
+            reportId: Number(reportId),
+            total: reports.length,
+            similarReportsCount: Math.max(reports.length - 1, 0),
+          },
   };
 }
 

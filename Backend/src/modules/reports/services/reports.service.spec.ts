@@ -65,7 +65,7 @@ describe('ReportsService', () => {
     );
   });
 
-  it('excludes duplicate reports when public feeds request duplicate suppression', () => {
+  it('excludes duplicate reports only when explicitly requested', () => {
     const queryBuilder = {
       andWhere: jest.fn().mockReturnThis(),
       addSelect: jest.fn().mockReturnThis(),
@@ -109,8 +109,8 @@ describe('ReportsService', () => {
   });
 
   it('defaults the community feed to all public non-rejected statuses', async () => {
-    const findReportsPageSpy = jest
-      .spyOn(service as any, 'findReportsPage')
+    const findCommunityReportsPageSpy = jest
+      .spyOn(service as any, 'findCommunityReportsPage')
       .mockResolvedValue({
         data: [],
         meta: {},
@@ -119,7 +119,7 @@ describe('ReportsService', () => {
 
     await service.findCommunityReports({} as any, 77);
 
-    expect(findReportsPageSpy).toHaveBeenCalledWith(
+    expect(findCommunityReportsPageSpy).toHaveBeenCalledWith(
       expect.objectContaining({
         status: undefined,
         statuses: [
@@ -127,32 +127,64 @@ describe('ReportsService', () => {
           ReportStatus.UNDER_REVIEW,
           ReportStatus.APPROVED,
         ],
-        excludeSubmittedByUserId: 77,
-        excludeDuplicates: true,
+        excludeSubmittedByUserId: undefined,
+        duplicateOnly: undefined,
+        excludeDuplicates: undefined,
       }),
       77,
     );
   });
 
-  it('saves similar reports and links them to the original instead of blocking submission', async () => {
+  it('builds community grouping from nearby location only without category or time windows', () => {
+    const queryBuilder = {
+      andWhere: jest.fn().mockReturnThis(),
+    };
+
+    (service as any).applyLatestCommunityGroupFilter(queryBuilder, {
+      statuses: [ReportStatus.PENDING],
+    });
+
+    const [sql, parameters] = queryBuilder.andWhere.mock.calls[0];
+
+    expect(sql).toContain('NOT EXISTS');
+    expect(sql).toContain(
+      'newerReport.category IN (:...communityEffectiveReportCategories)',
+    );
+    expect(sql).not.toContain('newerReport.category = report.category');
+    expect(sql).not.toContain('newerReport.submittedByUserId <> :excludeSubmittedByUserId');
+    expect(sql).toContain('newerReport.createdAt > report.createdAt');
+    expect(sql).not.toContain('timeWindow');
+    expect(parameters).toEqual({
+      communityEffectiveReportCategories: [
+        ReportCategory.ROAD_CLOSURE,
+        ReportCategory.DELAY,
+        ReportCategory.ACCIDENT,
+        ReportCategory.HAZARD,
+        ReportCategory.OTHER,
+      ],
+      communityGroupStatuses: [
+        ReportStatus.PENDING,
+        ReportStatus.UNDER_REVIEW,
+        ReportStatus.APPROVED,
+      ],
+      communityGroupRadiusMeters: 50,
+    });
+  });
+
+  it('saves same-location reports without time-window duplicate linking', async () => {
     const reportRepo = (service as any).reportRepo;
     const validationService = (service as any).reportValidationService;
     const savedReport = {
       reportId: 51,
-      duplicateOf: 42,
+      duplicateOf: null,
     };
 
-    validationService.rejectRecentOwnDuplicate = jest.fn().mockResolvedValue(undefined);
     validationService.checkRateLimit = jest.fn().mockResolvedValue(undefined);
-    validationService.findDuplicate = jest.fn().mockResolvedValue({
-      reportId: 42,
-      duplicateOf: null,
-    });
     reportRepo.create = jest.fn((payload) => ({ ...payload }));
     reportRepo.save = jest.fn().mockResolvedValue(savedReport);
     const findOneSpy = jest.spyOn(service, 'findOne').mockResolvedValue({
       reportId: 51,
-      duplicateOf: 42,
+      duplicateOf: null,
     } as any);
 
     await service.create(
@@ -166,70 +198,23 @@ describe('ReportsService', () => {
       9,
     );
 
-    expect(validationService.rejectRecentOwnDuplicate).toHaveBeenCalledWith(
-      expect.objectContaining({
-        submittedByUserId: 9,
-        category: ReportCategory.ROAD_CLOSURE,
-      }),
-    );
     expect(validationService.checkRateLimit).toHaveBeenCalledWith(9);
-    expect(validationService.findDuplicate).toHaveBeenCalled();
     expect(reportRepo.save).toHaveBeenCalledWith(
       expect.objectContaining({
         submittedByUserId: 9,
-        duplicateOf: 42,
+        duplicateOf: null,
       }),
     );
     expect(findOneSpy).toHaveBeenCalledWith(51, 9);
   });
 
-  it('links a similar report to the root original when the matched report is also duplicate', async () => {
+  it('still blocks report creation when the submission rate limit fails', async () => {
     const reportRepo = (service as any).reportRepo;
     const validationService = (service as any).reportValidationService;
 
-    validationService.rejectRecentOwnDuplicate = jest.fn().mockResolvedValue(undefined);
-    validationService.checkRateLimit = jest.fn().mockResolvedValue(undefined);
-    validationService.findDuplicate = jest.fn().mockResolvedValue({
-      reportId: 43,
-      duplicateOf: 42,
-    });
-    reportRepo.create = jest.fn((payload) => ({ ...payload }));
-    reportRepo.save = jest.fn().mockResolvedValue({
-      reportId: 52,
-      duplicateOf: 42,
-    });
-    jest.spyOn(service, 'findOne').mockResolvedValue({
-      reportId: 52,
-      duplicateOf: 42,
-    } as any);
-
-    await service.create(
-      {
-        category: ReportCategory.ROAD_CLOSURE,
-        location: 'Awarta checkpoint',
-        description: 'Awarta checkpoint is closed.',
-        latitude: 32.161,
-        longitude: 35.286,
-      },
-      9,
-    );
-
-    expect(reportRepo.save).toHaveBeenCalledWith(
-      expect.objectContaining({
-        duplicateOf: 42,
-      }),
-    );
-  });
-
-  it('does not save a report when the same user submitted the same report recently', async () => {
-    const reportRepo = (service as any).reportRepo;
-    const validationService = (service as any).reportValidationService;
-
-    validationService.rejectRecentOwnDuplicate = jest
+    validationService.checkRateLimit = jest
       .fn()
-      .mockRejectedValue(new Error('You already submitted this same report recently.'));
-    validationService.checkRateLimit = jest.fn();
-    validationService.findDuplicate = jest.fn();
+      .mockRejectedValue(new Error('Rate limit exceeded'));
     reportRepo.create = jest.fn();
     reportRepo.save = jest.fn();
 
@@ -244,10 +229,9 @@ describe('ReportsService', () => {
         },
         9,
       ),
-    ).rejects.toThrow('You already submitted this same report recently');
+    ).rejects.toThrow('Rate limit exceeded');
 
-    expect(validationService.checkRateLimit).not.toHaveBeenCalled();
-    expect(validationService.findDuplicate).not.toHaveBeenCalled();
+    expect(validationService.checkRateLimit).toHaveBeenCalledWith(9);
     expect(reportRepo.create).not.toHaveBeenCalled();
     expect(reportRepo.save).not.toHaveBeenCalled();
   });
@@ -315,9 +299,36 @@ describe('ReportsService', () => {
 
     expect(serialized.isDuplicate).toBe(true);
     expect(serialized.duplicateOf).toBe(12);
-    expect(serialized.duplicateMessage).toMatch(/similar report/i);
+    expect(serialized.duplicateMessage).toMatch(/linked to a related report/i);
     expect(serialized.isPubliclyVisible).toBe(false);
     expect(serialized.canVote).toBe(false);
+  });
+
+  it('can treat legacy duplicate-linked rows as visible in the grouped community feed', () => {
+    const serialized = (service as any).serializeReport(
+      {
+        reportId: 32,
+        latitude: 31.9,
+        longitude: 35.2,
+        location: 'Awarta checkpoint',
+        category: ReportCategory.ROAD_CLOSURE,
+        description: 'Latest road closure report.',
+        status: ReportStatus.PENDING,
+        submittedByUserId: 10,
+        submittedByUser: null,
+        createdAt: new Date('2026-04-12T20:00:00.000Z'),
+        updatedAt: new Date('2026-04-12T20:00:00.000Z'),
+        duplicateOf: 12,
+        confidenceScore: 0,
+      } as Report,
+      undefined,
+      undefined,
+      99,
+      { treatDuplicateAsVisible: true },
+    );
+
+    expect(serialized.isPubliclyVisible).toBe(true);
+    expect(serialized.canVote).toBe(true);
   });
 
   it('marks rejected reports as non-public and non-voteable', () => {
@@ -371,6 +382,7 @@ describe('ReportsService', () => {
 
     expect(serialized.isOwnReport).toBe(true);
     expect(serialized.canManage).toBe(true);
+    expect(serialized.canVote).toBe(false);
   });
 
   it('prevents the owner from managing an approved report', () => {

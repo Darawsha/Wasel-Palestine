@@ -8,6 +8,7 @@ const SORT_SELECTOR = '[data-moderation-sort]';
 const CLEAR_FILTERS_SELECTOR = '[data-moderation-clear-filters]';
 const DUPLICATE_TOGGLE_SELECTOR = '[data-moderation-duplicates-toggle]';
 const MODAL_SELECTOR = '[data-moderation-modal]';
+const SIMILAR_MODAL_SELECTOR = '[data-similar-reports-modal]';
 
 const MAX_VISIBLE_PAGES = 5;
 
@@ -88,20 +89,47 @@ function buildLatestModerationNote(report) {
   return latestNotes;
 }
 
+function buildFlagsMarkup(report) {
+  const similarReportsCount = Math.max(Number(report?.similarReportsCount) || 0, 0);
+  const flagItems = [];
+
+  if (similarReportsCount > 0) {
+    flagItems.push(`
+      <button
+        class="flag-badge flag-badge-similar"
+        type="button"
+        data-moderation-similar-report="${escapeHtml(report.id)}"
+        aria-label="Open similar reports for report ${escapeHtml(report.id)}"
+      >
+        <span class="material-symbols-outlined icon-flag">history</span>
+        <span>Similar Reports</span>
+        <span class="flag-count">${escapeHtml(similarReportsCount)}</span>
+      </button>
+    `);
+  }
+
+  if (report.isDuplicate && similarReportsCount === 0) {
+    flagItems.push(`
+      <span class="flag-badge flag-badge-duplicate">
+        <span class="material-symbols-outlined icon-flag">warning</span>
+        Similar report
+      </span>
+    `);
+  }
+
+  return flagItems.length > 0
+    ? `<div class="flag-stack">${flagItems.join('')}</div>`
+    : '<span class="flag-empty">-</span>';
+}
+
 function buildQueueRow(report) {
   const reviewLabel =
     report.status === 'under_review' ? 'Continue Review' : 'Review';
-  const flagsMarkup = report.isDuplicate
-    ? `
-        <span class="flag-badge flag-badge-duplicate">
-          <span class="material-symbols-outlined icon-flag">warning</span>
-          Similar report
-        </span>
-      `
-    : '<span class="flag-empty">-</span>';
+  const flagsMarkup = buildFlagsMarkup(report);
+  const hasSimilarReports = Math.max(Number(report?.similarReportsCount) || 0, 0) > 0;
 
   return `
-    <tr class="${report.isDuplicate ? 'row-warning' : ''}">
+    <tr class="${report.isDuplicate || hasSimilarReports ? 'row-warning' : ''}">
       <td class="cell-id">#${escapeHtml(report.id)}</td>
       <td>
         <span class="category-badge ${getCategoryClass(report.category)}">${escapeHtml(report.categoryLabel)}</span>
@@ -120,6 +148,32 @@ function buildQueueRow(report) {
         </button>
       </td>
     </tr>
+  `;
+}
+
+function buildSimilarReportItem(report, index) {
+  const isLatest = Boolean(report.isLatestLocationReport) || index === 0;
+
+  return `
+    <article class="similar-report-item ${isLatest ? 'is-latest' : ''}">
+      <div class="similar-report-item-header">
+        <div>
+          <div class="similar-report-title-line">
+            <span class="similar-report-id">#${escapeHtml(report.id)}</span>
+            <span class="category-badge ${getCategoryClass(report.category)}">${escapeHtml(report.categoryLabel)}</span>
+            ${isLatest ? '<span class="latest-report-pill">Latest</span>' : ''}
+          </div>
+          <p class="similar-report-location">${escapeHtml(report.location)}</p>
+        </div>
+        <time class="similar-report-time">${escapeHtml(report.createdAtLabel)}</time>
+      </div>
+      <p class="similar-report-description">${escapeHtml(report.description)}</p>
+      <div class="similar-report-meta">
+        <span>${escapeHtml(report.reporterName)}</span>
+        <span>${escapeHtml(report.statusLabel)}</span>
+        <span>${escapeHtml(report.confidenceScore)}% confidence</span>
+      </div>
+    </article>
   `;
 }
 
@@ -335,7 +389,9 @@ export function openModerationModal(root, report) {
   modal.querySelector('[data-moderation-modal-description]').textContent =
     report.description;
   modal.querySelector('[data-moderation-modal-duplicate]').textContent =
-    report.isDuplicate
+    Number(report.similarReportsCount) > 0
+      ? `Similar reports for this location: ${report.similarReportsCount}`
+      : report.isDuplicate
       ? `Similar report: duplicate of report #${report.duplicateOf}`
       : 'No duplicate flag detected';
   modal.querySelector('[data-moderation-modal-latest-note]').textContent =
@@ -353,4 +409,46 @@ export function closeModerationModal(root) {
   modal.hidden = true;
   modal.dataset.reportId = '';
   root.dataset.moderationModalOpen = 'false';
+}
+
+export function openSimilarReportsModal(root, anchorReport, payload = {}) {
+  const modal = root?.querySelector(SIMILAR_MODAL_SELECTOR);
+  if (!modal || !anchorReport) {
+    return;
+  }
+
+  const reports = Array.isArray(payload.data) ? payload.data : [];
+  const meta = payload.meta || {};
+  const count = Math.max(
+    Number(meta.similarReportsCount) || Math.max(reports.length - 1, 0),
+    0,
+  );
+
+  modal.hidden = false;
+  modal.dataset.anchorReportId = String(anchorReport.id);
+  modal.querySelector('[data-similar-title]').textContent =
+    `Similar Reports for #${anchorReport.id}`;
+  modal.querySelector('[data-similar-subtitle]').textContent =
+    `${anchorReport.location} | ${count} similar report${count === 1 ? '' : 's'}`;
+
+  const list = modal.querySelector('[data-similar-list]');
+  if (list) {
+    list.innerHTML =
+      reports.length > 0
+        ? reports.map(buildSimilarReportItem).join('')
+        : '<div class="similar-report-empty">No similar reports found for this location.</div>';
+  }
+
+  root.dataset.similarReportsModalOpen = 'true';
+}
+
+export function closeSimilarReportsModal(root) {
+  const modal = root?.querySelector(SIMILAR_MODAL_SELECTOR);
+  if (!modal) {
+    return;
+  }
+
+  modal.hidden = true;
+  modal.dataset.anchorReportId = '';
+  root.dataset.similarReportsModalOpen = 'false';
 }

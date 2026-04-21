@@ -47,7 +47,7 @@ function buildDuplicateBadge(report) {
 
   return `
     <span class="report-mini-badge">
-      Similar to #${escapeHtml(report.duplicateOf)}
+      Linked to #${escapeHtml(report.duplicateOf)}
     </span>
   `;
 }
@@ -133,6 +133,17 @@ function buildCommunityReportCard(report) {
   const hasUpVoted = report.interactionSummary.userVoteType === 'UP';
   const hasDownVoted = report.interactionSummary.userVoteType === 'DOWN';
   const votingDisabled = !report.canVote;
+  const ownerVoteMessage = report.isOwnReport
+    ? 'You cannot vote on your own report.'
+    : '';
+  const upVoteTitle = ownerVoteMessage || (hasUpVoted ? 'You already upvoted this report.' : '');
+  const downVoteTitle = ownerVoteMessage || (hasDownVoted ? 'You already downvoted this report.' : '');
+  const upVoteTooltip = upVoteTitle
+    ? `title="${escapeHtml(upVoteTitle)}" data-tooltip="${escapeHtml(upVoteTitle)}"`
+    : '';
+  const downVoteTooltip = downVoteTitle
+    ? `title="${escapeHtml(downVoteTitle)}" data-tooltip="${escapeHtml(downVoteTitle)}"`
+    : '';
 
   return `
     <article class="report-card">
@@ -143,7 +154,9 @@ function buildCommunityReportCard(report) {
             <div class="title-group">
               <span class="material-symbols-outlined icon-fill">${escapeHtml(report.categoryIcon)}</span>
               <h3>${escapeHtml(report.title)}</h3>
+              <span class="report-state-pill ${escapeHtml(report.stateClass)}">${escapeHtml(report.stateLabel)}</span>
               <span class="status-pill ${escapeHtml(report.statusClass)}">${escapeHtml(report.statusLabel)}</span>
+              ${report.isOwnReport ? '<span class="report-mini-badge">Your report</span>' : ''}
             </div>
             <div class="community-reporter">
               <span class="reporter-avatar">${escapeHtml(report.reporterInitials)}</span>
@@ -176,25 +189,40 @@ function buildCommunityReportCard(report) {
               View Details
             </button>
             <button
-              class="btn-outline community-action-btn vote-up${hasUpVoted ? ' is-active' : ''}"
+              class="btn-outline community-action-btn community-action-btn-neutral"
               type="button"
-              data-report-action="upvote"
+              data-report-action="view-history"
               data-report-id="${escapeHtml(report.id)}"
-              ${votingDisabled || hasUpVoted ? 'disabled' : ''}
             >
-              <span class="material-symbols-outlined">thumb_up</span>
-              Upvote (${escapeHtml(upVoteCount)})
+              <span class="material-symbols-outlined">history</span>
+              History
             </button>
-            <button
-              class="btn-outline community-action-btn vote-down${hasDownVoted ? ' is-active' : ''}"
-              type="button"
-              data-report-action="downvote"
-              data-report-id="${escapeHtml(report.id)}"
-              ${votingDisabled || hasDownVoted ? 'disabled' : ''}
-            >
-              <span class="material-symbols-outlined">thumb_down</span>
-              Downvote (${escapeHtml(downVoteCount)})
-            </button>
+            <span class="vote-action-wrapper" ${upVoteTooltip}>
+              <button
+                class="btn-outline community-action-btn vote-up${hasUpVoted ? ' is-active' : ''}"
+                type="button"
+                data-report-action="upvote"
+                data-report-id="${escapeHtml(report.id)}"
+                title="${escapeHtml(upVoteTitle)}"
+                ${votingDisabled || hasUpVoted ? 'disabled' : ''}
+              >
+                <span class="material-symbols-outlined">thumb_up</span>
+                Upvote (${escapeHtml(upVoteCount)})
+              </button>
+            </span>
+            <span class="vote-action-wrapper" ${downVoteTooltip}>
+              <button
+                class="btn-outline community-action-btn vote-down${hasDownVoted ? ' is-active' : ''}"
+                type="button"
+                data-report-action="downvote"
+                data-report-id="${escapeHtml(report.id)}"
+                title="${escapeHtml(downVoteTitle)}"
+                ${votingDisabled || hasDownVoted ? 'disabled' : ''}
+              >
+                <span class="material-symbols-outlined">thumb_down</span>
+                Downvote (${escapeHtml(downVoteCount)})
+              </button>
+            </span>
           </div>
         </div>
       </div>
