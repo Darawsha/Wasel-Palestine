@@ -1,0 +1,37 @@
+start from docker :
+
+win + run => services.msc
+
+start docker service
+open docker
+
+to run => docker compose up --build
+
+
+
+to stop   => docker compose down
+
+
+to show all contaners  => docker compose ps or docker compose ps -a  for all (on/off contaners)
+
+to enter mysql :
+docker exec -it wasel-palestine-db mysql -uroot -pAmeed (replace ameed to db )
+
+
+
+
+
+
+
+
+
+important docker commands :
+
+docker ps
+docker compose up --build
+docker compose down
+docker compose logs app --tail=100
+docker compose logs db --tail=100
+docker exec -it wasel-palestine-app sh
+docker exec -it wasel-palestine-db mysql -uroot -pAmeed
+docker images

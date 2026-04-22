@@ -1,0 +1,63 @@
+name: wasel-palestine
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: wasel-palestine-app:latest
+    container_name: wasel-palestine-app
+    restart: unless-stopped
+    ports:
+      - '${APP_PORT:-3000}:3000'
+    environment:
+      NODE_ENV: ${NODE_ENV:-production}
+      PORT: ${PORT:-3000}
+      DB_HOST: db
+      DB_PORT: ${DB_PORT:-3306}
+      DB_USERNAME: ${DB_USERNAME:-root}
+      DB_PASSWORD: ${DB_PASSWORD:-Ameed}
+      DB_DATABASE: ${DB_DATABASE:-ameed}
+      DB_SYNCHRONIZE: ${DB_SYNCHRONIZE:-true}
+      JWT_SECRET: ${JWT_SECRET:-your_super_secret_jwt_key_at_least_32_characters_long_for_production}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-1h}
+      WEATHER_API_KEY: ${WEATHER_API_KEY:-}
+      WEATHER_FALLBACK_COORDS: ${WEATHER_FALLBACK_COORDS:-31.9522,35.2332}
+      OPENROUTE_API_KEY: ${OPENROUTE_API_KEY:-}
+      OPENROUTESERVICE_API_KEY: ${OPENROUTESERVICE_API_KEY:-}
+      OPEN_ROUTE_API_KEY: ${OPEN_ROUTE_API_KEY:-}
+      OpenRoute_API_KEY: ${OpenRoute_API_KEY:-}
+      OpenRouteService_API_KEY: ${OpenRouteService_API_KEY:-}
+      LOCATIONIQ_API_KEY: ${LOCATIONIQ_API_KEY:-}
+      LOCATIONAL_API_KEY: ${LOCATIONAL_API_KEY:-}
+      LINKEDIN_CLIENT_ID: ${LINKEDIN_CLIENT_ID:-}
+      LINKEDIN_CLIENT_SECRET: ${LINKEDIN_CLIENT_SECRET:-}
+      LINKEDIN_CALLBACK_URL: ${LINKEDIN_CALLBACK_URL:-}
+    depends_on:
+      db:
+        condition: service_healthy
+
+  db:
+    image: mysql:8.0
+    container_name: wasel-palestine-db
+    restart: unless-stopped
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    environment:
+      MYSQL_DATABASE: ${DB_DATABASE:-ameed}
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD:-Ameed}
+      LOCATIONIQ_API_KEY: ${LOCATIONIQ_API_KEY:-}
+    volumes:
+      - mysql-data:/var/lib/mysql
+    healthcheck:
+      test:
+        [
+          'CMD-SHELL',
+          'mysqladmin ping -h 127.0.0.1 -uroot -p"$${MYSQL_ROOT_PASSWORD}" --silent',
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+volumes:
+  mysql-data:
