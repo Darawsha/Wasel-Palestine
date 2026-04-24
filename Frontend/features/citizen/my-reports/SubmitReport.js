@@ -145,7 +145,7 @@
     if (!message) {
       warningElement.hidden = true;
       warningText.textContent =
-        'Please review this report before submitting.';
+        'A similar report was added recently with the same information.';
       return;
     }
 
@@ -230,12 +230,17 @@
           new global.CustomEvent('citizen:report-updated'),
         );
       } else {
-        await submitCitizenReport(payload);
+        const createdReport = await submitCitizenReport(payload);
+        const duplicateMessage =
+          createdReport?.duplicateMessage ||
+          'A similar report was added recently with the same information. Your report was recorded in My Reports but was not published as a separate community report.';
         notify(
           'success',
           isPreviewMode()
             ? 'Preview report submitted. Nothing was saved.'
-            : 'Report submitted successfully.',
+            : createdReport?.isDuplicate
+              ? duplicateMessage
+              : 'Report submitted successfully.',
         );
         global.document.dispatchEvent(
           new global.CustomEvent('citizen:report-created'),
@@ -246,7 +251,7 @@
     } catch (error) {
       const message = readErrorMessage(error);
 
-      if (/rate limit|spamming/i.test(message)) {
+      if (/duplicate|similar report|spamming|already submitted/i.test(message)) {
         setWarning(root, message);
       }
 

@@ -47,7 +47,7 @@ function buildDuplicateBadge(report) {
 
   return `
     <span class="report-mini-badge">
-      Linked to #${escapeHtml(report.duplicateOf)}
+      Similar to #${escapeHtml(report.duplicateOf)}
     </span>
   `;
 }

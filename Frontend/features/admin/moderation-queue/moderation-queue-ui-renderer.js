@@ -125,8 +125,14 @@ function buildFlagsMarkup(report) {
 function buildQueueRow(report) {
   const reviewLabel =
     report.status === 'under_review' ? 'Continue Review' : 'Review';
-  const flagsMarkup = buildFlagsMarkup(report);
-  const hasSimilarReports = Math.max(Number(report?.similarReportsCount) || 0, 0) > 0;
+  const flagsMarkup = report.isDuplicate
+    ? `
+        <span class="flag-badge flag-badge-duplicate">
+          <span class="material-symbols-outlined icon-flag">warning</span>
+          Similar report
+        </span>
+      `
+    : '<span class="flag-empty">-</span>';
 
   return `
     <tr class="${report.isDuplicate || hasSimilarReports ? 'row-warning' : ''}">
@@ -389,9 +395,7 @@ export function openModerationModal(root, report) {
   modal.querySelector('[data-moderation-modal-description]').textContent =
     report.description;
   modal.querySelector('[data-moderation-modal-duplicate]').textContent =
-    Number(report.similarReportsCount) > 0
-      ? `Similar reports for this location: ${report.similarReportsCount}`
-      : report.isDuplicate
+    report.isDuplicate
       ? `Similar report: duplicate of report #${report.duplicateOf}`
       : 'No duplicate flag detected';
   modal.querySelector('[data-moderation-modal-latest-note]').textContent =

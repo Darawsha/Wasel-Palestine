@@ -153,32 +153,18 @@ export class ReportResponseDto {
   duplicateOf: number | null;
 
   @ApiProperty({
-    description: 'Whether this report is linked to another report.',
+    description: 'Whether this report was recognized as a recent similar report.',
     example: false,
   })
   isDuplicate: boolean;
 
   @ApiProperty({
     description:
-      'User-facing explanation shown when a report is linked to another report.',
+      'User-facing explanation shown when a report was saved as similar to a recent report.',
     example: null,
     nullable: true,
   })
   duplicateMessage: string | null;
-
-  @ApiProperty({
-    description:
-      'Number of other reports in the same effective location group.',
-    example: 2,
-  })
-  similarReportsCount: number;
-
-  @ApiProperty({
-    description:
-      'Whether this report is the newest report in its location group.',
-    example: true,
-  })
-  isLatestLocationReport: boolean;
 
   @ApiProperty({
     description: 'Describes the confidence score field.',

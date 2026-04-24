@@ -31,6 +31,7 @@ import {
   ReportStatus,
 } from '../enums/report-status.enum';
 import { ReportValidationService } from './report-validation.service';
+import { SIMILAR_REPORT_MESSAGE } from '../utils/report-similarity.util';
 
 const MAP_VISIBLE_REPORT_STATUSES = [
   ReportStatus.PENDING,
@@ -84,12 +85,6 @@ type ReportPageQuery = ReportQueryDto & {
   excludeDuplicates?: boolean;
 };
 
-type ReportSerializationOptions = {
-  treatDuplicateAsVisible?: boolean;
-  similarReportCounts?: Map<number, number>;
-  latestLocationReportIds?: Set<number>;
-};
-
 const REPORT_CATEGORY_LABELS: Record<ReportCategory, string> = {
   [ReportCategory.ROAD_CLOSURE]: 'Road Closure',
   [ReportCategory.DELAY]: 'Delay',
@@ -119,13 +114,22 @@ export class ReportsService {
       submittedByUserId: userId,
     };
 
+    await this.reportValidationService.rejectRecentOwnDuplicate(reportPayload);
     await this.reportValidationService.checkRateLimit(userId);
+
+    const duplicate = await this.reportValidationService.findDuplicate(
+      reportPayload,
+    );
 
     const report = this.reportRepo.create({
       ...reportPayload,
       duplicateOf: null,
       confidenceScore: 0,
     });
+
+    if (duplicate) {
+      report.duplicateOf = duplicate.duplicateOf ?? duplicate.reportId;
+    }
 
     const saved = await this.reportRepo.save(report);
     return this.findOne(saved.reportId, userId);
@@ -167,13 +171,9 @@ export class ReportsService {
       {
         ...query,
         status: undefined,
-        statuses:
-          visibleStatuses.length > 0
-            ? visibleStatuses
-            : [...PUBLIC_COMMUNITY_REPORT_STATUSES],
-        excludeSubmittedByUserId: undefined,
-        duplicateOnly: undefined,
-        excludeDuplicates: undefined,
+        statuses: visibleStatuses,
+        excludeSubmittedByUserId: userId,
+        excludeDuplicates: true,
       },
       userId,
     );
@@ -760,63 +760,6 @@ export class ReportsService {
     });
   }
 
-  private applyEffectiveReportCategoryFilter(
-    queryBuilder: SelectQueryBuilder<Report>,
-  ) {
-    queryBuilder.andWhere('report.category IN (:...effectiveReportCategories)', {
-      effectiveReportCategories: EFFECTIVE_REPORT_CATEGORIES,
-    });
-  }
-
-  private applyLatestCommunityGroupFilter(
-    queryBuilder: SelectQueryBuilder<Report>,
-    query: ReportPageQuery,
-  ) {
-    const statuses = [...PUBLIC_COMMUNITY_REPORT_STATUSES];
-    const newerReportConditions = [
-      'newerReport.category IN (:...communityEffectiveReportCategories)',
-      'newerReport.status IN (:...communityGroupStatuses)',
-      `${this.buildReportPairDistanceSql(
-        'report',
-        'newerReport',
-      )} <= :communityGroupRadiusMeters`,
-      `(
-        newerReport.createdAt > report.createdAt OR
-        (
-          newerReport.createdAt = report.createdAt AND
-          newerReport.reportId > report.reportId
-        )
-      )`,
-    ];
-
-    if (query.submittedByUserId) {
-      newerReportConditions.push(
-        'newerReport.submittedByUserId = :submittedByUserId',
-      );
-    }
-
-    if (query.excludeSubmittedByUserId) {
-      newerReportConditions.push(
-        'newerReport.submittedByUserId <> :excludeSubmittedByUserId',
-      );
-    }
-
-    queryBuilder.andWhere(
-      `
-        NOT EXISTS (
-          SELECT 1
-          FROM report newerReport
-          WHERE ${newerReportConditions.join('\n            AND ')}
-        )
-      `,
-      {
-        communityEffectiveReportCategories: EFFECTIVE_REPORT_CATEGORIES,
-        communityGroupStatuses: statuses,
-        communityGroupRadiusMeters: COMMUNITY_LOCATION_GROUP_RADIUS_METERS,
-      },
-    );
-  }
-
   private async getStatusCounts(query: ReportPageQuery) {
     const countQueryBuilder = this.reportRepo
       .createQueryBuilder('report')
@@ -1129,7 +1072,7 @@ export class ReportsService {
       return false;
     }
 
-    if (!options.treatDuplicateAsVisible && this.isDuplicateReport(report)) {
+    if (this.isDuplicateReport(report)) {
       return false;
     }
 
@@ -1153,10 +1096,6 @@ export class ReportsService {
     const canManage = isOwnReport && this.isOwnerEditableStatus(report.status);
     const duplicateOf = report.duplicateOf ?? null;
     const isDuplicate = this.isDuplicateReport(report);
-    const similarReportsCount =
-      options.similarReportCounts?.get(report.reportId) ?? 0;
-    const isLatestLocationReport =
-      options.latestLocationReportIds?.has(report.reportId) ?? false;
 
     return {
       reportId: report.reportId,
@@ -1172,15 +1111,10 @@ export class ReportsService {
       updatedAt: report.updatedAt,
       duplicateOf,
       isDuplicate,
-      duplicateMessage: isDuplicate
-        ? 'This report is linked to a related report.'
-        : null,
-      similarReportsCount,
-      isLatestLocationReport,
+      duplicateMessage: isDuplicate ? SIMILAR_REPORT_MESSAGE : null,
       confidenceScore: report.confidenceScore,
       isPubliclyVisible:
-        this.isPubliclyVisibleStatus(report.status) &&
-        (options.treatDuplicateAsVisible || !isDuplicate),
+        this.isPubliclyVisibleStatus(report.status) && !isDuplicate,
       isOwnReport,
       canManage,
       canVote: this.canCurrentUserVote(report, currentUserId, options),

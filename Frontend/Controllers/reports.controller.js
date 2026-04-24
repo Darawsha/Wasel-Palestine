@@ -131,20 +131,8 @@ const CATEGORY_PRESENTATION = {
   },
 };
 
-const STATE_PRESENTATION = {
-  open: { label: 'Open', className: 'state-open' },
-  opened: { label: 'Open', className: 'state-open' },
-  clear: { label: 'Open', className: 'state-open' },
-  road_closure: { label: 'Road Closure', className: 'state-closed' },
-  closure: { label: 'Closed', className: 'state-closed' },
-  closed: { label: 'Closed', className: 'state-closed' },
-  delay: { label: 'Delay', className: 'state-delay' },
-  delayed: { label: 'Delayed', className: 'state-delay' },
-  restricted: { label: 'Restricted', className: 'state-restricted' },
-};
-
 const DEFAULT_DUPLICATE_MESSAGE =
-  'This report is linked to a related report.';
+  'A similar report was added recently with the same information. Your report was recorded in My Reports but was not published as a separate community report.';
 
 function escapeFallback(value, fallback = '') {
   return String(value ?? fallback).trim();
@@ -333,8 +321,6 @@ function normalizeReport(report = {}) {
     duplicateMessage:
       escapeFallback(report.duplicateMessage) ||
       (isDuplicate ? DEFAULT_DUPLICATE_MESSAGE : ''),
-    similarReportsCount: Math.max(Number(report.similarReportsCount) || 0, 0),
-    isLatestLocationReport: Boolean(report.isLatestLocationReport),
     relativeTime: formatRelativeTime(report.createdAt),
     createdAtLabel: formatAbsoluteDate(report.createdAt),
     updatedAtLabel: formatAbsoluteDate(report.updatedAt),

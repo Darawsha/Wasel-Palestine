@@ -32,14 +32,18 @@ export class IncidentAvoidanceStrategy {
       };
     }
 
+    const incidentReportsPromise = this.reportsService
+      ? this.reportsService.getApprovedReportsByCategories([
+          ReportCategory.ROAD_CLOSURE,
+          ReportCategory.DELAY,
+          ReportCategory.ACCIDENT,
+          ReportCategory.HAZARD,
+        ])
+      : Promise.resolve([]);
+
     const [incidents, incidentReports] = await Promise.all([
       this.incidentsService.getFilteredIncidents({}),
-      this.reportsService?.getApprovedReportsByCategories([
-        ReportCategory.ROAD_CLOSURE,
-        ReportCategory.DELAY,
-        ReportCategory.ACCIDENT,
-        ReportCategory.HAZARD,
-      ]) ?? Promise.resolve([]),
+      incidentReportsPromise,
     ]);
     const routeRelevantIncidents = incidents.filter(
       (incident) =>

@@ -360,41 +360,6 @@
     white-space: nowrap;
 }
 
-.flag-badge[type="button"] {
-    border: none;
-    cursor: pointer;
-    font-family: inherit;
-}
-
-.flag-stack {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.375rem;
-    flex-wrap: wrap;
-}
-
-.flag-badge-similar {
-    background-color: #eef2ff;
-    color: #3730a3;
-}
-
-.flag-badge-similar:hover {
-    background-color: #e0e7ff;
-}
-
-.flag-count {
-    min-width: 1.25rem;
-    height: 1.25rem;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 9999px;
-    background: rgba(55, 48, 163, 0.12);
-    font-size: 0.7rem;
-    font-weight: 800;
-}
-
 .flag-badge-duplicate {
     background-color: #ffedd5;
     color: #c2410c;
